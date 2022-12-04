@@ -148,7 +148,7 @@ size_t ntArrayGetVarint(const NT_ARRAY *array, const size_t offset, uint64_t *va
 
 size_t ntArrayGet(const NT_ARRAY *array, size_t offset, void *data, size_t dataSize)
 {
-    if (!(offset >= 0 && offset + dataSize <= array->count))
+    if (!(offset + dataSize <= array->count))
         return 0;
 
     ntMemcpy(data, array->data + offset, dataSize);
@@ -157,7 +157,7 @@ size_t ntArrayGet(const NT_ARRAY *array, size_t offset, void *data, size_t dataS
 
 void ntArrayGetString(const NT_ARRAY *array, size_t offset, char_t *data, size_t *pLength)
 {
-    if (!(offset >= 0 && offset < array->count))
+    if (!(offset < array->count))
     {
         *pLength = 0;
         return;

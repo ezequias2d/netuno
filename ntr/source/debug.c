@@ -29,7 +29,7 @@ static size_t constant32Instruction(const char *name, const NT_CHUNK *chunk, con
 {
     uint64_t constant;
     const size_t readed = ntReadVariant(chunk, offset + 1, &constant);
-    printf("%-16s %4d '", name, constant);
+    printf("%-16s %4ld '", name, constant);
 
     uint32_t value;
     assert(ntArrayGetU32(&chunk->constants, constant, &value));
@@ -42,7 +42,7 @@ static size_t constant64Instruction(const char *name, const NT_CHUNK *chunk, con
 {
     uint64_t constant;
     const size_t readed = ntReadVariant(chunk, offset + 1, &constant);
-    printf("%-16s %4d '", name, constant);
+    printf("%-16s %4ld '", name, constant);
 
     uint64_t value;
     assert(ntArrayGetU64(&chunk->constants, constant, &value));
@@ -56,7 +56,7 @@ static size_t constantStringInstruction(const char *name, const NT_CHUNK *chunk,
 {
     uint64_t constant;
     const size_t readed = ntReadVariant(chunk, offset + 1, &constant);
-    printf("%-16s %4d '", name, constant);
+    printf("%-16s %4ld '", name, constant);
 
     size_t size;
     ntArrayGetString(&chunk->constants, constant, NULL, &size);
@@ -76,13 +76,13 @@ static size_t constantStringInstruction(const char *name, const NT_CHUNK *chunk,
 
 size_t ntDisassembleInstruction(const NT_CHUNK *chunk, const size_t offset)
 {
-    printf("%04d ", offset);
+    printf("%04ld ", offset);
 
     bool atStart;
     int64_t line = ntGetLine(chunk, offset, &atStart);
 
     if (atStart)
-        printf("%4d ", line);
+        printf("%4ld ", line);
     else
         printf("   | ");
 

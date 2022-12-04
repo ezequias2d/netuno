@@ -37,7 +37,7 @@ static void vErrorAt(NT_CODEGEN *codegen, const NT_NODE *node, const char *messa
 {
     const NT_TOKEN token = node->token;
 
-    printf("[line %d] Error");
+    printf("[line %d] Error", token.line);
 
     if (token.type == TK_EOF)
         printf(" at end");
@@ -61,7 +61,7 @@ static void vWarningAt(NT_CODEGEN *codegen, const NT_NODE *node, const char *mes
 {
     const NT_TOKEN token = node->token;
 
-    printf("[line %d] Warming");
+    printf("[line %d] Warming", token.line);
 
     if (token.type == TK_EOF)
         printf(" at end");
@@ -99,6 +99,8 @@ static void warningAt(NT_CODEGEN *codegen, const NT_NODE *node, const char *mess
 
 static size_t push(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *type)
 {
+    assert(type);
+    assert(node);
     return ntVPush(codegen->stack, type);
 }
 
@@ -184,12 +186,14 @@ static size_t emitPop(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *t
     case NT_OBJECT_U32:
     case NT_OBJECT_F32:
         emit(codegen, node, BC_POP_32);
+        break;
     case NT_OBJECT_F64:
     case NT_OBJECT_U64:
     case NT_OBJECT_I64:
         emit(codegen, node, BC_POP_64);
+        break;
     default:
-        errorAt(codegen, node, "Invalid objectType pop.");
+        warningAt(codegen, node, "Invalid objectType pop.");
         return 0;
     }
     return pop(codegen, node, type);
@@ -214,6 +218,7 @@ static size_t emitFixedPop(NT_CODEGEN *codegen, const NT_NODE *node, const size_
 
     emit(codegen, node, BC_POP);
     ntWriteChunkVarint(codegen->chunk, popSize, node->token.line);
+    return sp;
 }
 
 static void ensureStmt(const NT_NODE *node, NT_NODE_KIND kind)
@@ -302,11 +307,12 @@ static const NT_TYPE *findType(NT_CODEGEN *codegen, const NT_NODE *typeNode)
             return ntF32Type();
         case KW_F64:
             return ntF64Type();
-        default:
+        default: {
             char *typeLex = ntToChar(ntGetKeywordLexeme(typeNode->token.id));
             errorAt(codegen, typeNode, "The keyword '%s' is not a type.", typeLex);
             ntFree(typeLex);
-            break;
+            return ntErrorType();
+        }
         }
     }
     else
@@ -455,7 +461,7 @@ static const NT_TYPE *evalExprType(NT_CODEGEN *codegen, const NT_NODE *node)
             errorAt(codegen, node, "Invalid logical operation. %d", node->token.id);
             return NULL;
         }
-    case NK_CALL:
+    case NK_CALL: {
         NT_SYMBOL_ENTRY se;
         if (!findSymbol(codegen, node->token.lexeme, node->token.lexemeLength, &se))
         {
@@ -465,6 +471,11 @@ static const NT_TYPE *evalExprType(NT_CODEGEN *codegen, const NT_NODE *node)
             return NULL;
         }
         return se.exprType;
+    }
+    default:
+        errorAt(codegen, node, "AST invalid format, node kind cannot be %s!",
+                ntGetKindLabel(node->type.kind));
+        break;
     }
 
     errorAt(codegen, node, "Unkown expr.");
@@ -560,6 +571,15 @@ static void literal(NT_CODEGEN *codegen, const NT_NODE *node)
             emit(codegen, node, BC_ONE_32);
             push(codegen, node, ntU32Type());
             break;
+        default: {
+            char *lexeme = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
+            errorAt(codegen, node,
+                    "AST invalid format, node id of a bool literal must be TK_TRUE or TK_FALSE "
+                    "cannot be '%s'!",
+                    lexeme);
+            ntFree(lexeme);
+        }
+        break;
         }
         break;
     case LT_NONE:
@@ -627,11 +647,12 @@ static void unary(NT_CODEGEN *codegen, const NT_NODE *node)
         case NT_OBJECT_STRING:
         case NT_OBJECT_CUSTOM:
         // TODO: call operator.
-        default:
+        default: {
             char *str = ntToChar(type->typeName->chars);
             errorAt(codegen, node, "Invalid negate('-') operation with type '%s'.", str);
             ntFree(str);
-            break;
+        }
+        break;
         }
         break;
     case '!':
@@ -648,11 +669,12 @@ static void unary(NT_CODEGEN *codegen, const NT_NODE *node)
             emit(codegen, node, BC_IS_ZERO_64);
             push(codegen, node, ntU32Type());
             break;
-        default:
+        default: {
             char *str = ntToChar(type->typeName->chars);
             errorAt(codegen, node, "Invalid logical not('!') operation with type '%s'.", str);
             ntFree(str);
             break;
+        }
         }
         break;
     case '~':
@@ -675,11 +697,12 @@ static void unary(NT_CODEGEN *codegen, const NT_NODE *node)
             emit(codegen, node, BC_NOT_64);
             push(codegen, node, ntU64Type());
             break;
-        default:
-            char *str = ntToChar(type->typeName->chars);
+        default: {
+            char *str = ntToCharFixed(type->typeName->chars, type->typeName->length);
             errorAt(codegen, node, "Invalid logical not('!') operation with type '%s'.", str);
             ntFree(str);
             break;
+        }
         }
         break;
     default:
@@ -708,6 +731,8 @@ static void cast(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *from, 
         case NT_OBJECT_F64:
             emit(codegen, node, BC_CONVERT_F64_I32);
             break;
+        default:
+            goto error;
         }
         break;
     case NT_OBJECT_U32:
@@ -723,6 +748,8 @@ static void cast(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *from, 
         case NT_OBJECT_F64:
             emit(codegen, node, BC_CONVERT_F64_U32);
             break;
+        default:
+            goto error;
         }
         break;
     case NT_OBJECT_I64:
@@ -738,6 +765,8 @@ static void cast(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *from, 
         case NT_OBJECT_F64:
             emit(codegen, node, BC_CONVERT_F64_I64);
             break;
+        default:
+            goto error;
         }
         break;
     case NT_OBJECT_U64:
@@ -753,6 +782,8 @@ static void cast(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *from, 
         case NT_OBJECT_F64:
             emit(codegen, node, BC_CONVERT_F64_U64);
             break;
+        default:
+            goto error;
         }
         break;
     case NT_OBJECT_F32:
@@ -773,6 +804,8 @@ static void cast(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *from, 
         case NT_OBJECT_F64:
             emit(codegen, node, BC_PROMOTE_F32);
             break;
+        default:
+            goto error;
         }
         break;
     case NT_OBJECT_F64:
@@ -793,19 +826,27 @@ static void cast(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *from, 
         case NT_OBJECT_F32:
             emit(codegen, node, BC_DEMOTE_F64);
             break;
+        default:
+            goto error;
         }
         break;
     default:
-        // TODO: object cast operator?
-        char *fromStr = ntToChar(from->typeName->chars);
-        char *dstStr = ntToChar(to->typeName->chars);
-        errorAt(codegen, node, "Invalid cast from '%s' to '%s'.", fromStr, dstStr);
-        ntFree(fromStr);
-        ntFree(dstStr);
-        break;
+        goto error;
     }
 
     push(codegen, node, to);
+    return;
+error : {
+
+    // TODO: object cast operator?
+    char *fromStr = ntToChar(from->typeName->chars);
+    char *dstStr = ntToChar(to->typeName->chars);
+    errorAt(codegen, node, "Invalid cast from '%s' to '%s'.", fromStr, dstStr);
+    ntFree(fromStr);
+    ntFree(dstStr);
+
+    push(codegen, node, to);
+}
 }
 
 static void binary(NT_CODEGEN *codegen, const NT_NODE *node)
@@ -845,11 +886,12 @@ static void binary(NT_CODEGEN *codegen, const NT_NODE *node)
         case NT_OBJECT_F64:
             emit(codegen, node, BC_NE_F64);
             break;
-        default:
+        default: {
             char *typeStr = ntToChar(type->typeName->chars);
             errorAt(codegen, node, "Invalid != operation for type '%s'.", typeStr);
             ntFree(typeStr);
-            return;
+            break;
+        }
         }
         push(codegen, node, ntU32Type());
         break;
@@ -870,11 +912,12 @@ static void binary(NT_CODEGEN *codegen, const NT_NODE *node)
         case NT_OBJECT_F64:
             emit(codegen, node, BC_EQ_F64);
             break;
-        default:
+        default: {
             char *typeStr = ntToChar(type->typeName->chars);
             errorAt(codegen, node, "Invalid == operation for type '%s'.", typeStr);
             ntFree(typeStr);
-            return;
+            break;
+        }
         }
         push(codegen, node, ntU32Type());
         break;
@@ -899,11 +942,12 @@ static void binary(NT_CODEGEN *codegen, const NT_NODE *node)
         case NT_OBJECT_F64:
             emit(codegen, node, BC_GT_F64);
             break;
-        default:
+        default: {
             char *typeStr = ntToChar(type->typeName->chars);
             errorAt(codegen, node, "Invalid > operation for type '%s'.", typeStr);
             ntFree(typeStr);
-            return;
+            break;
+        }
         }
         push(codegen, node, ntU32Type());
         break;
@@ -928,11 +972,12 @@ static void binary(NT_CODEGEN *codegen, const NT_NODE *node)
         case NT_OBJECT_F64:
             emit(codegen, node, BC_GE_F64);
             break;
-        default:
+        default: {
             char *typeStr = ntToChar(type->typeName->chars);
             errorAt(codegen, node, "Invalid <= operation for type '%s'.", typeStr);
             ntFree(typeStr);
-            return;
+            break;
+        }
         }
         push(codegen, node, ntU32Type());
         break;
@@ -957,11 +1002,12 @@ static void binary(NT_CODEGEN *codegen, const NT_NODE *node)
         case NT_OBJECT_F64:
             emit(codegen, node, BC_LT_F64);
             break;
-        default:
+        default: {
             char *typeStr = ntToChar(type->typeName->chars);
             errorAt(codegen, node, "Invalid < operation for type '%s'.", typeStr);
             ntFree(typeStr);
-            return;
+            break;
+        }
         }
         push(codegen, node, ntU32Type());
         break;
@@ -986,11 +1032,12 @@ static void binary(NT_CODEGEN *codegen, const NT_NODE *node)
         case NT_OBJECT_F64:
             emit(codegen, node, BC_LE_F64);
             break;
-        default:
+        default: {
             char *typeStr = ntToChar(type->typeName->chars);
             errorAt(codegen, node, "Invalid < operation for type '%s'.", typeStr);
             ntFree(typeStr);
-            return;
+            break;
+        }
         }
         push(codegen, node, ntU32Type());
         break;
@@ -1012,11 +1059,12 @@ static void binary(NT_CODEGEN *codegen, const NT_NODE *node)
         case NT_OBJECT_F64:
             emit(codegen, node, BC_ADD_F64);
             break;
-        default:
+        default: {
             char *typeStr = ntToChar(type->typeName->chars);
             errorAt(codegen, node, "Invalid + operation for type '%s'.", typeStr);
             ntFree(typeStr);
-            return;
+            break;
+        }
         }
         push(codegen, node, type);
         break;
@@ -1037,11 +1085,12 @@ static void binary(NT_CODEGEN *codegen, const NT_NODE *node)
         case NT_OBJECT_F64:
             emit(codegen, node, BC_SUB_F64);
             break;
-        default:
+        default: {
             char *typeStr = ntToChar(type->typeName->chars);
             errorAt(codegen, node, "Invalid + operation for type '%s'.", typeStr);
             ntFree(typeStr);
-            return;
+            break;
+        }
         }
         push(codegen, node, type);
         break;
@@ -1062,11 +1111,12 @@ static void binary(NT_CODEGEN *codegen, const NT_NODE *node)
         case NT_OBJECT_F64:
             emit(codegen, node, BC_MUL_F64);
             break;
-        default:
+        default: {
             char *typeStr = ntToChar(type->typeName->chars);
             errorAt(codegen, node, "Invalid * operation for type '%s'.", typeStr);
             ntFree(typeStr);
-            return;
+            break;
+        }
         }
         push(codegen, node, type);
         break;
@@ -1091,11 +1141,12 @@ static void binary(NT_CODEGEN *codegen, const NT_NODE *node)
         case NT_OBJECT_F64:
             emit(codegen, node, BC_DIV_F64);
             break;
-        default:
+        default: {
             char *typeStr = ntToChar(type->typeName->chars);
             errorAt(codegen, node, "Invalid / operation for type '%s'.", typeStr);
             ntFree(typeStr);
-            return;
+            break;
+        }
         }
         push(codegen, node, type);
         break;
@@ -1120,11 +1171,12 @@ static void binary(NT_CODEGEN *codegen, const NT_NODE *node)
         case NT_OBJECT_F64:
             emit(codegen, node, BC_REM_F64);
             break;
-        default:
+        default: {
             char *typeStr = ntToChar(type->typeName->chars);
             errorAt(codegen, node, "Invalid / operation for type '%s'.", typeStr);
             ntFree(typeStr);
-            return;
+            break;
+        }
         }
         push(codegen, node, type);
         break;
@@ -1139,11 +1191,12 @@ static void binary(NT_CODEGEN *codegen, const NT_NODE *node)
         case NT_OBJECT_U64:
             emit(codegen, node, BC_OR_I64);
             break;
-        default:
+        default: {
             char *typeStr = ntToChar(type->typeName->chars);
             errorAt(codegen, node, "Invalid | operation for type '%s'.", typeStr);
             ntFree(typeStr);
-            return;
+            break;
+        }
         }
         push(codegen, node, type);
         break;
@@ -1158,11 +1211,12 @@ static void binary(NT_CODEGEN *codegen, const NT_NODE *node)
         case NT_OBJECT_U64:
             emit(codegen, node, BC_AND_I64);
             break;
-        default:
+        default: {
             char *typeStr = ntToChar(type->typeName->chars);
             errorAt(codegen, node, "Invalid & operation for type '%s'.", typeStr);
             ntFree(typeStr);
-            return;
+            break;
+        }
         }
         push(codegen, node, type);
         break;
@@ -1177,11 +1231,12 @@ static void binary(NT_CODEGEN *codegen, const NT_NODE *node)
         case NT_OBJECT_U64:
             emit(codegen, node, BC_XOR_I64);
             break;
-        default:
+        default: {
             char *typeStr = ntToChar(type->typeName->chars);
             errorAt(codegen, node, "Invalid ^ operation for type '%s'.", typeStr);
             ntFree(typeStr);
-            return;
+            break;
+        }
         }
         push(codegen, node, type);
         break;
@@ -1324,11 +1379,12 @@ static void typeToBool(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *
     case NT_OBJECT_U64:
         emit(codegen, node, BC_IS_NOT_ZERO_64);
         break;
-    default:
+    default: {
         char *typeStr = ntToChar(type->typeName->chars);
         errorAt(codegen, node, "Invalid implicit cast from type '%s' to 'bool'.", typeStr);
         ntFree(typeStr);
-        return;
+        break;
+    }
     }
     pop(codegen, node, type);
     push(codegen, node, ntU32Type());
@@ -1386,12 +1442,13 @@ static void logical(NT_CODEGEN *codegen, const NT_NODE *node)
     case OP_LOGOR:
         logicalOr(codegen, node);
         break;
-    default:
+    default: {
         char *str = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
         errorAt(codegen, node, "Invalid logical operation with ID '%d'('%s').", node->token.id,
                 str);
         ntFree(str);
         break;
+    }
     }
 }
 
@@ -1456,6 +1513,8 @@ static void call(NT_CODEGEN *codegen, const NT_NODE *node, const bool needValue)
         case NT_OBJECT_I64:
             delta -= sizeof(uint64_t);
             break;
+        default:
+            break;
         }
     }
 
@@ -1489,11 +1548,12 @@ static void expression(NT_CODEGEN *codegen, const NT_NODE *node, const bool need
     case NK_CALL:
         call(codegen, node, needValue);
         break;
-    default:
+    default: {
         char *lexeme = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
         errorAt(codegen, node, "CODEGEN unrecognized expression. (Lexeme: %s)", lexeme);
         ntFree(lexeme);
         break;
+    }
     }
 }
 
@@ -1517,6 +1577,7 @@ static void subStatement(NT_CODEGEN *codegen, const NT_NODE *node);
 
 static void statement(NT_CODEGEN *codegen, const NT_NODE *node, bool *hasReturn)
 {
+    *hasReturn |= false;
     if (node->type.class != NC_STMT)
     {
         errorAt(codegen, node, "Invalid node, the node must be a statment!");

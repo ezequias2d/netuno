@@ -64,6 +64,9 @@ void ntParserDestroy(NT_PARSER *parser);
 
 NT_NODE **ntParse(NT_PARSER *parser, uint32_t *pCount);
 
+const char *ntGetKindLabel(NT_NODE_KIND kind);
+const char *ntGetClassLabel(NT_NODE_CLASS class);
+const char *ntGetLiteralTypeLabel(NT_LITERAL_TYPE type);
 void ntPrintNode(uint32_t depth, NT_NODE *node);
 
 NT_NODE *ntRoot(NT_PARSER *parser, NT_LIST types, const bool returnValue);

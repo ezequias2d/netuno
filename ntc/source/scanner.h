@@ -28,6 +28,18 @@ typedef enum _NT_TK_TYPE
 typedef enum _NT_TK_ID
 {
     TK_ID_NONE,
+    TK_GT = '>',
+    TK_LT = '<',
+    TK_PLUS = '+',
+    TK_MINUS = '-',
+    TK_MULT = '*',
+    TK_DIV = '/',
+    TK_MOD = '%',
+    TK_OR = '|',
+    TK_AND = '&',
+    TK_XOR = '^',
+    TK_BANG = '!',
+    TK_BITWISE_NOT = '~',
     TK_ = 255,
 #define op(name, _) name,
 #define keyword(name, x) name,

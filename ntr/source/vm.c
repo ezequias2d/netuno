@@ -672,6 +672,7 @@ static NT_RESULT run(NT_VM *vm)
         uint64_t t64_2;
         uint32_t t32_1;
         uint32_t t32_2;
+        bool result;
         switch (instruction = ntRead(vm->chunk, vm->pc++))
         {
         case BC_PRINT: {
@@ -684,438 +685,962 @@ static NT_RESULT run(NT_VM *vm)
         break;
 
         case BC_ZERO_32:
-            ntPush32(vm, 0);
+            result = ntPush32(vm, 0);
+            assert(result);
             break;
         case BC_ONE_32:
-            ntPush32(vm, 1);
+            result = ntPush32(vm, 1);
+            assert(result);
             break;
         case BC_CONST_32:
             t32_1 = readConst32(vm);
-            ntPush32(vm, t32_1);
+            result = ntPush32(vm, t32_1);
+            assert(result);
             break;
         case BC_CONST_64:
             t32_1 = readConst64(vm);
-            ntPush64(vm, t32_1);
+            result = ntPush64(vm, t32_1);
+            assert(result);
             break;
         case BC_CONST_STRING:
             t32_1 = readConstString(vm);
-            ntPush32(vm, t32_1);
+            result = ntPush32(vm, t32_1);
+            assert(result);
             break;
 
         case BC_LOAD_SP_32:
             vm->pc += ntReadVariant(vm->chunk, vm->pc, &t64_1);
-            ntPeek(vm, &t32_1, sizeof(uint32_t), t64_1) && ntPush32(vm, t32_1);
+
+            result = ntPeek(vm, &t32_1, sizeof(uint32_t), t64_1);
+            assert(result);
+            result = ntPush32(vm, t32_1);
+            assert(result);
             break;
         case BC_LOAD_SP_64:
             vm->pc += ntReadVariant(vm->chunk, vm->pc, &t64_1);
-            ntPeek(vm, &t64_1, sizeof(uint64_t), t64_1) && ntPush32(vm, t64_1);
+
+            result = ntPeek(vm, &t64_1, sizeof(uint64_t), t64_1);
+            assert(result);
+            result = ntPush32(vm, t64_1);
+            assert(result);
             break;
         case BC_STORE_SP_32:
             vm->pc += ntReadVariant(vm->chunk, vm->pc, &t64_1);
-            ntPop32(vm, &t32_1) && ntWriteSp(vm, &t32_1, sizeof(uint32_t), t64_1);
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntWriteSp(vm, &t32_1, sizeof(uint32_t), t64_1);
+            assert(result);
             break;
         case BC_STORE_SP_64:
             vm->pc += ntReadVariant(vm->chunk, vm->pc, &t64_1);
-            ntPop64(vm, &t64_2) && ntWriteSp(vm, &t64_2, sizeof(uint32_t), t64_1);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntWriteSp(vm, &t64_2, sizeof(uint32_t), t64_1);
+            assert(result);
             break;
 
         case BC_EQ_32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, t32_1 == t32_2);
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, t32_1 == t32_2);
+            assert(result);
             break;
         case BC_EQ_64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush32(vm, t64_1 == t64_2);
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush32(vm, t64_1 == t64_2);
+            assert(result);
             break;
         case BC_EQ_F32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) &&
-                ntPush32(vm, *(float *)&t32_1 == *(float *)&t32_2);
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, *(float *)&t32_1 == *(float *)&t32_2);
+            assert(result);
             break;
         case BC_EQ_F64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) &&
-                ntPush32(vm, *(double *)&t64_1 == *(double *)&t64_2);
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush32(vm, *(double *)&t64_1 == *(double *)&t64_2);
+            assert(result);
             break;
 
         case BC_NE_32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, t32_1 != t32_2);
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, t32_1 != t32_2);
+            assert(result);
             break;
         case BC_NE_64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush32(vm, t64_1 != t64_2);
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush32(vm, t64_1 != t64_2);
+            assert(result);
             break;
         case BC_NE_F32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) &&
-                ntPush32(vm, *(float *)&t32_1 != *(float *)&t32_2);
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, *(float *)&t32_1 != *(float *)&t32_2);
+            assert(result);
             break;
         case BC_NE_F64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) &&
-                ntPush32(vm, *(double *)&t64_1 != *(double *)&t64_2);
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush32(vm, *(double *)&t64_1 != *(double *)&t64_2);
+            assert(result);
             break;
 
         case BC_GT_I32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) &&
-                ntPush32(vm, *(int32_t *)&t32_1 > *(int32_t *)&t32_2);
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, *(int32_t *)&t32_1 > *(int32_t *)&t32_2);
+            assert(result);
             break;
         case BC_GT_U32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, t32_1 > t32_2);
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, t32_1 > t32_2);
+            assert(result);
             break;
         case BC_GT_I64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) &&
-                ntPush32(vm, *(int64_t *)&t64_1 > *(int64_t *)&t64_2);
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush32(vm, *(int64_t *)&t64_1 > *(int64_t *)&t64_2);
+            assert(result);
             break;
         case BC_GT_U64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush32(vm, t64_1 > t64_2);
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush32(vm, t64_1 > t64_2);
+            assert(result);
             break;
         case BC_GT_F32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) &&
-                ntPush32(vm, *(float *)&t32_1 > *(float *)&t32_2);
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, *(float *)&t32_1 > *(float *)&t32_2);
+            assert(result);
             break;
         case BC_GT_F64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) &&
-                ntPush32(vm, *(double *)&t64_1 > *(double *)&t64_2);
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush32(vm, *(double *)&t64_1 > *(double *)&t64_2);
+            assert(result);
             break;
 
         case BC_LT_I32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) &&
-                ntPush32(vm, *(int32_t *)&t32_1 < *(int32_t *)&t32_2);
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, *(int32_t *)&t32_1 < *(int32_t *)&t32_2);
+            assert(result);
             break;
         case BC_LT_U32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, t32_1 < t32_2);
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, t32_1 < t32_2);
+            assert(result);
             break;
         case BC_LT_I64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) &&
-                ntPush32(vm, *(int64_t *)&t64_1 < *(int64_t *)&t64_2);
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush32(vm, *(int64_t *)&t64_1 < *(int64_t *)&t64_2);
+            assert(result);
             break;
         case BC_LT_U64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush32(vm, t64_1 < t64_2);
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush32(vm, t64_1 < t64_2);
+            assert(result);
             break;
         case BC_LT_F32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) &&
-                ntPush32(vm, *(float *)&t32_1 < *(float *)&t32_2);
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, *(float *)&t32_1 < *(float *)&t32_2);
+            assert(result);
             break;
         case BC_LT_F64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) &&
-                ntPush32(vm, *(double *)&t64_1 < *(double *)&t64_2);
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush32(vm, *(double *)&t64_1 < *(double *)&t64_2);
+            assert(result);
             break;
 
         case BC_GE_I32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) &&
-                ntPush32(vm, *(int32_t *)&t32_1 >= *(int32_t *)&t32_2);
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, *(int32_t *)&t32_1 >= *(int32_t *)&t32_2);
+            assert(result);
             break;
         case BC_GE_U32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, t32_1 >= t32_2);
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, t32_1 >= t32_2);
+            assert(result);
             break;
         case BC_GE_I64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) &&
-                ntPush32(vm, *(int64_t *)&t64_1 >= *(int64_t *)&t64_2);
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush32(vm, *(int64_t *)&t64_1 >= *(int64_t *)&t64_2);
+            assert(result);
             break;
         case BC_GE_U64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush32(vm, t64_1 >= t64_2);
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush32(vm, t64_1 >= t64_2);
+            assert(result);
             break;
         case BC_GE_F32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) &&
-                ntPush32(vm, *(float *)&t32_1 >= *(float *)&t32_2);
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, *(float *)&t32_1 >= *(float *)&t32_2);
+            assert(result);
             break;
         case BC_GE_F64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) &&
-                ntPush32(vm, *(double *)&t64_1 >= *(double *)&t64_2);
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush32(vm, *(double *)&t64_1 >= *(double *)&t64_2);
+            assert(result);
             break;
 
         case BC_LE_I32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) &&
-                ntPush32(vm, *(int32_t *)&t32_1 <= *(int32_t *)&t32_2);
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, *(int32_t *)&t32_1 <= *(int32_t *)&t32_2);
+            assert(result);
             break;
         case BC_LE_U32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, t32_1 <= t32_2);
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, t32_1 <= t32_2);
+            assert(result);
             break;
         case BC_LE_I64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) &&
-                ntPush32(vm, *(int64_t *)&t64_1 <= *(int64_t *)&t64_2);
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush32(vm, *(int64_t *)&t64_1 <= *(int64_t *)&t64_2);
+            assert(result);
             break;
         case BC_LE_U64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush32(vm, t64_1 <= t64_2);
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush32(vm, t64_1 <= t64_2);
+            assert(result);
             break;
         case BC_LE_F32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) &&
-                ntPush32(vm, *(float *)&t32_1 <= *(float *)&t32_2);
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, *(float *)&t32_1 <= *(float *)&t32_2);
+            assert(result);
             break;
         case BC_LE_F64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) &&
-                ntPush32(vm, *(double *)&t64_1 <= *(double *)&t64_2);
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush32(vm, *(double *)&t64_1 <= *(double *)&t64_2);
+            assert(result);
             break;
 
         case BC_NEG_I32:
-            ntPop32(vm, &t32_1) && ntPush32(vm, negate32(t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush32(vm, negate32(t32_1));
+            assert(result);
             break;
         case BC_NEG_I64:
-            ntPop64(vm, &t64_1) && ntPush64(vm, negate64(t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush64(vm, negate64(t64_1));
+            assert(result);
             break;
         case BC_NEG_F32:
-            ntPop32(vm, &t32_1) && ntPush32(vm, negateF32(t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush32(vm, negateF32(t32_1));
+            assert(result);
             break;
         case BC_NEG_F64:
-            ntPop64(vm, &t64_1) && ntPush64(vm, negateF64(t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush64(vm, negateF64(t64_1));
+            assert(result);
             break;
 
         case BC_NOT_32:
-            ntPop32(vm, &t32_1) && ntPush32(vm, ~t32_1);
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush32(vm, ~t32_1);
+            assert(result);
             break;
         case BC_NOT_64:
-            ntPop32(vm, &t32_1) && ntPush32(vm, ~t32_1);
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush32(vm, ~t32_1);
+            assert(result);
             break;
 
         case BC_ADD_I32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, add32(t32_1, t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, add32(t32_1, t32_2));
+            assert(result);
             break;
         case BC_ADD_I64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush64(vm, add64(t64_1, t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush64(vm, add64(t64_1, t64_2));
+            assert(result);
             break;
         case BC_ADD_F32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, addF32(t32_1, t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, addF32(t32_1, t32_2));
+            assert(result);
             break;
         case BC_ADD_F64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush64(vm, addF64(t64_1, t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush64(vm, addF64(t64_1, t64_2));
+            assert(result);
             break;
 
         case BC_SUB_I32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, sub32(t32_1, t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, sub32(t32_1, t32_2));
+            assert(result);
             break;
         case BC_SUB_I64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush64(vm, sub64(t64_1, t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush64(vm, sub64(t64_1, t64_2));
+            assert(result);
             break;
         case BC_SUB_F32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, subF32(t32_1, t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, subF32(t32_1, t32_2));
+            assert(result);
             break;
         case BC_SUB_F64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush64(vm, subF64(t64_1, t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush64(vm, subF64(t64_1, t64_2));
+            assert(result);
             break;
         case BC_MUL_I32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, mul32(t32_1, t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, mul32(t32_1, t32_2));
+            assert(result);
             break;
         case BC_MUL_I64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush64(vm, mul64(t64_1, t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush64(vm, mul64(t64_1, t64_2));
+            assert(result);
             break;
         case BC_MUL_F32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, mulF32(t32_1, t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, mulF32(t32_1, t32_2));
+            assert(result);
             break;
         case BC_MUL_F64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush64(vm, mulF64(t64_1, t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush64(vm, mulF64(t64_1, t64_2));
+            assert(result);
             break;
         case BC_DIV_U32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, divU32(t32_1, t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, divU32(t32_1, t32_2));
+            assert(result);
             break;
         case BC_DIV_U64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush64(vm, divU64(t64_1, t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush64(vm, divU64(t64_1, t64_2));
+            assert(result);
             break;
         case BC_DIV_I32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, divI32(t32_1, t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, divI32(t32_1, t32_2));
+            assert(result);
             break;
         case BC_DIV_I64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush64(vm, divI64(t64_1, t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush64(vm, divI64(t64_1, t64_2));
+            assert(result);
             break;
         case BC_DIV_F32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, divF32(t32_1, t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, divF32(t32_1, t32_2));
+            assert(result);
             break;
         case BC_DIV_F64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush64(vm, divF64(t64_1, t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush64(vm, divF64(t64_1, t64_2));
+            assert(result);
             break;
         case BC_REM_I32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, remI32(t32_1, t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, remI32(t32_1, t32_2));
+            assert(result);
             break;
         case BC_REM_I64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush64(vm, remI64(t64_1, t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush64(vm, remI64(t64_1, t64_2));
+            assert(result);
             break;
         case BC_REM_U32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, remU32(t32_1, t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, remU32(t32_1, t32_2));
+            assert(result);
             break;
         case BC_REM_U64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush64(vm, remU64(t64_1, t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush64(vm, remU64(t64_1, t64_2));
+            assert(result);
             break;
         case BC_REM_F32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, remF32(t32_1, t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, remF32(t32_1, t32_2));
+            assert(result);
             break;
         case BC_REM_F64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush64(vm, remF64(t64_1, t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush64(vm, remF64(t64_1, t64_2));
+            assert(result);
             break;
         case BC_EXTEND_I32:
-            ntPop32(vm, &t32_1) && ntPush64(vm, extendI32(t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush64(vm, extendI32(t32_1));
+            assert(result);
             break;
         case BC_EXTEND_U32:
-            ntPop32(vm, &t32_1) && ntPush64(vm, extendU32(t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush64(vm, extendU32(t32_1));
+            assert(result);
             break;
         case BC_WRAP_I64:
-            ntPop64(vm, &t64_1) && ntPush32(vm, *(uint32_t *)&t64_1);
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush32(vm, *(uint32_t *)&t64_1);
+            assert(result);
             break;
         case BC_PROMOTE_F32:
-            ntPop32(vm, &t32_1) && ntPush64(vm, promoteF32(t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush64(vm, promoteF32(t32_1));
+            assert(result);
             break;
         case BC_DEMOTE_F64:
-            ntPop64(vm, &t64_1) && ntPush32(vm, demoteF64(t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush32(vm, demoteF64(t64_1));
+            assert(result);
             break;
         case BC_CONVERT_F32_I32:
-            ntPop32(vm, &t32_1) && ntPush32(vm, convertI32ToF32(t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush32(vm, convertI32ToF32(t32_1));
+            assert(result);
             break;
         case BC_CONVERT_F32_I64:
-            ntPop64(vm, &t64_1) && ntPush32(vm, convertI64ToF32(t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush32(vm, convertI64ToF32(t64_1));
+            assert(result);
             break;
         case BC_CONVERT_F32_U32:
-            ntPop32(vm, &t32_1) && ntPush32(vm, convertU32ToF32(t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush32(vm, convertU32ToF32(t32_1));
+            assert(result);
             break;
         case BC_CONVERT_F32_U64:
-            ntPop64(vm, &t64_1) && ntPush32(vm, convertU64ToF32(t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush32(vm, convertU64ToF32(t64_1));
+            assert(result);
             break;
         case BC_CONVERT_F64_I32:
-            ntPop32(vm, &t32_1) && ntPush64(vm, convertI32ToF64(t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush64(vm, convertI32ToF64(t32_1));
+            assert(result);
             break;
         case BC_CONVERT_F64_I64:
-            ntPop64(vm, &t64_1) && ntPush64(vm, convertI64ToF64(t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush64(vm, convertI64ToF64(t64_1));
+            assert(result);
             break;
         case BC_CONVERT_F64_U32:
-            ntPop32(vm, &t32_1) && ntPush64(vm, convertU32ToF64(t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush64(vm, convertU32ToF64(t32_1));
+            assert(result);
             break;
         case BC_CONVERT_F64_U64:
-            ntPop64(vm, &t64_1) && ntPush64(vm, convertU64ToF64(t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush64(vm, convertU64ToF64(t64_1));
+            assert(result);
             break;
         case BC_TRUNCATE_I32_F32:
-            ntPop32(vm, &t32_1) && ntPush32(vm, truncateFloatToI32(t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush32(vm, truncateFloatToI32(t32_1));
+            assert(result);
             break;
         case BC_TRUNCATE_I64_F32:
-            ntPop32(vm, &t32_1) && ntPush64(vm, truncateFloatToI64(t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush64(vm, truncateFloatToI64(t32_1));
+            assert(result);
             break;
         case BC_TRUNCATE_U32_F32:
-            ntPop32(vm, &t32_1) && ntPush32(vm, truncateFloatToU32(t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush32(vm, truncateFloatToU32(t32_1));
+            assert(result);
             break;
         case BC_TRUNCATE_U64_F32:
-            ntPop32(vm, &t32_1) && ntPush64(vm, truncateFloatToU64(t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush64(vm, truncateFloatToU64(t32_1));
+            assert(result);
             break;
         case BC_TRUNCATE_I32_F64:
-            ntPop64(vm, &t64_1) && ntPush32(vm, truncateDoubleToI32(t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush32(vm, truncateDoubleToI32(t64_1));
+            assert(result);
             break;
         case BC_TRUNCATE_I64_F64:
-            ntPop64(vm, &t64_1) && ntPush64(vm, truncateDoubleToI64(t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush64(vm, truncateDoubleToI64(t64_1));
+            assert(result);
             break;
         case BC_TRUNCATE_U32_F64:
-            ntPop64(vm, &t64_1) && ntPush32(vm, truncateDoubleToU32(t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush32(vm, truncateDoubleToU32(t64_1));
+            assert(result);
             break;
         case BC_TRUNCATE_U64_F64:
-            ntPop64(vm, &t64_1) && ntPush64(vm, truncateDoubleToU64(t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush64(vm, truncateDoubleToU64(t64_1));
+            assert(result);
             break;
         case BC_MIN_F32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, minF32(t32_1, t32_2));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, minF32(t32_1, t32_2));
+            assert(result);
             break;
         case BC_MIN_F64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush64(vm, minF64(t64_1, t64_2));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush64(vm, minF64(t64_1, t64_2));
+            assert(result);
             break;
         case BC_MAX_F32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, maxF32(t32_1, t32_2));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, maxF32(t32_1, t32_2));
+            assert(result);
             break;
         case BC_MAX_F64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush64(vm, maxF64(t64_1, t64_2));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush64(vm, maxF64(t64_1, t64_2));
+            assert(result);
             break;
         case BC_NEAREST_F32:
-            ntPop32(vm, &t32_1) && ntPush32(vm, nearestF32(t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush32(vm, nearestF32(t32_1));
+            assert(result);
             break;
         case BC_NEAREST_F64:
-            ntPop64(vm, &t64_1) && ntPush64(vm, nearestF64(t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush64(vm, nearestF64(t64_1));
+            assert(result);
             break;
         case BC_CEIL_F32:
-            ntPop32(vm, &t32_1) && ntPush32(vm, ceilF32(t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush32(vm, ceilF32(t32_1));
+            assert(result);
             break;
         case BC_CEIL_F64:
-            ntPop64(vm, &t64_1) && ntPush64(vm, ceilF64(t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush64(vm, ceilF64(t64_1));
+            assert(result);
             break;
         case BC_FLOOR_F32:
-            ntPop32(vm, &t32_1) && ntPush32(vm, floorF32(t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush32(vm, floorF32(t32_1));
+            assert(result);
             break;
         case BC_FLOOR_F64:
-            ntPop64(vm, &t64_1) && ntPush64(vm, floorF64(t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush64(vm, floorF64(t64_1));
+            assert(result);
             break;
         case BC_TRUNCATE_F32:
-            ntPop32(vm, &t32_1) && ntPush32(vm, truncateF32(t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush32(vm, truncateF32(t32_1));
+            assert(result);
             break;
         case BC_TRUNCATE_F64:
-            ntPop64(vm, &t64_1) && ntPush64(vm, truncateF64(t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush64(vm, truncateF64(t64_1));
+            assert(result);
             break;
         case BC_ABS_F32:
-            ntPop32(vm, &t32_1) && ntPush32(vm, absF32(t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush32(vm, absF32(t32_1));
+            assert(result);
             break;
         case BC_ABS_F64:
-            ntPop64(vm, &t64_1) && ntPush64(vm, absF64(t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush64(vm, absF64(t64_1));
+            assert(result);
             break;
         case BC_SQRT_F32:
-            ntPop32(vm, &t32_1) && ntPush32(vm, sqrtF32(t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush32(vm, sqrtF32(t32_1));
+            assert(result);
             break;
         case BC_SQRT_F64:
-            ntPop64(vm, &t64_1) && ntPush64(vm, sqrtF64(t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush64(vm, sqrtF64(t64_1));
+            assert(result);
             break;
         case BC_COPYSIGN_F32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, copysignF32(t32_1, t32_2));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, copysignF32(t32_1, t32_2));
+            assert(result);
             break;
         case BC_COPYSIGN_F64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush64(vm, copysignF64(t64_1, t64_2));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush64(vm, copysignF64(t64_1, t64_2));
+            assert(result);
             break;
         case BC_AND_I32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, and32(t32_1, t32_2));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, and32(t32_1, t32_2));
+            assert(result);
             break;
         case BC_AND_I64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush64(vm, and64(t64_1, t64_2));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush64(vm, and64(t64_1, t64_2));
+            assert(result);
             break;
         case BC_OR_I32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, or32(t32_1, t32_2));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, or32(t32_1, t32_2));
+            assert(result);
             break;
         case BC_OR_I64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush64(vm, or64(t64_1, t64_2));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush64(vm, or64(t64_1, t64_2));
+            assert(result);
             break;
         case BC_XOR_I32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, xor32(t32_1, t32_2));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, xor32(t32_1, t32_2));
+            assert(result);
             break;
         case BC_XOR_I64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush64(vm, xor64(t64_1, t64_2));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush64(vm, xor64(t64_1, t64_2));
+            assert(result);
             break;
         case BC_SHL_I32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, shl32(t32_1, t32_2));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, shl32(t32_1, t32_2));
+            assert(result);
             break;
         case BC_SHL_I64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush64(vm, shl64(t64_1, t64_2));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush64(vm, shl64(t64_1, t64_2));
+            assert(result);
             break;
         case BC_SHR_I32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, shrS32(t32_1, t32_2));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, shrS32(t32_1, t32_2));
+            assert(result);
             break;
         case BC_SHR_I64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush64(vm, shrS64(t64_1, t64_2));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush64(vm, shrS64(t64_1, t64_2));
+            assert(result);
             break;
         case BC_SHR_U32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, shrU32(t32_1, t32_2));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, shrU32(t32_1, t32_2));
+            assert(result);
             break;
         case BC_SHR_U64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush64(vm, shrU64(t64_1, t64_2));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush64(vm, shrU64(t64_1, t64_2));
+            assert(result);
             break;
         case BC_ROL_I32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, rol32(t32_1, t32_2));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, rol32(t32_1, t32_2));
+            assert(result);
             break;
         case BC_ROL_I64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush64(vm, rol64(t64_1, t64_2));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush64(vm, rol64(t64_1, t64_2));
+            assert(result);
             break;
         case BC_ROR_I32:
-            ntPop32(vm, &t32_1) && ntPop32(vm, &t32_2) && ntPush32(vm, ror32(t32_1, t32_2));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPop32(vm, &t32_2);
+            assert(result);
+            result = ntPush32(vm, ror32(t32_1, t32_2));
+            assert(result);
             break;
         case BC_ROR_I64:
-            ntPop64(vm, &t64_1) && ntPop64(vm, &t64_2) && ntPush64(vm, ror64(t64_1, t64_2));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPop64(vm, &t64_2);
+            assert(result);
+            result = ntPush64(vm, ror64(t64_1, t64_2));
+            assert(result);
             break;
         case BC_CLZ_I32:
-            ntPop32(vm, &t32_1) && ntPush32(vm, clz32(t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush32(vm, clz32(t32_1));
+            assert(result);
             break;
         case BC_CLZ_I64:
-            ntPop64(vm, &t64_1) && ntPush64(vm, clz64(t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush64(vm, clz64(t64_1));
+            assert(result);
             break;
         case BC_CTZ_I32:
-            ntPop32(vm, &t32_1) && ntPush32(vm, ctz32(t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush32(vm, ctz32(t32_1));
+            assert(result);
             break;
         case BC_CTZ_I64:
-            ntPop64(vm, &t64_1) && ntPush64(vm, ctz64(t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush64(vm, ctz64(t64_1));
+            assert(result);
             break;
         case BC_POPCNT_I32:
-            ntPop32(vm, &t32_1) && ntPush32(vm, popcount32(t32_1));
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush32(vm, popcount32(t32_1));
+            assert(result);
             break;
         case BC_POPCNT_I64:
-            ntPop64(vm, &t64_1) && ntPush64(vm, popcount64(t64_1));
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush64(vm, popcount64(t64_1));
+            assert(result);
             break;
 
         case BC_RETURN:

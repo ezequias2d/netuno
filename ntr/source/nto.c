@@ -18,7 +18,10 @@ NT_ASSEMBLY *ntCreateAssembly()
 
 static void freeDelegate(const NT_STRING *key, void *data, void *userdata)
 {
+    assert(userdata == NULL);
     assert(data);
+
+    ntFreeObject((NT_OBJECT *)key);
     ntFree(data);
 }
 
@@ -93,7 +96,7 @@ void ntFreeChunk(NT_CHUNK *chunk)
     ntFree(chunk);
 }
 
-static void addLine(NT_CHUNK *chunk, const size_t offset, const int64_t line)
+static void addLine(NT_CHUNK *chunk, const size_t offset, const size_t line)
 {
     bool addLine = false;
     if (chunk->lines.count < sizeof(NT_LINE))

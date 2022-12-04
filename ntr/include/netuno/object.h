@@ -8,6 +8,7 @@
 
 typedef enum
 {
+    NT_OBJECT_ERROR,
     NT_OBJECT_STRING,
     NT_OBJECT_F64,
     NT_OBJECT_F32,
@@ -111,5 +112,7 @@ const NT_TYPE *ntU32Type(void);
 const NT_TYPE *ntU64Type(void);
 const NT_TYPE *ntF32Type(void);
 const NT_TYPE *ntF64Type(void);
+
+const NT_TYPE *ntErrorType(void);
 
 #endif

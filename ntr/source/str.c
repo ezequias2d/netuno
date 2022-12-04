@@ -14,13 +14,13 @@ char *ntToCharFixed(const char_t *str, size_t len)
     memset(&ps, 0, sizeof(ps));
 
     size_t size = 0;
-    for (const char_t *i = str; i - str < len; i++)
+    for (const char_t *i = str; (size_t)(i - str) < len; i++)
         size += c32rtomb(NULL, *i, &ps);
 
     char *s = (char *)ntMalloc((size + 1) * sizeof(char));
 
     char *j = s;
-    for (const char_t *i = str; i - str < len; i++)
+    for (const char_t *i = str; (size_t)(i - str) < len; i++)
         j += c32rtomb(j, *i, &ps);
 
     s[size] = 0;
@@ -53,13 +53,13 @@ char_t *ntToCharTFixed(const char *str, size_t len)
     memset(&ps, 0, sizeof(ps));
 
     size_t size = 0;
-    for (const char *i = str; i - str < len; i += mbrtoc32(NULL, i, len + str - i, &ps))
+    for (const char *i = str; (size_t)(i - str) < len; i += mbrtoc32(NULL, i, len + str - i, &ps))
         size++;
 
     char_t *s = (char_t *)ntMalloc((size + 1) * sizeof(char_t));
     char_t *j = s;
 
-    for (const char *i = str; i - str < len; i += mbrtoc32(j++, i, len + str - i, &ps))
+    for (const char *i = str; (size_t)(i - str) < len; i += mbrtoc32(j++, i, len + str - i, &ps))
         ;
 
     s[size] = 0;

@@ -60,13 +60,13 @@ char *toCharS(const char_t *str, size_t len)
     memset(&ps, 0, sizeof(ps));
 
     size_t size = 0;
-    for (const char_t *i = str; i - str < len; i++)
+    for (const char_t *i = str; (size_t)(i - str) < len; i++)
         size += c32rtomb(NULL, *i, &ps);
 
     char *s = (char *)ntMalloc((size + 1) * sizeof(char));
 
     char *j = s;
-    for (const char_t *i = str; i - str < len; i++)
+    for (const char_t *i = str; (size_t)(i - str) < len; i++)
         j += c32rtomb(j, *i, &ps);
 
     s[size] = 0;

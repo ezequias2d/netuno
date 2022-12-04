@@ -22,8 +22,8 @@ typedef struct
 
 typedef struct
 {
-    int64_t start;
-    int64_t line;
+    size_t start;
+    size_t line;
 } NT_LINE;
 
 typedef struct _NT_ASSEMBLY

@@ -88,6 +88,8 @@ static void skipWhitespaces(NT_SCANNER *scanner)
         {
         case '\n':
             scanner->line++;
+            advance(scanner);
+            break;
         case ' ':
         case '\r':
         case '\t':
@@ -242,7 +244,7 @@ static char_t hex_char(NT_SCANNER *scanner)
     char_t r = 0;
     while (isXDigit(c))
     {
-        if (c >= 0 && c <= '9')
+        if (c >= '0' && c <= U'9')
             r = (r << 4) | (c - '0');
         else if (c >= 'a' && c <= 'f')
             r = (r << 4) | (c - 'a' + 10);
@@ -267,10 +269,10 @@ static char_t oct_char(NT_SCANNER *scanner)
     return r;
 }
 
-static bool isValidUnicode(const char_t c)
-{
-    return c == (c & 0x1FFFFF);
-}
+// static bool isValidUnicode(const char_t c)
+// {
+//     return c == (c & 0x1FFFFF);
+// }
 
 static char_t unicode_char(NT_SCANNER *scanner, const uint32_t len)
 {
@@ -279,7 +281,7 @@ static char_t unicode_char(NT_SCANNER *scanner, const uint32_t len)
     {
         const char_t c = advance(scanner);
 
-        if (c >= 0 && c <= '9')
+        if (c >= '0' && c <= '9')
             r = (r << 4) | (c - '0');
         else if (c >= 'a' && c <= 'f')
             r = (r << 4) | (c - 'a' + 10);
@@ -316,21 +318,17 @@ static char_t escapeChar(NT_SCANNER *scanner)
     case 'v':
         return '\v';
     case 'e':
-        return '\e';
+        return '\x1B';
     case 'x':
         return hex_char(scanner);
-        break;
     case 'u':
         return unicode_char(scanner, 4);
-        break;
     case 'U':
         return unicode_char(scanner, 8);
-        break;
     case '0':
         return oct_char(scanner);
-        break;
     default:
-        break;
+        return '\0';
     }
 }
 
@@ -339,7 +337,14 @@ static void character(NT_SCANNER *scanner, NT_TOKEN *result)
     char_t c = advance(scanner);
     // escape
     if (c == '\\')
+    {
         c = escapeChar(scanner);
+        if (c == '\0')
+        {
+            errorToken(scanner, U"Invalid scape sequence!", result);
+            return;
+        }
+    }
 
     if (!match(scanner, '\''))
         errorToken(scanner, U"Unterminated char.", result);

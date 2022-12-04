@@ -40,7 +40,7 @@ static void vErrorAt(NT_TOKEN token, const char *message, va_list args)
         freeLexeme = true;
     }
 
-    printf("[line %d] Error%s%s: ", token.line, atEnd, lexeme, message);
+    printf("[line %d] Error%s%s: %s", token.line, atEnd, lexeme, message);
 
     vprintf(message, args);
 
@@ -72,7 +72,7 @@ static void errorAtCurret(NT_PARSER *parser, const char *message, ...)
     va_end(vl);
 }
 
-static bool advance(NT_PARSER *parser)
+static void advance(NT_PARSER *parser)
 {
     parser->previous = parser->current;
 
@@ -654,16 +654,16 @@ static NT_NODE *declaration(NT_PARSER *parser, const bool returnValue)
     return statement(parser, returnValue);
 }
 
-NT_NODE *ntRoot(NT_PARSER *parser, NT_LIST types, const bool returnValue)
-{
-    const NT_TOKEN token = parser->previous;
-    NT_LIST statements = ntCreateList();
+// NT_NODE *ntRoot(NT_PARSER *parser, NT_LIST types, const bool returnValue)
+// {
+//     const NT_TOKEN token = parser->previous;
+//     NT_LIST statements = ntCreateList();
 
-    while (!ntIsAtEnd(parser->scanner))
-        ntListAdd(statements, declaration(parser, returnValue));
+//     while (!ntIsAtEnd(parser->scanner))
+//         ntListAdd(statements, declaration(parser, returnValue));
 
-    return makeBlock(token, (NT_TOKEN){}, statements);
-}
+//     return makeBlock(token, (NT_TOKEN){}, statements);
+// }
 
 static NT_NODE *block(NT_PARSER *parser, NT_TK_ID end, const bool returnValue)
 {
@@ -700,7 +700,7 @@ static NT_NODE *block2(NT_PARSER *parser, NT_TK_ID end1, NT_TK_ID end2, const bo
 
 static NT_NODE *makeEqualExpression(NT_TOKEN mainToken, NT_TOKEN name, NT_NODE *expr)
 {
-    NT_NODE *variable = makeVariable(mainToken);
+    NT_NODE *variable = makeVariable(name);
     NT_NODE *comparison = makeBinary(
         (NT_TOKEN){
             .type = TK_KEYWORD,
@@ -788,7 +788,7 @@ static NT_NODE *ifStatement(NT_PARSER *parser, const bool returnValue)
 
     NT_NODE *thenBranch = block2(parser, KW_NEXT, KW_ELSE, returnValue);
     NT_NODE *elseBranch = NULL;
-    if (thenBranch->token2.type == KW_ELSE)
+    if (thenBranch->token2.id == KW_ELSE)
     {
         if (matchId(parser, TK_KEYWORD, KW_IF))
             elseBranch = ifStatement(parser, returnValue);
@@ -910,6 +910,24 @@ static const char *const literals[] = {
 #include "literal.inc"
 #undef literal
 };
+
+const char *ntGetKindLabel(NT_NODE_KIND kind)
+{
+    assert(kind >= 0 && kind < NK_LAST);
+    return kinds[kind];
+}
+
+const char *ntGetClassLabel(NT_NODE_CLASS class)
+{
+    assert(class >= 0 && class < NC_LAST);
+    return literals[class];
+}
+
+const char *ntGetLiteralTypeLabel(NT_LITERAL_TYPE type)
+{
+    assert(type >= 0 && type < LT_LAST);
+    return literals[type];
+}
 
 static void printNode(uint32_t depth, NT_NODE *node)
 {

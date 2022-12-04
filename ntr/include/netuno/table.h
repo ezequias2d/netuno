@@ -23,7 +23,7 @@ NT_TABLE *ntCreateTable();
 void ntInitTable(NT_TABLE *table);
 void ntDeinitTable(NT_TABLE *table);
 void ntFreeTable(NT_TABLE *table);
-bool ntTableForAll(NT_TABLE *table, tableCallback callback, void *userdata);
+void ntTableForAll(NT_TABLE *table, tableCallback callback, void *userdata);
 bool ntTableSet(NT_TABLE *table, const NT_STRING *key, void *value);
 void ntTableAddAll(const NT_TABLE *from, NT_TABLE *to);
 bool ntTableGet(const NT_TABLE *table, const NT_STRING *key, void **value);

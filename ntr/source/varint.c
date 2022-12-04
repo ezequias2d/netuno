@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <netuno/varint.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -42,6 +43,7 @@ size_t ntDecodeVarint(const void *src, const size_t srcSize, uint64_t *value)
     uint8_t count = 0;
     do
     {
+        assert(count < srcSize);
         const uint8_t readed = ((uint8_t *)src)[count];
         result |= readed << bits;
         moreBytes = (readed & 0x80) != 0;

@@ -39,7 +39,7 @@ static NT_TABLE stringTable = {.count = 0, .size = 0, .pEntries = NULL};
 
 static void freeString(NT_OBJECT *object)
 {
-    assert(object->type == NT_OBJECT_STRING);
+    assert(object->type->objectType == NT_OBJECT_STRING);
     NT_STRING *string = (NT_STRING *)object;
     ntFree(string->chars);
     string->chars = NULL;
@@ -48,15 +48,15 @@ static void freeString(NT_OBJECT *object)
 
 static const NT_STRING *stringToString(NT_OBJECT *object)
 {
-    assert(object->type == NT_OBJECT_STRING);
+    assert(object->type->objectType == NT_OBJECT_STRING);
     object->refCount++;
     return (const NT_STRING *)object;
 }
 
 static bool stringEquals(NT_OBJECT *_str1, NT_OBJECT *_str2)
 {
-    assert(_str1->type == NT_OBJECT_STRING);
-    assert(_str2->type == NT_OBJECT_STRING);
+    assert(_str1->type->objectType == NT_OBJECT_STRING);
+    assert(_str2->type->objectType == NT_OBJECT_STRING);
     NT_STRING *str1 = (NT_STRING *)_str1;
     NT_STRING *str2 = (NT_STRING *)_str2;
 
@@ -64,8 +64,8 @@ static bool stringEquals(NT_OBJECT *_str1, NT_OBJECT *_str2)
         return false;
     if (str1->length != str2->length)
         return false;
-    ntStrEqualsFixed(str1->chars, str1->length * sizeof(char_t), str2->chars,
-                     str2->length * sizeof(char_t));
+    return ntStrEqualsFixed(str1->chars, str1->length * sizeof(char_t), str2->chars,
+                            str2->length * sizeof(char_t));
 }
 
 static NT_TYPE STRING_TYPE = {
@@ -98,7 +98,7 @@ static NT_STRING *allocString(char_t *chars, const size_t length, const uint32_t
 static uint32_t hashString(const char_t *chars, const size_t length)
 {
     uint32_t hash = 2166136261u;
-    for (int i = 0; i < length; i++)
+    for (size_t i = 0; i < length; i++)
     {
         hash ^= chars[i];
         hash *= 16777619;
@@ -176,6 +176,7 @@ bool ntStrEqualsFixed(const char_t *str1, const size_t size1, const char_t *str2
 
 static void freeNone(NT_OBJECT *object)
 {
+    assert(object);
 }
 
 static const NT_STRING *i32ToString(NT_OBJECT *object)
@@ -210,7 +211,7 @@ static const NT_STRING *u32ToString(NT_OBJECT *object)
 
 static const NT_STRING *u64ToString(NT_OBJECT *object)
 {
-    const uint32_t value = *(uint32_t *)object;
+    const uint64_t value = *(uint64_t *)object;
     char number[20];
     const size_t length = sprintf(number, "%lu", value);
 
@@ -221,7 +222,7 @@ static const NT_STRING *u64ToString(NT_OBJECT *object)
 static const NT_STRING *f32ToString(NT_OBJECT *object)
 {
     const float value = *(float *)object;
-    const size_t length = snprintf(NULL, 0, "%f", value);
+    const int length = snprintf(NULL, 0, "%f", value);
 
     char *number = (char *)ntMalloc(sizeof(char) * (length + 1));
     assert(snprintf(number, length + 1, "%f", value) == length);
@@ -234,7 +235,7 @@ static const NT_STRING *f32ToString(NT_OBJECT *object)
 static const NT_STRING *f64ToString(NT_OBJECT *object)
 {
     const double value = *(double *)object;
-    const size_t length = snprintf(NULL, 0, "%lf", value);
+    const int length = snprintf(NULL, 0, "%lf", value);
 
     char *number = (char *)ntMalloc(sizeof(char) * (length + 1));
     assert(snprintf(number, length + 1, "%lf", value) == length);
@@ -261,7 +262,7 @@ char_t *ntDelegateTypeName(const NT_TYPE *returnType, size_t paramCount, const N
     NT_ARRAY array;
     ntInitArray(&array);
 
-    const char_t *const delegate = L"delegate(";
+    const char_t *const delegate = U"delegate(";
     ntArrayAdd(&array, delegate, ntStrLen(delegate));
     for (size_t i_param = 0; i_param < paramCount; ++i_param)
     {
@@ -409,4 +410,28 @@ const NT_TYPE *ntF64Type(void)
     if (F64_TYPE.typeName == NULL)
         F64_TYPE.typeName = ntCopyString(U"f64", 3 * sizeof(char_t));
     return &F64_TYPE;
+}
+
+static const NT_STRING *errorToString(NT_OBJECT *object)
+{
+    assert(object);
+    const char_t str[] = U"{ERROR TYPE}";
+    return ntCopyString(str, sizeof(str) / sizeof(char_t));
+}
+
+static NT_TYPE ERROR_TYPE = {
+    .objectType = NT_OBJECT_ERROR,
+    .typeName = NULL,
+    .free = freeNone,
+    .string = errorToString,
+    .equals = NULL,
+    .stackSize = 0,
+    .instanceSize = 0,
+};
+
+const NT_TYPE *ntErrorType(void)
+{
+    if (ERROR_TYPE.typeName == NULL)
+        ERROR_TYPE.typeName = ntCopyString(U"error", 3 * sizeof(char_t));
+    return &ERROR_TYPE;
 }
