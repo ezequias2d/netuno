@@ -1420,6 +1420,21 @@ static void logicalOr(NT_CODEGEN *codegen, const NT_NODE *node)
     const NT_TYPE *right = evalExprType(codegen, node->right);
     expression(codegen, node->right, true);
 
+    // logical not
+    switch (right->objectType)
+    {
+    case NT_OBJECT_I32:
+    case NT_OBJECT_U32:
+        break;
+    case NT_OBJECT_I64:
+    case NT_OBJECT_U64:
+        emit(codegen, node, BC_IS_NOT_ZERO_64);
+        push(codegen, node, ntU32Type());
+        break;
+    default:
+        errorAt(codegen, node, "Invalid argument cast to bool.");
+        break;
+    }
     ntInsertChunkVarint(codegen->chunk, trueBranch + 1, codegen->chunk->code.count - trueBranch);
     ntInsertChunkVarint(codegen->chunk, elseBranch + 1, elseLocation - elseBranch);
 }

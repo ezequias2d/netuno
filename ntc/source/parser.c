@@ -869,8 +869,6 @@ static NT_NODE *statement(NT_PARSER *parser, const bool returnValue)
 NT_NODE **ntParse(NT_PARSER *parser, uint32_t *pCount)
 {
     advance(parser);
-    const NT_TOKEN *token = &parser->previous;
-    uint32_t statementsCount = 0;
 
     uint32_t size = 64;
     uint32_t count = 0;
@@ -920,7 +918,7 @@ const char *ntGetKindLabel(NT_NODE_KIND kind)
 const char *ntGetClassLabel(NT_NODE_CLASS class)
 {
     assert(class >= 0 && class < NC_LAST);
-    return literals[class];
+    return classes[class];
 }
 
 const char *ntGetLiteralTypeLabel(NT_LITERAL_TYPE type)

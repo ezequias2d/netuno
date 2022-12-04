@@ -120,7 +120,6 @@ static void makeToken(const NT_SCANNER *scanner, NT_TK_TYPE type, NT_TOKEN *resu
         .lexemeLength = scanner->current,
         .line = scanner->line,
     };
-    int a = 0;
 }
 
 static void makeKeyword(const NT_SCANNER *scanner, NT_TK_ID id, NT_TOKEN *result)

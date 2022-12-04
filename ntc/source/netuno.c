@@ -37,7 +37,6 @@ size_t strlenT(const char_t *str)
 
 char *toChar(const char_t *str)
 {
-    const size_t len = strlenT(str) + 1;
     mbstate_t ps;
     memset(&ps, 0, sizeof(ps));
 
@@ -72,14 +71,6 @@ char *toCharS(const char_t *str, size_t len)
     s[size] = 0;
     return s;
 }
-
-static const NT_KEYWORD_PAIR KEYWORDS[] = {
-#define op(id, str) {str, id},
-#define keyword(id, str) {str, id},
-#include <keywords.inc>
-#undef op
-#undef keyword
-};
 
 NT_CHUNK *ntCompile(NT_ASSEMBLY *assembly, const char_t *str)
 {
@@ -131,7 +122,7 @@ void testNetuno(void)
 
     NT_SCANNER *scanner = ntScannerCreate(s);
 
-    NT_TOKEN token;
+    // NT_TOKEN token;
     NT_PARSER *parser = ntParserCreate(scanner);
 
     uint32_t count;
