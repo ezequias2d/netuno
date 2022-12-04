@@ -11,7 +11,7 @@ NT_GC *ntCreateGarbageCollector(void)
 
 void ntFreeGarbageCollector(NT_GC *gc)
 {
-    for (size_t i = 0; i < gc->objects.count; ++i)
+    for (size_t i = 0; i < gc->objects.count / sizeof(NT_OBJECT *); ++i)
     {
         NT_OBJECT *ptr;
         assert(ntArrayGet(&gc->objects, sizeof(NT_OBJECT *) * i, &ptr, sizeof(NT_OBJECT *)));
