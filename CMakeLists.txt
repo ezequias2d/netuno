@@ -3,12 +3,17 @@ project(netuno VERSION 0.1.0)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-add_compile_options($<$<CXX_COMPILER_ID:MSVC>:/MP>)
-
 if(MSVC)
-    add_compile_options(/W4 /WX)
+    add_compile_options(
+        /MP
+        $<$<CONFIG:DEBUG>:/W4>
+        $<$<CONFIG:DEBUG>:/WX>)
 else()
-    add_compile_options(-Wall -Wextra -pedantic -Werror)
+    add_compile_options(
+        $<$<CONFIG:DEBUG>:-Wall>
+        $<$<CONFIG:DEBUG>:-Wextra>
+        $<$<CONFIG:DEBUG>:-pedantic>
+        $<$<CONFIG:DEBUG>:-Werror>)
 endif()
 
 set(NT_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
