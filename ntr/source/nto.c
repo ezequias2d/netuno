@@ -2,8 +2,8 @@
 #include <netuno/memory.h>
 #include <netuno/nto.h>
 #include <netuno/str.h>
+#include <netuno/string.h>
 #include <netuno/varint.h>
-#include <string.h>
 
 NT_ASSEMBLY *ntCreateAssembly()
 {

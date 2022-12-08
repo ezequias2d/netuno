@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <netuno/memory.h>
+#include <netuno/string.h>
 #include <netuno/symbol.h>
 
 NT_SYMBOL_TABLE *ntCreateSymbolTable(NT_SYMBOL_TABLE *parent, NT_SYMBOL_TABLE_TYPE type,

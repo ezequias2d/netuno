@@ -2,8 +2,20 @@
 #include <assert.h>
 #include <netuno/memory.h>
 #include <netuno/object.h>
+#include <netuno/string.h>
 #include <stdarg.h>
 #include <stdio.h>
+
+static void addType(NT_CODEGEN *codegen, const NT_TYPE *type)
+{
+    NT_SYMBOL_ENTRY entry = {
+        .symbol_name = type->typeName,
+        .type = SYMBOL_TYPE_TYPE,
+        .data = 0,
+        .exprType = type,
+    };
+    ntInsertSymbol(codegen->scope, &entry);
+}
 
 NT_CODEGEN *ntCreateCodegen(NT_ASSEMBLY *assembly, NT_CHUNK *chunk)
 {
@@ -14,6 +26,14 @@ NT_CODEGEN *ntCreateCodegen(NT_ASSEMBLY *assembly, NT_CHUNK *chunk)
     codegen->stack = ntCreateVStack();
     codegen->had_error = false;
     codegen->assembly = assembly;
+
+    addType(codegen, ntI32Type());
+    addType(codegen, ntI64Type());
+    addType(codegen, ntU32Type());
+    addType(codegen, ntU64Type());
+    addType(codegen, ntF32Type());
+    addType(codegen, ntF64Type());
+    addType(codegen, ntStringType());
 
     return codegen;
 }
@@ -462,16 +482,44 @@ static const NT_TYPE *evalExprType(NT_CODEGEN *codegen, const NT_NODE *node)
             return NULL;
         }
     case NK_CALL: {
-        NT_SYMBOL_ENTRY se;
-        if (!findSymbol(codegen, node->token.lexeme, node->token.lexemeLength, &se))
+        switch (left->objectType)
         {
+        case NT_OBJECT_I32:
+        case NT_OBJECT_U32:
+        case NT_OBJECT_F32:
+        case NT_OBJECT_I64:
+        case NT_OBJECT_U64:
+        case NT_OBJECT_F64:
+        case NT_OBJECT_FUNCTION:
+            return left;
+        default: {
             char *str = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
             errorAt(codegen, node, "The function or method '%s' must be declareed.", str);
             ntFree(str);
             return NULL;
         }
-        return se.exprType;
+        }
+        break;
     }
+    case NK_VARIABLE: {
+        NT_SYMBOL_ENTRY entry;
+        if (!findSymbol(codegen, node->token.lexeme, node->token.lexemeLength, &entry))
+        {
+            errorAt(codegen, node, "The variable must be declared.");
+            break;
+        }
+        if (entry.type != SYMBOL_TYPE_VARIABLE && entry.type != SYMBOL_TYPE_CONSTANT &&
+            entry.type != SYMBOL_TYPE_PARAM && entry.type != SYMBOL_TYPE_TYPE)
+        {
+            char *str = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
+            errorAt(codegen, node, "The symbol '%s' is not a constant, parameter or variable!",
+                    str);
+            ntFree(str);
+            break;
+        }
+        return entry.exprType;
+    }
+    break;
     default:
         errorAt(codegen, node, "AST invalid format, node kind cannot be %s!",
                 ntGetKindLabel(node->type.kind));
@@ -721,6 +769,8 @@ static void cast(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *from, 
     case NT_OBJECT_I32:
         switch (to->objectType)
         {
+        case NT_OBJECT_I32:
+            break;
         case NT_OBJECT_I64:
         case NT_OBJECT_U64:
             emit(codegen, node, BC_EXTEND_I32);
@@ -731,6 +781,9 @@ static void cast(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *from, 
         case NT_OBJECT_F64:
             emit(codegen, node, BC_CONVERT_F64_I32);
             break;
+        case NT_OBJECT_STRING:
+            emit(codegen, node, BC_CONVERT_STR_I32);
+            break;
         default:
             goto error;
         }
@@ -738,6 +791,8 @@ static void cast(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *from, 
     case NT_OBJECT_U32:
         switch (to->objectType)
         {
+        case NT_OBJECT_U32:
+            break;
         case NT_OBJECT_I64:
         case NT_OBJECT_U64:
             emit(codegen, node, BC_EXTEND_U32);
@@ -748,6 +803,9 @@ static void cast(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *from, 
         case NT_OBJECT_F64:
             emit(codegen, node, BC_CONVERT_F64_U32);
             break;
+        case NT_OBJECT_STRING:
+            emit(codegen, node, BC_CONVERT_STR_U32);
+            break;
         default:
             goto error;
         }
@@ -755,6 +813,8 @@ static void cast(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *from, 
     case NT_OBJECT_I64:
         switch (to->objectType)
         {
+        case NT_OBJECT_I64:
+            break;
         case NT_OBJECT_I32:
         case NT_OBJECT_U32:
             emit(codegen, node, BC_WRAP_I64);
@@ -765,6 +825,9 @@ static void cast(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *from, 
         case NT_OBJECT_F64:
             emit(codegen, node, BC_CONVERT_F64_I64);
             break;
+        case NT_OBJECT_STRING:
+            emit(codegen, node, BC_CONVERT_STR_I64);
+            break;
         default:
             goto error;
         }
@@ -772,6 +835,8 @@ static void cast(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *from, 
     case NT_OBJECT_U64:
         switch (to->objectType)
         {
+        case NT_OBJECT_U64:
+            break;
         case NT_OBJECT_I32:
         case NT_OBJECT_U32:
             emit(codegen, node, BC_WRAP_I64);
@@ -782,6 +847,9 @@ static void cast(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *from, 
         case NT_OBJECT_F64:
             emit(codegen, node, BC_CONVERT_F64_U64);
             break;
+        case NT_OBJECT_STRING:
+            emit(codegen, node, BC_CONVERT_STR_U64);
+            break;
         default:
             goto error;
         }
@@ -789,6 +857,8 @@ static void cast(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *from, 
     case NT_OBJECT_F32:
         switch (to->objectType)
         {
+        case NT_OBJECT_F32:
+            break;
         case NT_OBJECT_I32:
             emit(codegen, node, BC_TRUNCATE_I32_F32);
             break;
@@ -804,6 +874,9 @@ static void cast(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *from, 
         case NT_OBJECT_F64:
             emit(codegen, node, BC_PROMOTE_F32);
             break;
+        case NT_OBJECT_STRING:
+            emit(codegen, node, BC_CONVERT_STR_F32);
+            break;
         default:
             goto error;
         }
@@ -811,6 +884,8 @@ static void cast(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *from, 
     case NT_OBJECT_F64:
         switch (to->objectType)
         {
+        case NT_OBJECT_F64:
+            break;
         case NT_OBJECT_I32:
             emit(codegen, node, BC_TRUNCATE_I32_F64);
             break;
@@ -825,6 +900,36 @@ static void cast(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *from, 
             break;
         case NT_OBJECT_F32:
             emit(codegen, node, BC_DEMOTE_F64);
+            break;
+        case NT_OBJECT_STRING:
+            emit(codegen, node, BC_CONVERT_STR_F64);
+            break;
+        default:
+            goto error;
+        }
+        break;
+    case NT_OBJECT_STRING:
+        switch (to->objectType)
+        {
+        case NT_OBJECT_STRING:
+            break;
+        case NT_OBJECT_I32:
+            emit(codegen, node, BC_CONVERT_I32_STR);
+            break;
+        case NT_OBJECT_U32:
+            emit(codegen, node, BC_CONVERT_U32_STR);
+            break;
+        case NT_OBJECT_I64:
+            emit(codegen, node, BC_CONVERT_I64_STR);
+            break;
+        case NT_OBJECT_U64:
+            emit(codegen, node, BC_CONVERT_U64_STR);
+            break;
+        case NT_OBJECT_F32:
+            emit(codegen, node, BC_CONVERT_F32_STR);
+            break;
+        case NT_OBJECT_F64:
+            emit(codegen, node, BC_CONVERT_F64_STR);
             break;
         default:
             goto error;
@@ -1290,7 +1395,7 @@ static void emitAssign32(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE
         va_end(vl);
     }
 
-    const uint32_t delta = codegen->stack->sp - entry.data;
+    const size_t delta = codegen->stack->sp - entry.data;
     emit(codegen, node, BC_STORE_SP_32);
     assert(ntWriteChunkVarint(codegen->chunk, delta, node->token.line));
     push(codegen, node, type);
@@ -1309,7 +1414,7 @@ static void emitAssign64(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE
         va_end(vl);
     }
 
-    const uint32_t delta = codegen->stack->sp - entry.data;
+    const size_t delta = codegen->stack->sp - entry.data;
     emit(codegen, node, BC_STORE_SP_64);
     assert(ntWriteChunkVarint(codegen->chunk, delta, node->token.line));
     push(codegen, node, type);
@@ -1473,16 +1578,60 @@ static void call(NT_CODEGEN *codegen, const NT_NODE *node, const bool needValue)
     assert(node);
     assert(node->type.class == NC_EXPR && node->type.kind == NK_CALL);
 
+    const NT_TOKEN *callName = &node->left->token;
     NT_SYMBOL_ENTRY entry;
-    if (!ntLookupSymbol(codegen->scope, node->token.lexeme, node->token.lexemeLength, &entry))
+    if (!ntLookupSymbol(codegen->scope, callName->lexeme, callName->lexemeLength, &entry))
     {
-        char *name = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
-        errorAt(codegen, node, "The function or subroutine '%s' must be declared.", name);
+        char *name = ntToCharFixed(callName->lexeme, callName->lexemeLength);
+        errorAt(codegen, node->left, "The function or subroutine '%s' must be declared.", name);
         ntFree(name);
         return;
     }
 
-    if (entry.type != SYMBOL_TYPE_FUNCTION && entry.type != SYMBOL_TYPE_SUBROUTINE)
+    if (callName->type == TK_KEYWORD && ntListLen(node->data) == 1)
+    {
+        // cast operator
+        const NT_NODE *expr = ntListGet(node->data, 0);
+        const NT_TYPE *exprType = evalExprType(codegen, expr);
+        const NT_TYPE *dstType;
+
+        expression(codegen, expr, true);
+
+        switch (callName->id)
+        {
+        case KW_I32:
+            dstType = ntI32Type();
+            break;
+        case KW_U32:
+            dstType = ntU32Type();
+            break;
+        case KW_F32:
+            dstType = ntI32Type();
+            break;
+        case KW_I64:
+            dstType = ntI32Type();
+            break;
+        case KW_U64:
+            dstType = ntU32Type();
+            break;
+        case KW_F64:
+            dstType = ntI32Type();
+            break;
+        case KW_STRING:
+            dstType = ntStringType();
+            break;
+        default: {
+            char *str = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
+            errorAt(codegen, node, "The keyword '%s' cannot be used to cast to.", str);
+            ntFree(str);
+            return;
+        }
+        }
+
+        cast(codegen, node, exprType, dstType);
+        return;
+    }
+    else if (entry.type != SYMBOL_TYPE_FUNCTION && entry.type != SYMBOL_TYPE_SUBROUTINE)
     {
         char *name = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
         errorAt(codegen, node, "A symbol '%s' is not a function or subroutine.", name);
@@ -1577,15 +1726,11 @@ static void printStatement(NT_CODEGEN *codegen, const NT_NODE *node)
     const NT_TYPE *leftType = evalExprType(codegen, node->left);
     expression(codegen, node->left, true);
 
-    if (leftType->objectType == NT_OBJECT_STRING)
-    {
-        pop(codegen, node, leftType);
-        emit(codegen, node, BC_PRINT);
-    }
-    else
-    {
-        errorAt(codegen, node, "Print need a string argument.");
-    }
+    if (leftType->objectType != NT_OBJECT_STRING)
+        cast(codegen, node, leftType, ntStringType());
+
+    pop(codegen, node, ntStringType());
+    emit(codegen, node, BC_PRINT);
 }
 
 static void subStatement(NT_CODEGEN *codegen, const NT_NODE *node);
@@ -1632,10 +1777,11 @@ static void statement(NT_CODEGEN *codegen, const NT_NODE *node, bool *hasReturn)
     //     *hasReturn = true;
     //     returnStatement(codegen, node);
     //     break;
-    default:
-        errorAt(codegen, node, "Invalid statment. The statement with kind = '%d' is invalid.",
-                node->type.kind);
+    default: {
+        const char *const label = ntGetKindLabel(node->type.kind);
+        errorAt(codegen, node, "Invalid statment. The statement with kind '%s' is invalid.", label);
         break;
+    }
     }
 }
 
@@ -1758,7 +1904,7 @@ static void defStatement(NT_CODEGEN *codegen, const NT_NODE *node)
 
 static void subStatement(NT_CODEGEN *codegen, const NT_NODE *node)
 {
-    ensureStmt(node, NK_DEF);
+    ensureStmt(node, NK_SUB);
     declareFunction(codegen, node, false);
 }
 

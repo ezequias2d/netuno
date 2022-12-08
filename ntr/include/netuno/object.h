@@ -58,20 +58,7 @@ const NT_STRING *ntToString(NT_OBJECT *object);
 bool ntEquals(NT_OBJECT *object1, NT_OBJECT *object2);
 const NT_STRING *ntConcat(NT_OBJECT *object1, NT_OBJECT *object2);
 
-struct _NT_STRING
-{
-    NT_OBJECT object;
-    size_t length;
-    char_t *chars;
-    uint32_t hash;
-};
 
-const NT_TYPE *ntStringType(void);
-const NT_STRING *ntCopyString(const char_t *chars, const size_t length);
-const NT_STRING *ntTakeString(char_t *chars, const size_t length);
-bool ntStrEquals(const char_t *str1, const char_t *str2);
-bool ntStrEqualsFixed(const char_t *str1, const size_t size1, const char_t *str2,
-                      const size_t size2);
 
 struct _NT_FUNCTION
 {

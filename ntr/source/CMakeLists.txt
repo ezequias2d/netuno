@@ -6,6 +6,7 @@ set(ROOT_SOURCES
     "debug.c"
     "symbol.c"
     "object.c"
+    "string.c"
     "str.c"
     "gc.c"
     "table.c"

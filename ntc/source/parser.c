@@ -3,9 +3,9 @@
 #include <assert.h>
 #include <netuno/memory.h>
 #include <netuno/str.h>
+#include <netuno/string.h>
 #include <stdarg.h>
 #include <stdio.h>
-#include <string.h>
 
 static NT_NODE *block(NT_PARSER *parser, NT_TK_ID end, const bool returnValue);
 static NT_NODE *statement(NT_PARSER *parser, const bool returnValue);
@@ -34,16 +34,14 @@ static void vErrorAt(NT_TOKEN token, const char *message, va_list args)
     const char *atEnd = (token.type == TK_EOF) ? " at end" : " at ";
     char *lexeme = "";
     bool freeLexeme = false;
-    if (token.type == TK_EOF)
+    if (token.type != TK_EOF)
     {
         lexeme = ntToCharFixed(token.lexeme, token.lexemeLength);
         freeLexeme = true;
     }
 
-    printf("[line %d] Error%s%s: %s", token.line, atEnd, lexeme, message);
-
+    printf("[line %d] Error%s%s: ", token.line, atEnd, lexeme);
     vprintf(message, args);
-
     printf("\n");
 
     if (freeLexeme)
@@ -327,6 +325,9 @@ static NT_NODE *primary(NT_PARSER *parser)
         return expr;
     }
 
+    if (match(parser, TK_KEYWORD))
+        return makeVariable(parser->previous);
+
     errorAt(parser->current, "Expect expression.");
     return makeNode(NC_NONE, NK_NONE, parser->current, NULL, NULL);
 }
@@ -570,7 +571,10 @@ static NT_NODE *functionDeclaration(NT_PARSER *parser, const bool returnValue)
 
     NT_NODE *returnType = NULL;
     if (!returnValue)
-        errorAtCurret(parser, "Expect a subroutine to have no return type.");
+    {
+        if (matchId(parser, TK_KEYWORD, ':'))
+            errorAtCurret(parser, "Expect a subroutine to have no return type.");
+    }
     else
     {
         consumeId(parser, TK_KEYWORD, ':', "A function expect a explicit type as return.");

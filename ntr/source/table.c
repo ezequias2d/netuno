@@ -1,4 +1,5 @@
 #include <netuno/memory.h>
+#include <netuno/string.h>
 #include <netuno/table.h>
 #include <string.h>
 

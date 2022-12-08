@@ -5,6 +5,7 @@
 #include <netuno/memory.h>
 #include <netuno/object.h>
 #include <netuno/str.h>
+#include <netuno/string.h>
 #include <netuno/vm.h>
 #include <stdio.h>
 
@@ -114,6 +115,20 @@ bool ntPop64(NT_VM *vm, uint64_t *value)
     return ntPop(vm, value, sizeof(uint64_t));
 }
 
+bool ntPopObject(NT_VM *vm, NT_OBJECT **object)
+{
+    uint32_t ref;
+    const bool result = ntPop32(vm, &ref);
+    *object = ntGetObject(vm->gc, ref);
+    return result;
+}
+
+bool ntPushObject(NT_VM *vm, NT_OBJECT *object)
+{
+    const uint32_t ref = ntAddObject(vm->gc, object);
+    return ntPush32(vm, ref);
+}
+
 static uint32_t readConst32(NT_VM *vm)
 {
     uint64_t constant;
@@ -134,7 +149,7 @@ static uint64_t readConst64(NT_VM *vm)
     return value;
 }
 
-static uint32_t readConstString(NT_VM *vm)
+static const NT_STRING *readConstString(NT_VM *vm)
 {
     uint64_t constant;
     vm->pc += ntReadVariant(vm->chunk, vm->pc, &constant);
@@ -149,7 +164,7 @@ static uint32_t readConstString(NT_VM *vm)
 
     const NT_STRING *str = ntTakeString(chars, length);
 
-    return ntAddObject(vm->gc, (NT_OBJECT *)str);
+    return str;
 }
 
 static void printHex(const uint8_t *data, const size_t size)
@@ -676,8 +691,9 @@ static NT_RESULT run(NT_VM *vm)
         switch (instruction = ntRead(vm->chunk, vm->pc++))
         {
         case BC_PRINT: {
-            assert(ntPop32(vm, &t32_1));
-            const NT_STRING *str = (NT_STRING *)ntGetObject(vm->gc, t32_1);
+            const NT_STRING *str;
+            result = ntPopObject(vm, (NT_OBJECT **)&str);
+            assert(result);
             char *s = ntToChar(str->chars);
             printf("%s\n", s);
             ntFree(s);
@@ -698,16 +714,16 @@ static NT_RESULT run(NT_VM *vm)
             assert(result);
             break;
         case BC_CONST_64:
-            t32_1 = readConst64(vm);
-            result = ntPush64(vm, t32_1);
+            t64_1 = readConst64(vm);
+            result = ntPush64(vm, t64_1);
             assert(result);
             break;
-        case BC_CONST_STRING:
-            t32_1 = readConstString(vm);
-            result = ntPush32(vm, t32_1);
+        case BC_CONST_STRING: {
+            const NT_STRING *str = readConstString(vm);
+            result = ntPushObject(vm, (NT_OBJECT *)str);
             assert(result);
             break;
-
+        }
         case BC_LOAD_SP_32:
             vm->pc += ntReadVariant(vm->chunk, vm->pc, &t64_1);
 
@@ -1310,6 +1326,114 @@ static NT_RESULT run(NT_VM *vm)
             result = ntPush64(vm, convertU64ToF64(t64_1));
             assert(result);
             break;
+        case BC_CONVERT_I32_STR: {
+            const NT_STRING *str;
+            result = ntPopObject(vm, (NT_OBJECT **)&str);
+            assert(result);
+            result = ntPush32(vm, ntStringToI32(str));
+            assert(result);
+            break;
+        }
+        case BC_CONVERT_U32_STR: {
+            const NT_STRING *str;
+            result = ntPopObject(vm, (NT_OBJECT **)&str);
+            assert(result);
+            result = ntPush32(vm, ntStringToU32(str));
+            assert(result);
+            break;
+        }
+        case BC_CONVERT_I64_STR: {
+            const NT_STRING *str;
+            result = ntPopObject(vm, (NT_OBJECT **)&str);
+            assert(result);
+            result = ntPush64(vm, ntStringToI64(str));
+            assert(result);
+            break;
+        }
+        case BC_CONVERT_U64_STR: {
+            const NT_STRING *str;
+            result = ntPopObject(vm, (NT_OBJECT **)&str);
+            assert(result);
+            result = ntPush64(vm, ntStringToU64(str));
+            assert(result);
+            break;
+        }
+        case BC_CONVERT_F32_STR: {
+            const NT_STRING *str;
+            result = ntPopObject(vm, (NT_OBJECT **)&str);
+            assert(result);
+            result = ntPush32(vm, ntStringToF32(str));
+            assert(result);
+            break;
+        }
+        case BC_CONVERT_F64_STR: {
+            const NT_STRING *str;
+            result = ntPopObject(vm, (NT_OBJECT **)&str);
+            assert(result);
+            result = ntPush64(vm, ntStringToF64(str));
+            assert(result);
+            break;
+        }
+        case BC_CONVERT_STR_I32: {
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+
+            const NT_TYPE *const type = ntI32Type();
+            const NT_STRING *const str = type->string((NT_OBJECT *)&t32_1);
+            result = ntPushObject(vm, (NT_OBJECT *)str);
+            assert(result);
+            break;
+        }
+        case BC_CONVERT_STR_U32: {
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+
+            const NT_TYPE *const type = ntU32Type();
+            const NT_STRING *const str = type->string((NT_OBJECT *)&t32_1);
+            result = ntPushObject(vm, (NT_OBJECT *)str);
+            assert(result);
+            break;
+        }
+        case BC_CONVERT_STR_I64: {
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+
+            const NT_TYPE *const type = ntI64Type();
+            const NT_STRING *const str = type->string((NT_OBJECT *)&t64_1);
+            result = ntPushObject(vm, (NT_OBJECT *)str);
+            assert(result);
+            break;
+        }
+        case BC_CONVERT_STR_U64: {
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+
+            const NT_TYPE *const type = ntU64Type();
+            const NT_STRING *const str = type->string((NT_OBJECT *)&t64_1);
+            result = ntPushObject(vm, (NT_OBJECT *)str);
+            assert(result);
+            break;
+        }
+        case BC_CONVERT_STR_F32: {
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+
+            const NT_TYPE *const type = ntF32Type();
+            const NT_STRING *const str = type->string((NT_OBJECT *)&t32_1);
+            result = ntPushObject(vm, (NT_OBJECT *)str);
+            assert(result);
+            break;
+        }
+        case BC_CONVERT_STR_F64: {
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+
+            const NT_TYPE *const type = ntF64Type();
+            const NT_STRING *const str = type->string((NT_OBJECT *)&t64_1);
+            result = ntPushObject(vm, (NT_OBJECT *)str);
+            assert(result);
+            break;
+        }
         case BC_TRUNCATE_I32_F32:
             result = ntPop32(vm, &t32_1);
             assert(result);

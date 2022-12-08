@@ -192,7 +192,7 @@ static void number(NT_SCANNER *scanner, NT_TOKEN *result)
         while (isDigit(peek(scanner)))
             advance(scanner);
 
-        if (peek(scanner) == 'f')
+        if (match(scanner, 'f'))
             type = TK_F32;
     }
     else
@@ -201,15 +201,21 @@ static void number(NT_SCANNER *scanner, NT_TOKEN *result)
         {
         case 'i':
             type = TK_I32;
+            advance(scanner);
             break;
         case 'u':
             if (peekNext(scanner) == 'l')
+            {
                 type = TK_U64;
+                advance(scanner);
+            }
             else
                 type = TK_U32;
+            advance(scanner);
             break;
         case 'l':
             type = TK_I64;
+            advance(scanner);
             break;
         }
     }

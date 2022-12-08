@@ -2,6 +2,7 @@
 #include <netuno/memory.h>
 #include <netuno/object.h>
 #include <netuno/str.h>
+#include <netuno/string.h>
 #include <netuno/table.h>
 #include <stdio.h>
 #include <string.h>
@@ -33,145 +34,6 @@ const NT_STRING *ntToString(NT_OBJECT *object)
 bool ntEquals(NT_OBJECT *object1, NT_OBJECT *object2)
 {
     return object1->type->equals(object1, object2);
-}
-
-static NT_TABLE stringTable = {.count = 0, .size = 0, .pEntries = NULL};
-
-static void freeString(NT_OBJECT *object)
-{
-    assert(object->type->objectType == NT_OBJECT_STRING);
-    NT_STRING *string = (NT_STRING *)object;
-    ntFree(string->chars);
-    string->chars = NULL;
-    string->length = 0;
-}
-
-static const NT_STRING *stringToString(NT_OBJECT *object)
-{
-    assert(object->type->objectType == NT_OBJECT_STRING);
-    object->refCount++;
-    return (const NT_STRING *)object;
-}
-
-static bool stringEquals(NT_OBJECT *_str1, NT_OBJECT *_str2)
-{
-    assert(_str1->type->objectType == NT_OBJECT_STRING);
-    assert(_str2->type->objectType == NT_OBJECT_STRING);
-    NT_STRING *str1 = (NT_STRING *)_str1;
-    NT_STRING *str2 = (NT_STRING *)_str2;
-
-    if (str1->hash != str2->hash)
-        return false;
-    if (str1->length != str2->length)
-        return false;
-    return ntStrEqualsFixed(str1->chars, str1->length * sizeof(char_t), str2->chars,
-                            str2->length * sizeof(char_t));
-}
-
-static NT_TYPE STRING_TYPE = {
-    .objectType = NT_OBJECT_STRING,
-    .typeName = NULL,
-    .free = freeString,
-    .string = stringToString,
-    .equals = stringEquals,
-    sizeof(uint32_t),
-    sizeof(NT_STRING),
-};
-
-const NT_TYPE *ntStringType(void)
-{
-    if (STRING_TYPE.typeName == NULL)
-        STRING_TYPE.typeName = ntCopyString(U"string", 6 * sizeof(char_t));
-    return &STRING_TYPE;
-}
-
-static NT_STRING *allocString(char_t *chars, const size_t length, const uint32_t hash)
-{
-    NT_STRING *string = (NT_STRING *)ntCreateObject(&STRING_TYPE);
-    string->chars = chars;
-    string->length = length;
-    string->hash = hash;
-    ntTableSet(&stringTable, string, NULL);
-    return string;
-}
-
-static uint32_t hashString(const char_t *chars, const size_t length)
-{
-    uint32_t hash = 2166136261u;
-    for (size_t i = 0; i < length; i++)
-    {
-        hash ^= chars[i];
-        hash *= 16777619;
-    }
-    return hash;
-}
-
-const NT_STRING *ntCopyString(const char_t *chars, const size_t length)
-{
-    const uint32_t hash = hashString(chars, length);
-
-    const NT_STRING *interned = ntTableFindString(&stringTable, chars, length, hash);
-    if (interned != NULL)
-        return interned;
-
-    char_t *copyChars = (char_t *)ntMalloc((length + 1) * sizeof(char_t));
-    ntMemcpy(copyChars, chars, length * sizeof(char_t));
-    copyChars[length] = '\0';
-
-    return allocString(copyChars, length, hash);
-}
-
-const NT_STRING *ntTakeString(char_t *chars, const size_t length)
-{
-    uint32_t hash = hashString(chars, length);
-    const NT_STRING *interned = ntTableFindString(&stringTable, chars, length, hash);
-    if (interned != NULL)
-    {
-        ntFree(chars);
-        return interned;
-    }
-
-    return allocString(chars, length, hash);
-}
-
-const NT_STRING *ntConcat(NT_OBJECT *object1, NT_OBJECT *object2)
-{
-    const NT_STRING *str1 = ntToString(object1);
-    const NT_STRING *str2 = ntToString(object2);
-
-    size_t length = str1->length + str2->length;
-    char_t *chars = (char_t *)ntMalloc(sizeof(char_t) * length);
-
-    ntMemcpy(chars, str1->chars, str1->length * sizeof(char_t));
-    ntMemcpy(chars + str1->length, str2->chars, str2->length * sizeof(char_t));
-
-    ntFreeObject((NT_OBJECT *)str1);
-    ntFreeObject((NT_OBJECT *)str2);
-
-    NT_STRING *result = (NT_STRING *)ntCreateObject(&STRING_TYPE);
-    result->chars = chars;
-    result->length = length;
-    return result;
-}
-
-bool ntStrEquals(const char_t *str1, const char_t *str2)
-{
-    for (size_t i = 0; str1[i] != '\0' || str2[i] != '\0'; ++i)
-        if (str1[i] != str2[i])
-            return false;
-    return true;
-}
-
-bool ntStrEqualsFixed(const char_t *str1, const size_t size1, const char_t *str2,
-                      const size_t size2)
-{
-    if (size1 != size2)
-        return false;
-
-    for (size_t i = 0; i < size1; ++i)
-        if (str1[i] != str2[i])
-            return false;
-    return true;
 }
 
 static void freeNone(NT_OBJECT *object)
@@ -323,7 +185,7 @@ static NT_TYPE I32_TYPE = {
 const NT_TYPE *ntI32Type(void)
 {
     if (I32_TYPE.typeName == NULL)
-        I32_TYPE.typeName = ntCopyString(U"i32", 3 * sizeof(char_t));
+        I32_TYPE.typeName = ntCopyString(U"int", 3);
     return &I32_TYPE;
 }
 
@@ -340,7 +202,7 @@ static NT_TYPE I64_TYPE = {
 const NT_TYPE *ntI64Type(void)
 {
     if (I64_TYPE.typeName == NULL)
-        I64_TYPE.typeName = ntCopyString(U"i64", 3 * sizeof(char_t));
+        I64_TYPE.typeName = ntCopyString(U"long", 4);
     return &I64_TYPE;
 }
 
@@ -357,7 +219,7 @@ static NT_TYPE U32_TYPE = {
 const NT_TYPE *ntU32Type(void)
 {
     if (U32_TYPE.typeName == NULL)
-        U32_TYPE.typeName = ntCopyString(U"u32", 3 * sizeof(char_t));
+        U32_TYPE.typeName = ntCopyString(U"uint", 4);
     return &U32_TYPE;
 }
 
@@ -374,7 +236,7 @@ static NT_TYPE U64_TYPE = {
 const NT_TYPE *ntU64Type(void)
 {
     if (U64_TYPE.typeName == NULL)
-        U64_TYPE.typeName = ntCopyString(U"u64", 3 * sizeof(char_t));
+        U64_TYPE.typeName = ntCopyString(U"ulong", 5);
     return &U64_TYPE;
 }
 
@@ -391,8 +253,8 @@ static NT_TYPE F32_TYPE = {
 const NT_TYPE *ntF32Type(void)
 {
     if (F32_TYPE.typeName == NULL)
-        F32_TYPE.typeName = ntCopyString(U"f32", 3 * sizeof(char_t));
-    return &U32_TYPE;
+        F32_TYPE.typeName = ntCopyString(U"float", 5);
+    return &F32_TYPE;
 }
 
 static NT_TYPE F64_TYPE = {
@@ -408,7 +270,7 @@ static NT_TYPE F64_TYPE = {
 const NT_TYPE *ntF64Type(void)
 {
     if (F64_TYPE.typeName == NULL)
-        F64_TYPE.typeName = ntCopyString(U"f64", 3 * sizeof(char_t));
+        F64_TYPE.typeName = ntCopyString(U"double", 6);
     return &F64_TYPE;
 }
 
@@ -432,6 +294,6 @@ static NT_TYPE ERROR_TYPE = {
 const NT_TYPE *ntErrorType(void)
 {
     if (ERROR_TYPE.typeName == NULL)
-        ERROR_TYPE.typeName = ntCopyString(U"error", 3 * sizeof(char_t));
+        ERROR_TYPE.typeName = ntCopyString(U"error", 3);
     return &ERROR_TYPE;
 }
