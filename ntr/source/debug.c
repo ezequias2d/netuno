@@ -15,7 +15,7 @@ void ntDisassembleChunk(const NT_CHUNK *chunk, const char *name)
 {
     printf("====== %s =====\n", name);
 
-    for (size_t i = 0; i < chunk->code.count;)
+    for (size_t i = 0; i < chunk->code.count; ++i)
         i = ntDisassembleInstruction(chunk, i);
 }
 
@@ -32,7 +32,8 @@ static size_t constant32Instruction(const char *name, const NT_CHUNK *chunk, con
     printf("%-16s %4ld '", name, constant);
 
     uint32_t value;
-    assert(ntArrayGetU32(&chunk->constants, constant, &value));
+    const size_t readed2 = ntArrayGetU32(&chunk->constants, constant, &value);
+    assert(readed2 == sizeof(uint32_t));
     printf("%4d\n", value);
 
     return readed + 1;
