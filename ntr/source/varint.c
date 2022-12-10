@@ -50,6 +50,7 @@ size_t ntDecodeVarint(const void *src, const size_t srcSize, uint64_t *value)
         bits += 7;
         count++;
     } while (moreBytes);
-    *value = result;
+    if (value)
+        *value = result;
     return count;
 }

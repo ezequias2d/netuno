@@ -685,6 +685,7 @@ static NT_RESULT run(NT_VM *vm)
         uint8_t instruction;
         uint64_t t64_1;
         uint64_t t64_2;
+        uint64_t t64_3;
         uint32_t t32_1;
         uint32_t t32_2;
         bool result;
@@ -699,6 +700,44 @@ static NT_RESULT run(NT_VM *vm)
             ntFree(s);
         }
         break;
+
+        case BC_BRANCH:
+            // t64_1 = offset between current instruction and target
+            // t64_2 = bytes used by offset in current instruction
+            // because current instruction is in PC - 1
+            // target offset is t64_1 + t64_2 - 1
+            // this is same for BRANCH_Z_32 and BRANCH_Z_64 instructions
+            t64_2 = ntReadVariant(vm->chunk, vm->pc, &t64_1);
+            vm->pc += t64_1 + t64_2 - 1;
+            break;
+        case BC_BRANCH_Z_32:
+            t64_2 = ntReadVariant(vm->chunk, vm->pc, &t64_1);
+            if (!ntPeek(vm, &t32_1, sizeof(uint32_t), 0))
+            {
+                printf("Empty stack!");
+                assert(false);
+                break;
+            }
+
+            if (t32_1 == 0)
+                vm->pc += t64_1 + t64_2 - 1;
+            else
+                vm->pc += t64_2;
+            break;
+        case BC_BRANCH_Z_64:
+            t64_2 = ntReadVariant(vm->chunk, vm->pc, &t64_1);
+            if (!ntPeek(vm, &t64_3, sizeof(uint32_t), vm->pc))
+            {
+                printf("Empty stack!");
+                assert(false);
+                break;
+            }
+
+            if (t64_3 == 0)
+                vm->pc += t64_1 + t64_2 - 1;
+            else
+                vm->pc += t64_2;
+            break;
 
         case BC_ZERO_32:
             result = ntPush32(vm, 0);
@@ -1752,6 +1791,14 @@ static NT_RESULT run(NT_VM *vm)
             result = ntPop64(vm, &t64_1);
             assert(result);
             result = ntPush64(vm, ctz64(t64_1));
+            assert(result);
+            break;
+        case BC_POP_32:
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            break;
+        case BC_POP_64:
+            result = ntPop64(vm, &t64_1);
             assert(result);
             break;
         case BC_POPCNT_I32:

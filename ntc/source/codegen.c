@@ -613,11 +613,11 @@ static void literal(NT_CODEGEN *codegen, const NT_NODE *node)
         {
         case KW_FALSE:
             emit(codegen, node, BC_ZERO_32);
-            push(codegen, node, ntU32Type());
+            push(codegen, node, ntI32Type());
             break;
         case KW_TRUE:
             emit(codegen, node, BC_ONE_32);
-            push(codegen, node, ntU32Type());
+            push(codegen, node, ntI32Type());
             break;
         default: {
             char *lexeme = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
@@ -1498,7 +1498,7 @@ static void typeToBool(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *
 static void logicalAnd(NT_CODEGEN *codegen, const NT_NODE *node)
 {
     // branch when left value is false
-    const size_t falseBranch = emit(codegen, node, BC_BRANCH_Z);
+    const size_t falseBranch = emit(codegen, node, BC_BRANCH_Z_32);
 
     // consume left 'true' value and check right value
     emitPop(codegen, node, ntU32Type());
@@ -1513,7 +1513,7 @@ static void logicalAnd(NT_CODEGEN *codegen, const NT_NODE *node)
 static void logicalOr(NT_CODEGEN *codegen, const NT_NODE *node)
 {
     // branch to right value when left value is false
-    const size_t elseBranch = emit(codegen, node, BC_BRANCH_Z);
+    const size_t elseBranch = emit(codegen, node, BC_BRANCH_Z_32);
 
     // branch to end, because left value is true
     const size_t trueBranch = emit(codegen, node, BC_BRANCH);
@@ -1733,7 +1733,94 @@ static void printStatement(NT_CODEGEN *codegen, const NT_NODE *node)
     emit(codegen, node, BC_PRINT);
 }
 
-static void subStatement(NT_CODEGEN *codegen, const NT_NODE *node);
+static void expressionStatement(NT_CODEGEN *codegen, const NT_NODE *node)
+{
+    assert(node->type.class == NC_STMT);
+    assert(node->type.kind == NK_EXPR);
+
+    const NT_TYPE *leftType = evalExprType(codegen, node->left);
+    expression(codegen, node->left, false);
+    emitPop(codegen, node, leftType);
+}
+
+static void statement(NT_CODEGEN *codegen, const NT_NODE *node, bool *hasReturn);
+
+static void ifStatement(NT_CODEGEN *codegen, const NT_NODE *node, bool *hasReturn)
+{
+    const bool hasElse = node->right != NULL;
+
+    // emit condition and branch
+    const NT_TYPE *conditionType = evalExprType(codegen, node->condition);
+    expression(codegen, node->condition, true);
+    size_t elseBranch = 0;
+    switch (conditionType->objectType)
+    {
+    case NT_OBJECT_I32:
+    case NT_OBJECT_U32:
+        elseBranch = emit(codegen, node, BC_BRANCH_Z_32);
+        break;
+    case NT_OBJECT_I64:
+    case NT_OBJECT_U64:
+        elseBranch = emit(codegen, node, BC_BRANCH_Z_64);
+        break;
+    default:
+        errorAt(codegen, node,
+                "Invalid expression, must evaluate to basic types like int, long, etc.");
+        break;
+    }
+
+    // if has else body, each body pops the condition from stack, otherwise, pop in end
+    if (hasElse)
+        emitPop(codegen, node, conditionType);
+
+    // emit then body
+    statement(codegen, node->left, hasReturn);
+
+    // start of else branch
+    size_t startElse = codegen->chunk->code.count;
+
+    // emit else body if exist
+    if (hasElse)
+    {
+        // push in vstack for else branch
+        push(codegen, node, conditionType);
+
+        // skip else body, when then body has taken
+        const size_t skipElse = emit(codegen, node, BC_BRANCH);
+        emitPop(codegen, node, conditionType);
+
+        // emit else body
+        statement(codegen, node->right, hasReturn);
+
+        // add offset as skipElse param
+        ntInsertChunkVarint(codegen->chunk, skipElse + 1, codegen->chunk->code.count - skipElse);
+
+        // increment startElse, to not skip skipElse branch.
+        startElse += 1 + ntReadVariant(codegen->chunk, skipElse + 1, NULL);
+    }
+    else
+    {
+        // pop condition when no has else
+        emitPop(codegen, node, conditionType);
+    }
+
+    const size_t delta = startElse - elseBranch;
+    ntInsertChunkVarint(codegen->chunk, elseBranch + 1, delta);
+}
+
+static void blockStatment(NT_CODEGEN *codegen, const NT_NODE *node, bool *hasReturn)
+{
+    assert(node->type.class == NC_STMT);
+    assert(node->type.kind == NK_BLOCK);
+
+    beginScope(codegen, STT_NONE);
+    for (size_t i = 0; i < ntListLen(node->data); ++i)
+    {
+        const NT_NODE *stmt = ntListGet(node->data, i);
+        statement(codegen, stmt, hasReturn);
+    }
+    endScope(codegen, node);
+}
 
 static void statement(NT_CODEGEN *codegen, const NT_NODE *node, bool *hasReturn)
 {
@@ -1749,15 +1836,15 @@ static void statement(NT_CODEGEN *codegen, const NT_NODE *node, bool *hasReturn)
     case NK_PRINT:
         printStatement(codegen, node);
         break;
-    // case NK_EXPR:
-    //     expressionStatement(codegen, node);
-    //     break;
-    // case NK_IF:
-    //     ifStatement(codegen, node, hasReturn);
-    //     break;
-    // case NK_BLOCK:
-    //     blockStatment(codegen, node, hasReturn);
-    //     break;
+    case NK_EXPR:
+        expressionStatement(codegen, node);
+        break;
+    case NK_IF:
+        ifStatement(codegen, node, hasReturn);
+        break;
+    case NK_BLOCK:
+        blockStatment(codegen, node, hasReturn);
+        break;
     // case NK_UNTIL:
     //     untilStatment(codegen, node, hasReturn);
     //     break;

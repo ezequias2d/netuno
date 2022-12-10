@@ -11,7 +11,8 @@ bytecode(PRINT)
 bytecode(CALL)
 
 bytecode(BRANCH)
-bytecode(BRANCH_Z)
+bytecode(BRANCH_Z_32)
+bytecode(BRANCH_Z_64)
 
 bytecode(POP)
 bytecode(POP_32)

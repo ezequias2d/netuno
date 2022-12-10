@@ -19,7 +19,7 @@ typedef struct _NT_VM
 {
     NT_CHUNK *chunk;
     NT_ASSEMBLY *assembly;
-    uint64_t pc;
+    size_t pc;
     uint8_t *stack;
     uint8_t *stackTop;
     bool stackOverflow;

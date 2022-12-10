@@ -3,10 +3,13 @@
 #include <netuno/nto.h>
 #include <netuno/vm.h>
 
-const char_t *str = L"def main() : int\n"
-                    L"print \"Hello World\"\n"
-                    L"return 0\n"
-                    L"end\n";
+const char_t *str = (char_t *)(L"sub main()\n"
+                               L"   if false\n"
+                               L"       print int(2.0f)\n"
+                               L"   else\n"
+                               L"       print 1\n"
+                               L"   next\n"
+                               L"end\n");
 int main()
 {
     NT_ASSEMBLY *assembly = ntCreateAssembly();
