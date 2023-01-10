@@ -1793,6 +1793,16 @@ static NT_RESULT run(NT_VM *vm)
             result = ntPush64(vm, ctz64(t64_1));
             assert(result);
             break;
+        case BC_POP:
+            vm->pc += ntReadVariant(vm->chunk, vm->pc, &t64_1);
+            t64_2 = 0;
+            if (t64_1 > 0)
+                do
+                {
+                    ntPop32(vm, &t32_1);
+                    t64_2++;
+                } while (t64_2 != t64_1);
+            break;
         case BC_POP_32:
             result = ntPop32(vm, &t32_1);
             assert(result);
