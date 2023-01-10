@@ -62,7 +62,10 @@ bool ntPush(NT_VM *vm, const void *data, const size_t dataSize)
 bool ntPeek(NT_VM *vm, void *data, const size_t dataSize, size_t offset)
 {
     const size_t available = vm->stackTop - vm->stack;
-    if (available < dataSize - offset)
+
+    if (available <= offset)
+        return false;
+    if (available - offset < dataSize)
         return false;
 
     ntMemcpy(data, vm->stackTop - dataSize - offset, dataSize);
@@ -72,7 +75,10 @@ bool ntPeek(NT_VM *vm, void *data, const size_t dataSize, size_t offset)
 static bool ntWriteSp(NT_VM *vm, const void *data, const size_t dataSize, size_t offset)
 {
     const size_t available = vm->stackTop - vm->stack;
-    if (available < dataSize - offset)
+
+    if (available <= offset)
+        return false;
+    if (available - offset < dataSize)
         return false;
 
     ntMemcpy(vm->stackTop - dataSize - offset, data, dataSize);
