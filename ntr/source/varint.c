@@ -54,3 +54,21 @@ size_t ntDecodeVarint(const void *src, const size_t srcSize, uint64_t *value)
         *value = result;
     return count;
 }
+
+size_t ntVarintEncodedSize(uint64_t n)
+{
+    const uint64_t s7 = 1 << 7;
+    const uint64_t s14 = 1 << 14;
+    const uint64_t s21 = 1 << 21;
+    const uint64_t s28 = 1 << 28;
+
+    if (n < s7)
+        return 1;
+    else if (n >= s7 && n < s14)
+        return 2;
+    else if (n >= s14 && n < s21)
+        return 3;
+    else if (n >= s21 && n < s28)
+        return 4;
+    return 5;
+}
