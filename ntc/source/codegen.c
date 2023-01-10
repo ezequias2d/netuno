@@ -1980,7 +1980,6 @@ static void declareFunction(NT_CODEGEN *codegen, const NT_NODE *node, const bool
 
     const NT_LIST params = node->data;
     const size_t paramCount = ntListLen(node->data);
-    size_t paramSize = 0;
 
     NT_ARRAY paramsArray;
     ntInitArray(&paramsArray);
@@ -2001,9 +2000,8 @@ static void declareFunction(NT_CODEGEN *codegen, const NT_NODE *node, const bool
             ntCopyString(paramNode->token.lexeme, paramNode->token.lexemeLength);
 
         addParam(codegen, paramName, type);
-        paramSize += type->stackSize;
 
-        NT_PARAM param = {
+        const NT_PARAM param = {
             .name = paramName,
             .type = type,
         };
