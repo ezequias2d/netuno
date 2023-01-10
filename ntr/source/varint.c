@@ -13,9 +13,9 @@ int64_t ZigZagDecoding(uint64_t n)
     return (int64_t)((n >> 1) ^ (-(n & 1)));
 }
 
-size_t ntEncodeVarint(void *dst, const size_t srcSize, const uint64_t value)
+size_t ntEncodeVarint(void *dst, const size_t dstSize, const uint64_t value)
 {
-    if (srcSize == 0)
+    if (dstSize == 0)
         return 0;
 
     uint64_t n = value;
@@ -28,8 +28,8 @@ size_t ntEncodeVarint(void *dst, const size_t srcSize, const uint64_t value)
         if (n > 0)
             coded |= 0x80;
         ((uint8_t *)dst)[i++] = coded;
-    } while (n != 0 && i < srcSize);
-    if (n != 0 && i >= srcSize)
+    } while (n != 0 && i < dstSize);
+    if (n != 0 && i >= dstSize)
         return 0;
 
     return i;
