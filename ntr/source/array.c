@@ -213,7 +213,7 @@ bool ntArrayFind(const NT_ARRAY *array, const void *data, const size_t dataSize,
     const uint8_t *pData = (uint8_t *)data;
 
     const uint8_t *pArrayMax = pArray + (array->count - dataSize);
-    const uint8_t *pDataMax = pArray + dataSize;
+    const uint8_t *pDataMax = pData + dataSize;
 
     for (const uint8_t *i = pArray; i < pArrayMax; ++i)
     {
