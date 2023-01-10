@@ -1362,8 +1362,8 @@ static void variable(NT_CODEGEN *codegen, const NT_NODE *node)
         return;
     }
 
-    const uint32_t delta = codegen->stack->sp - entry.data;
     const NT_TYPE *type = entry.exprType;
+    const uint32_t delta = codegen->stack->sp - entry.data - type->stackSize;
 
     switch (type->stackSize)
     {
@@ -1448,8 +1448,11 @@ static void assign(NT_CODEGEN *codegen, const NT_NODE *node)
     expression(codegen, node->right, true);
     pop(codegen, node, rightType);
 
+    const NT_NODE *identifier = node->left;
+    assert(identifier);
+
     NT_SYMBOL_ENTRY entry;
-    if (!findSymbol(codegen, node->token.lexeme, node->token.lexemeLength, &entry))
+    if (!findSymbol(codegen, identifier->token.lexeme, identifier->token.lexemeLength, &entry))
     {
         errorAt(codegen, node, "The variable must be declared.");
         return;

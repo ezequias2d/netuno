@@ -62,7 +62,7 @@ bool ntPush(NT_VM *vm, const void *data, const size_t dataSize)
 bool ntPeek(NT_VM *vm, void *data, const size_t dataSize, size_t offset)
 {
     const size_t available = vm->stackTop - vm->stack;
-    if (available < dataSize + offset)
+    if (available < dataSize - offset)
         return false;
 
     ntMemcpy(data, vm->stackTop - dataSize - offset, dataSize);
@@ -72,7 +72,7 @@ bool ntPeek(NT_VM *vm, void *data, const size_t dataSize, size_t offset)
 static bool ntWriteSp(NT_VM *vm, const void *data, const size_t dataSize, size_t offset)
 {
     const size_t available = vm->stackTop - vm->stack;
-    if (available < dataSize + offset)
+    if (available < dataSize - offset)
         return false;
 
     ntMemcpy(vm->stackTop - dataSize - offset, data, dataSize);
@@ -781,16 +781,16 @@ static NT_RESULT run(NT_VM *vm)
             break;
         case BC_STORE_SP_32:
             vm->pc += ntReadVariant(vm->chunk, vm->pc, &t64_1);
-            result = ntPop32(vm, &t32_1);
+            result = ntPeek(vm, &t32_1, sizeof(uint32_t), 0);
             assert(result);
             result = ntWriteSp(vm, &t32_1, sizeof(uint32_t), t64_1);
             assert(result);
             break;
         case BC_STORE_SP_64:
             vm->pc += ntReadVariant(vm->chunk, vm->pc, &t64_1);
-            result = ntPop64(vm, &t64_2);
+            result = ntPeek(vm, &t64_2, sizeof(uint64_t), 0);
             assert(result);
-            result = ntWriteSp(vm, &t64_2, sizeof(uint32_t), t64_1);
+            result = ntWriteSp(vm, &t64_2, sizeof(uint64_t), t64_1);
             assert(result);
             break;
 
