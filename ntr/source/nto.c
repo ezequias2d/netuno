@@ -5,7 +5,7 @@
 #include <netuno/string.h>
 #include <netuno/varint.h>
 
-NT_ASSEMBLY *ntCreateAssembly()
+NT_ASSEMBLY *ntCreateAssembly(void)
 {
     NT_ASSEMBLY *assembly = (NT_ASSEMBLY *)ntMalloc(sizeof(NT_ASSEMBLY));
     ntInitArray(&assembly->chunks);

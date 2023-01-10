@@ -6,7 +6,7 @@
 
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 
-NT_ARRAY *ntCreateArray()
+NT_ARRAY *ntCreateArray(void)
 {
     NT_ARRAY *array = (NT_ARRAY *)ntMalloc(sizeof(NT_ARRAY));
     ntInitArray(array);

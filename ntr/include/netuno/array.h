@@ -10,7 +10,7 @@ typedef struct _NT_ARRAY
     uint8_t *data;
 } NT_ARRAY;
 
-NT_ARRAY *ntCreateArray();
+NT_ARRAY *ntCreateArray(void);
 void ntInitArray(NT_ARRAY *array);
 void ntDeinitArray(NT_ARRAY *array);
 void ntFreeArray(NT_ARRAY *array);
