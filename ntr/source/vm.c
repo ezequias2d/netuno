@@ -1860,6 +1860,9 @@ static NT_RESULT run(NT_VM *vm)
 
         case BC_RETURN:
             return NT_OK;
+        default:
+            printf("Unsupported opcode %d.\n", instruction);
+            break;
         }
 
         if (vm->stackOverflow)
