@@ -1,8 +1,14 @@
 #include "codegen.h"
+#include "parser.h"
+#include "scanner.h"
 #include <assert.h>
 #include <netuno/memory.h>
+#include <netuno/nto.h>
 #include <netuno/object.h>
+#include <netuno/str.h>
 #include <netuno/string.h>
+#include <netuno/symbol.h>
+#include <netuno/varint.h>
 #include <stdarg.h>
 #include <stdio.h>
 
