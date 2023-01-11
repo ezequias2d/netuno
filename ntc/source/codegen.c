@@ -224,6 +224,8 @@ static size_t emitFixedPop(NT_CODEGEN *codegen, const NT_NODE *node, const size_
     if (popSize == 0)
         return 0;
 
+    assert(popSize % sizeof(uint32_t) == 0);
+
     int64_t rem = (int64_t)popSize;
     size_t sp = 0;
     while (rem > 0)
@@ -237,7 +239,7 @@ static size_t emitFixedPop(NT_CODEGEN *codegen, const NT_NODE *node, const size_
     assert(rem == 0);
 
     emit(codegen, node, BC_POP);
-    ntWriteChunkVarint(codegen->chunk, popSize, node->token.line);
+    ntWriteChunkVarint(codegen->chunk, popSize / sizeof(uint32_t), node->token.line);
     return sp;
 }
 
