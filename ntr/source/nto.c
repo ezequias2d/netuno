@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <netuno/array.h>
 #include <netuno/memory.h>
 #include <netuno/nto.h>
 #include <netuno/str.h>
@@ -155,13 +156,6 @@ void ntInsertChunkVarint(NT_CHUNK *chunk, const size_t offset, const uint64_t va
 size_t ntWriteChunkVarint(NT_CHUNK *chunk, const uint64_t value, const int64_t line)
 {
     size_t offset = ntArrayAddVarint(&chunk->code, value);
-    addLine(chunk, offset, line);
-    return offset;
-}
-
-size_t ntWriteChunkVarintSigned(NT_CHUNK *chunk, const int64_t value, const int64_t line)
-{
-    size_t offset = ntArrayAddVarint(&chunk->code, ZigZagEncoding(value));
     addLine(chunk, offset, line);
     return offset;
 }

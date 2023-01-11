@@ -47,7 +47,6 @@ void ntFreeChunk(NT_CHUNK *chunk);
 size_t ntWriteChunk(NT_CHUNK *chunk, const uint8_t value, const int64_t line);
 void ntInsertChunk(NT_CHUNK *chunk, const size_t offset, const void *data, const size_t length);
 void ntInsertChunkVarint(NT_CHUNK *chunk, const size_t offset, const uint64_t value);
-size_t ntWriteChunkVarintSigned(NT_CHUNK *chunk, const int64_t value, const int64_t line);
 size_t ntWriteChunkVarint(NT_CHUNK *chunk, const uint64_t value, const int64_t line);
 
 uint64_t ntAddConstant32(NT_CHUNK *chunk, const uint32_t value);
