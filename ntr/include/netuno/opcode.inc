@@ -13,6 +13,8 @@ bytecode(CALL)
 bytecode(BRANCH)
 bytecode(BRANCH_Z_32)
 bytecode(BRANCH_Z_64)
+bytecode(BRANCH_NZ_32)
+bytecode(BRANCH_NZ_64)
 
 bytecode(POP)
 bytecode(POP_32)

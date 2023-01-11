@@ -744,6 +744,34 @@ static NT_RESULT run(NT_VM *vm)
             else
                 vm->pc += t64_2;
             break;
+        case BC_BRANCH_NZ_32:
+            t64_2 = ntReadVariant(vm->chunk, vm->pc, &t64_1);
+            if (!ntPeek(vm, &t32_1, sizeof(uint32_t), 0))
+            {
+                printf("Empty stack!");
+                assert(false);
+                break;
+            }
+
+            if (t32_1 != 0)
+                vm->pc += t64_1 + t64_2 - 1;
+            else
+                vm->pc += t64_2;
+            break;
+        case BC_BRANCH_NZ_64:
+            t64_2 = ntReadVariant(vm->chunk, vm->pc, &t64_1);
+            if (!ntPeek(vm, &t64_3, sizeof(uint32_t), vm->pc))
+            {
+                printf("Empty stack!");
+                assert(false);
+                break;
+            }
+
+            if (t64_3 != 0)
+                vm->pc += t64_1 + t64_2 - 1;
+            else
+                vm->pc += t64_2;
+            break;
 
         case BC_ZERO_32:
             result = ntPush32(vm, 0);
