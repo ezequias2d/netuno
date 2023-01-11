@@ -1772,16 +1772,18 @@ static void expressionStatement(NT_CODEGEN *codegen, const NT_NODE *node)
 
 static void statement(NT_CODEGEN *codegen, const NT_NODE *node, bool *hasReturn);
 
-static size_t emitCondition(NT_CODEGEN *codegen, const NT_NODE *node, bool isZero)
+static size_t emitCondition(NT_CODEGEN *codegen, const NT_NODE *node, bool isZero,
+                            const NT_TYPE **pConditionType)
 {
     assert(codegen);
     assert(node);
+    assert(pConditionType);
 
     // emit condition and branch
-    const NT_TYPE *conditionType = evalExprType(codegen, node->condition);
+    *pConditionType = evalExprType(codegen, node->condition);
     expression(codegen, node->condition, true);
 
-    switch (conditionType->objectType)
+    switch ((*pConditionType)->objectType)
     {
     case NT_OBJECT_I32:
     case NT_OBJECT_U32:
@@ -1801,9 +1803,9 @@ static void ifStatement(NT_CODEGEN *codegen, const NT_NODE *node, bool *hasRetur
     const bool hasElse = node->right != NULL;
 
     // emit condition and branch
-    const NT_TYPE *conditionType = evalExprType(codegen, node->condition);
-    expression(codegen, node->condition, true);
-    const size_t elseBranch = emitCondition(codegen, node, true);
+    const NT_TYPE *conditionType;
+    const size_t elseBranch = emitCondition(codegen, node, true, &conditionType);
+    assert(conditionType);
 
     // if has else body, each body pops the condition from stack, otherwise, pop in end
     if (hasElse)
@@ -1862,13 +1864,16 @@ static void conditionalLoopStatement(NT_CODEGEN *codegen, const NT_NODE *node, b
                                      bool *hasReturn)
 {
     const size_t loopStart = codegen->chunk->code.count;
-    const NT_TYPE *conditionType = evalExprType(codegen, node->condition);
-    expression(codegen, node->condition, true);
 
-    const size_t exit = emitCondition(codegen, node, isZero);
+    // start
+    const NT_TYPE *conditionType;
+    const size_t exit = emitCondition(codegen, node, isZero, &conditionType);
+    assert(conditionType);
+
     emitPop(codegen, node, conditionType);
     statement(codegen, node->left, hasReturn);
 
+    // loop to start
     const size_t loopBranch = emit(codegen, node, BC_BRANCH);
     const size_t loopOffset = loopStart - loopBranch;
 
@@ -1879,13 +1884,18 @@ static void conditionalLoopStatement(NT_CODEGEN *codegen, const NT_NODE *node, b
 
     do
     {
-        correctedExitOffset = exitOffset + ntVarintEncodedSize(correctedLoopOffset);
-        correctedLoopOffset = loopOffset - ntVarintEncodedSize(correctedExitOffset);
-    } while (correctedExitOffset != exitOffset + ntVarintEncodedSize(correctedLoopOffset) ||
-             correctedLoopOffset != loopOffset - ntVarintEncodedSize(correctedExitOffset));
+        correctedExitOffset = exitOffset + ntVarintEncodedSize(ZigZagEncoding(correctedLoopOffset));
+        correctedLoopOffset = loopOffset - ntVarintEncodedSize(ZigZagEncoding(correctedExitOffset));
+    } while (correctedExitOffset !=
+                 exitOffset + ntVarintEncodedSize(ZigZagEncoding(correctedLoopOffset)) ||
+             correctedLoopOffset !=
+                 loopOffset - ntVarintEncodedSize(ZigZagEncoding(correctedExitOffset)));
 
     ntInsertChunkVarint(codegen->chunk, loopBranch + 1, correctedLoopOffset);
     ntInsertChunkVarint(codegen->chunk, exit + 1, correctedExitOffset);
+
+    // pop condition value from stach when false
+    push(codegen, node, conditionType);
     emitPop(codegen, node, conditionType);
 }
 
