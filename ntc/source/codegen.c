@@ -1885,11 +1885,14 @@ static void conditionalLoopStatement(NT_CODEGEN *codegen, const NT_NODE *node, b
     do
     {
         correctedExitOffset = exitOffset + ntVarintEncodedSize(ZigZagEncoding(correctedLoopOffset));
-        correctedLoopOffset = loopOffset - ntVarintEncodedSize(ZigZagEncoding(correctedExitOffset));
+        correctedLoopOffset = loopOffset -
+                              ntVarintEncodedSize(ZigZagEncoding(correctedExitOffset)) -
+                              ntVarintEncodedSize(ZigZagEncoding(correctedLoopOffset));
     } while (correctedExitOffset !=
                  exitOffset + ntVarintEncodedSize(ZigZagEncoding(correctedLoopOffset)) ||
-             correctedLoopOffset !=
-                 loopOffset - ntVarintEncodedSize(ZigZagEncoding(correctedExitOffset)));
+             correctedLoopOffset != loopOffset -
+                                        ntVarintEncodedSize(ZigZagEncoding(correctedExitOffset)) -
+                                        ntVarintEncodedSize(ZigZagEncoding(correctedLoopOffset)));
 
     ntInsertChunkVarint(codegen->chunk, loopBranch + 1, correctedLoopOffset);
     ntInsertChunkVarint(codegen->chunk, exit + 1, correctedExitOffset);
