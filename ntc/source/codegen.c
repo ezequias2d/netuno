@@ -317,6 +317,7 @@ static const NT_TYPE *findType(NT_CODEGEN *codegen, const NT_NODE *typeNode)
         {
         case KW_TRUE:
         case KW_FALSE:
+            return ntBoolType();
         case KW_I32:
             return ntI32Type();
         case KW_I64:
@@ -392,7 +393,7 @@ static const NT_TYPE *evalExprType(NT_CODEGEN *codegen, const NT_NODE *node)
         {
         case LT_BOOL:
             assert(node->token.type == TK_KEYWORD);
-            return ntI32Type();
+            return ntBoolType();
         case LT_NONE:
             return ntI32Type();
         case LT_STRING:
@@ -422,7 +423,7 @@ static const NT_TYPE *evalExprType(NT_CODEGEN *codegen, const NT_NODE *node)
         case OP_INC:
             return left == NULL ? right : left;
         case '!':
-            return ntI32Type();
+            return ntBoolType();
         case '~':
             if (right->objectType == NT_OBJECT_I32 || right->objectType == NT_OBJECT_I64 ||
                 right->objectType == NT_OBJECT_U32 || right->objectType == NT_OBJECT_U64)
@@ -446,7 +447,7 @@ static const NT_TYPE *evalExprType(NT_CODEGEN *codegen, const NT_NODE *node)
         case OP_GE:
         case '<':
         case OP_LE:
-            return ntI32Type();
+            return ntBoolType();
         case '+':
         case '-':
         case '*':
@@ -478,7 +479,7 @@ static const NT_TYPE *evalExprType(NT_CODEGEN *codegen, const NT_NODE *node)
         {
         case OP_LOGOR:
         case OP_LOGAND:
-            return ntI32Type();
+            return ntBoolType();
         default:
             errorAt(codegen, node, "Invalid logical operation. %d", node->token.id);
             return NULL;
@@ -615,11 +616,11 @@ static void literal(NT_CODEGEN *codegen, const NT_NODE *node)
         {
         case KW_FALSE:
             emit(codegen, node, BC_ZERO_32);
-            push(codegen, node, ntI32Type());
+            push(codegen, node, ntBoolType());
             break;
         case KW_TRUE:
             emit(codegen, node, BC_ONE_32);
-            push(codegen, node, ntI32Type());
+            push(codegen, node, ntBoolType());
             break;
         default: {
             char *lexeme = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
@@ -712,12 +713,12 @@ static void unary(NT_CODEGEN *codegen, const NT_NODE *node)
         case NT_OBJECT_I32:
         case NT_OBJECT_U32:
             emit(codegen, node, BC_IS_ZERO_32);
-            push(codegen, node, ntU32Type());
+            push(codegen, node, ntBoolType());
             break;
         case NT_OBJECT_I64:
         case NT_OBJECT_U64:
             emit(codegen, node, BC_IS_ZERO_64);
-            push(codegen, node, ntU32Type());
+            push(codegen, node, ntBoolType());
             break;
         default: {
             char *str = ntToChar(type->typeName->chars);
@@ -1000,7 +1001,7 @@ static void binary(NT_CODEGEN *codegen, const NT_NODE *node)
             break;
         }
         }
-        push(codegen, node, ntU32Type());
+        push(codegen, node, ntBoolType());
         break;
     case OP_EQ:
         switch (type->objectType)
@@ -1026,7 +1027,7 @@ static void binary(NT_CODEGEN *codegen, const NT_NODE *node)
             break;
         }
         }
-        push(codegen, node, ntU32Type());
+        push(codegen, node, ntBoolType());
         break;
     case '>':
         switch (type->objectType)
@@ -1056,7 +1057,7 @@ static void binary(NT_CODEGEN *codegen, const NT_NODE *node)
             break;
         }
         }
-        push(codegen, node, ntU32Type());
+        push(codegen, node, ntBoolType());
         break;
     case OP_GE:
         switch (type->objectType)
@@ -1086,7 +1087,7 @@ static void binary(NT_CODEGEN *codegen, const NT_NODE *node)
             break;
         }
         }
-        push(codegen, node, ntU32Type());
+        push(codegen, node, ntBoolType());
         break;
     case '<':
         switch (type->objectType)
@@ -1116,7 +1117,7 @@ static void binary(NT_CODEGEN *codegen, const NT_NODE *node)
             break;
         }
         }
-        push(codegen, node, ntU32Type());
+        push(codegen, node, ntBoolType());
         break;
     case OP_LE:
         switch (type->objectType)
@@ -1146,7 +1147,7 @@ static void binary(NT_CODEGEN *codegen, const NT_NODE *node)
             break;
         }
         }
-        push(codegen, node, ntU32Type());
+        push(codegen, node, ntBoolType());
         break;
 
     case '+':
@@ -1497,7 +1498,7 @@ static void typeToBool(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *
     }
     }
     pop(codegen, node, type);
-    push(codegen, node, ntU32Type());
+    push(codegen, node, ntBoolType());
 }
 
 static void logicalAnd(NT_CODEGEN *codegen, const NT_NODE *node)
@@ -1506,7 +1507,7 @@ static void logicalAnd(NT_CODEGEN *codegen, const NT_NODE *node)
     const size_t falseBranch = emit(codegen, node, BC_BRANCH_Z_32);
 
     // consume left 'true' value and check right value
-    emitPop(codegen, node, ntU32Type());
+    emitPop(codegen, node, ntBoolType());
 
     const NT_TYPE *right = evalExprType(codegen, node->right);
     expression(codegen, node->right, true);
@@ -1524,7 +1525,7 @@ static void logicalOr(NT_CODEGEN *codegen, const NT_NODE *node)
     const size_t trueBranch = emit(codegen, node, BC_BRANCH);
 
     // consume left 'false' value
-    const size_t elseLocation = emitPop(codegen, node, ntI32Type());
+    const size_t elseLocation = emitPop(codegen, node, ntBoolType());
 
     // eval right
     const NT_TYPE *right = evalExprType(codegen, node->right);
@@ -1539,7 +1540,7 @@ static void logicalOr(NT_CODEGEN *codegen, const NT_NODE *node)
     case NT_OBJECT_I64:
     case NT_OBJECT_U64:
         emit(codegen, node, BC_IS_NOT_ZERO_64);
-        push(codegen, node, ntU32Type());
+        push(codegen, node, ntBoolType());
         break;
     default:
         errorAt(codegen, node, "Invalid argument cast to bool.");
