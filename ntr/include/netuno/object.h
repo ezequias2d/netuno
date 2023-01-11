@@ -93,6 +93,7 @@ char_t *ntDelegateTypeName(const NT_TYPE *returnType, size_t paramCount, const N
 NT_TYPE *ntCreateDelegateType(const NT_STRING *name, const NT_TYPE *returnType, size_t paramCount,
                               const NT_PARAM *params);
 
+const NT_TYPE *ntBoolType(void);
 const NT_TYPE *ntI32Type(void);
 const NT_TYPE *ntI64Type(void);
 const NT_TYPE *ntU32Type(void);

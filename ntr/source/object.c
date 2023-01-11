@@ -189,6 +189,11 @@ const NT_TYPE *ntI32Type(void)
     return &I32_TYPE;
 }
 
+const NT_TYPE *ntBoolType(void)
+{
+    return ntI32Type();
+}
+
 static NT_TYPE I64_TYPE = {
     .objectType = NT_OBJECT_I64,
     .typeName = NULL,
