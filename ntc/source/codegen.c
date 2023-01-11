@@ -529,6 +529,21 @@ static const NT_TYPE *evalExprType(NT_CODEGEN *codegen, const NT_NODE *node)
         return entry.exprType;
     }
     break;
+    case NK_ASSIGN: {
+        if (left != right)
+        {
+            char *leftName = ntToCharFixed(left->typeName->chars, left->typeName->length);
+            char *rightName = ntToCharFixed(right->typeName->chars, right->typeName->length);
+            errorAt(codegen, node,
+                    "Invalid type, variable is of type %s, but the value expression to assign is "
+                    "%s.",
+                    leftName, rightName);
+            ntFree(leftName);
+            ntFree(rightName);
+        }
+        return left;
+    }
+    break;
     default:
         errorAt(codegen, node, "AST invalid format, node kind cannot be %s!",
                 ntGetKindLabel(node->type.kind));
