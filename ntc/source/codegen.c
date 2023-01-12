@@ -2077,7 +2077,8 @@ static void declareFunction(NT_CODEGEN *codegen, const NT_NODE *node, const bool
         if (!hasReturn)
         {
             char *lname = ntToCharFixed(name, nameLen);
-            errorAt(codegen, node, "Function '%s' doesn't  return a value on all code paths.");
+            errorAt(codegen, node, "Function '%s' doesn't  return a value on all code paths.",
+                    lname);
             ntFree(lname);
 
             while (codegen->scope->type != STT_FUNCTION && codegen->scope->type != STT_METHOD)
