@@ -215,12 +215,12 @@ bool ntArrayFind(const NT_ARRAY *array, const void *data, const size_t dataSize,
     const uint8_t *pArrayMax = pArray + (array->count - dataSize);
     const uint8_t *pDataMax = pData + dataSize;
 
-    for (const uint8_t *i = pArray; i < pArrayMax; ++i)
+    for (const uint8_t *i = pArray; i <= pArrayMax; ++i)
     {
         bool find = true;
-        for (const uint8_t *j = pData; j < pDataMax; ++j)
+        for (const uint8_t *j = pData, *k = i; j < pDataMax && k <= pArrayMax + dataSize; ++j, ++k)
         {
-            if (*i != *j)
+            if (*k != *j)
             {
                 find = false;
                 break;
