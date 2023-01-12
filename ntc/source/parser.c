@@ -821,10 +821,10 @@ static NT_NODE *untilStatement(NT_PARSER *parser, const bool returnValue)
     NT_NODE *condition = expression(parser);
 
     NT_NODE *body = NULL;
-    if (matchId(parser, TK_KEYWORD, '{'))
-        body = block(parser, KW_NEXT, returnValue);
-    else
+    if (matchId(parser, TK_KEYWORD, KW_ARROW))
         body = statement(parser, returnValue);
+    else
+        body = block(parser, KW_NEXT, returnValue);
 
     return makeUntil(token, condition, body);
 }
