@@ -30,8 +30,9 @@ bool ntLookupSymbol(NT_SYMBOL_TABLE *symbolTable, const char_t *symbolName,
     for (size_t i = 0; i < symbolTable->table->count; i += sizeof(NT_SYMBOL_ENTRY))
     {
         NT_SYMBOL_ENTRY current;
-        assert(ntArrayGet(symbolTable->table, i, &current, sizeof(NT_SYMBOL_ENTRY)) ==
-               sizeof(NT_SYMBOL_ENTRY));
+        const bool result = ntArrayGet(symbolTable->table, i, &current, sizeof(NT_SYMBOL_ENTRY)) ==
+                            sizeof(NT_SYMBOL_ENTRY);
+        assert(result);
         if (ntStrEqualsFixed(current.symbol_name->chars, current.symbol_name->length, symbolName,
                              symbolNameLen))
         {

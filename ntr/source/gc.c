@@ -14,7 +14,9 @@ void ntFreeGarbageCollector(NT_GC *gc)
     for (size_t i = 0; i < gc->objects.count / sizeof(NT_OBJECT *); ++i)
     {
         NT_OBJECT *ptr;
-        assert(ntArrayGet(&gc->objects, sizeof(NT_OBJECT *) * i, &ptr, sizeof(NT_OBJECT *)));
+        const size_t size =
+            ntArrayGet(&gc->objects, sizeof(NT_OBJECT *) * i, &ptr, sizeof(NT_OBJECT *));
+        assert(size);
         ptr->refCount = 1;
         ntFreeObject(ptr);
     }

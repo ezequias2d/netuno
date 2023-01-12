@@ -163,7 +163,9 @@ size_t ntWriteChunkVarint(NT_CHUNK *chunk, const uint64_t value, const int64_t l
 uint8_t ntRead(const NT_CHUNK *chunk, const size_t offset)
 {
     uint8_t value;
-    assert(ntArrayGet(&chunk->code, offset, &value, sizeof(uint8_t)) == sizeof(uint8_t));
+    const bool result =
+        ntArrayGet(&chunk->code, offset, &value, sizeof(uint8_t)) == sizeof(uint8_t);
+    assert(result);
     return value;
 }
 

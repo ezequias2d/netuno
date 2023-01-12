@@ -141,7 +141,8 @@ static uint32_t readConst32(NT_VM *vm)
     vm->pc += ntReadVariant(vm->chunk, vm->pc, &constant);
 
     uint32_t value;
-    assert(ntArrayGetU32(&vm->chunk->constants, constant, &value));
+    const size_t size = ntArrayGetU32(&vm->chunk->constants, constant, &value);
+    assert(size);
     return value;
 }
 
@@ -151,7 +152,8 @@ static uint64_t readConst64(NT_VM *vm)
     vm->pc += ntReadVariant(vm->chunk, vm->pc, &constant);
 
     uint64_t value;
-    assert(ntArrayGetU64(&vm->chunk->constants, constant, &value));
+    const size_t size = ntArrayGetU64(&vm->chunk->constants, constant, &value);
+    assert(size);
     return value;
 }
 

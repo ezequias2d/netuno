@@ -87,7 +87,8 @@ static const NT_STRING *f32ToString(NT_OBJECT *object)
     const int length = snprintf(NULL, 0, "%f", value);
 
     char *number = (char *)ntMalloc(sizeof(char) * (length + 1));
-    assert(snprintf(number, length + 1, "%f", value) == length);
+    const bool result = snprintf(number, length + 1, "%f", value) == length;
+    assert(result);
     char_t *chars = ntToCharTFixed(number, length);
     ntFree(number);
 
@@ -100,7 +101,8 @@ static const NT_STRING *f64ToString(NT_OBJECT *object)
     const int length = snprintf(NULL, 0, "%lf", value);
 
     char *number = (char *)ntMalloc(sizeof(char) * (length + 1));
-    assert(snprintf(number, length + 1, "%lf", value) == length);
+    const bool result = snprintf(number, length + 1, "%lf", value) == length;
+    assert(result);
     char_t *chars = ntToCharTFixed(number, length);
     ntFree(number);
 

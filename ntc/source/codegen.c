@@ -286,7 +286,8 @@ static void addLocal(NT_CODEGEN *codegen, const NT_STRING *name, const NT_TYPE *
         .data = codegen->stack->sp - type->stackSize,
         .exprType = type,
     };
-    assert(ntInsertSymbol(codegen->scope, &entry));
+    const bool result = ntInsertSymbol(codegen->scope, &entry);
+    assert(result);
 }
 
 static void addParam(NT_CODEGEN *codegen, const NT_STRING *name, const NT_TYPE *type)
@@ -297,7 +298,8 @@ static void addParam(NT_CODEGEN *codegen, const NT_STRING *name, const NT_TYPE *
         .data = codegen->stack->sp - type->stackSize,
         .exprType = type,
     };
-    assert(ntInsertSymbol(codegen->scope, &entry));
+    const bool result = ntInsertSymbol(codegen->scope, &entry);
+    assert(result);
 }
 
 static void addSymbol(NT_CODEGEN *codegen, const NT_STRING *name, NT_SYMBOL_TYPE symbolType,
@@ -309,7 +311,8 @@ static void addSymbol(NT_CODEGEN *codegen, const NT_STRING *name, NT_SYMBOL_TYPE
         .data = data,
         .exprType = type,
     };
-    assert(ntInsertSymbol(codegen->scope, &entry));
+    const bool result = ntInsertSymbol(codegen->scope, &entry);
+    assert(result);
 }
 
 static const NT_TYPE *findType(NT_CODEGEN *codegen, const NT_NODE *typeNode)
