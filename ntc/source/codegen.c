@@ -1406,9 +1406,8 @@ static void variable(NT_CODEGEN *codegen, const NT_NODE *node)
     push(codegen, node, entry.exprType);
 }
 
-static void emitAssign32(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *type,
-                         const char_t *variableName, size_t variableNameLen, const char *message,
-                         ...)
+static void emitAssign32(NT_CODEGEN *codegen, const NT_NODE *node, const char_t *variableName,
+                         size_t variableNameLen, const char *message, ...)
 {
     NT_SYMBOL_ENTRY entry;
     if (!ntLookupSymbol(codegen->scope, variableName, variableNameLen, &entry))
@@ -1421,13 +1420,12 @@ static void emitAssign32(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE
 
     const size_t delta = codegen->stack->sp - entry.data;
     emit(codegen, node, BC_STORE_SP_32);
-    assert(ntWriteChunkVarint(codegen->chunk, delta, node->token.line));
-    push(codegen, node, type);
+    const size_t offset = ntWriteChunkVarint(codegen->chunk, delta, node->token.line);
+    assert(offset);
 }
 
-static void emitAssign64(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *type,
-                         const char_t *variableName, size_t variableNameLen, const char *message,
-                         ...)
+static void emitAssign64(NT_CODEGEN *codegen, const NT_NODE *node, const char_t *variableName,
+                         size_t variableNameLen, const char *message, ...)
 {
     NT_SYMBOL_ENTRY entry;
     if (!ntLookupSymbol(codegen->scope, variableName, variableNameLen, &entry))
@@ -1440,8 +1438,8 @@ static void emitAssign64(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE
 
     const size_t delta = codegen->stack->sp - entry.data;
     emit(codegen, node, BC_STORE_SP_64);
-    assert(ntWriteChunkVarint(codegen->chunk, delta, node->token.line));
-    push(codegen, node, type);
+    const size_t offset = ntWriteChunkVarint(codegen->chunk, delta, node->token.line);
+    assert(offset);
 }
 
 static void emitAssign(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *type,
@@ -1450,10 +1448,10 @@ static void emitAssign(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *
     switch (type->stackSize)
     {
     case sizeof(uint32_t):
-        emitAssign32(codegen, node, type, variableName, variableNameLen, message);
+        emitAssign32(codegen, node, variableName, variableNameLen, message);
         break;
     case sizeof(uint64_t):
-        emitAssign64(codegen, node, type, variableName, variableNameLen, message);
+        emitAssign64(codegen, node, variableName, variableNameLen, message);
         break;
     default:
         errorAt(codegen, node, "INTERNAL ERROR: Invalid objectType field! %d", type->objectType);
@@ -1470,7 +1468,6 @@ static void assign(NT_CODEGEN *codegen, const NT_NODE *node)
 
     const NT_TYPE *rightType = evalExprType(codegen, node->right);
     expression(codegen, node->right, true);
-    pop(codegen, node, rightType);
 
     const NT_NODE *identifier = node->left;
     assert(identifier);
