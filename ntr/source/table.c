@@ -6,7 +6,7 @@
 #define TABLE_MAX_LOAD 0.75
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 
-NT_TABLE *ntCreateTable()
+NT_TABLE *ntCreateTable(void)
 {
     NT_TABLE *table = ntMalloc(sizeof(NT_TABLE));
     ntInitTable(table);

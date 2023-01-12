@@ -19,7 +19,7 @@ typedef struct _NT_TABLE
 
 typedef void (*tableCallback)(const NT_STRING *key, void *value, void *userdata);
 
-NT_TABLE *ntCreateTable();
+NT_TABLE *ntCreateTable(void);
 void ntInitTable(NT_TABLE *table);
 void ntDeinitTable(NT_TABLE *table);
 void ntFreeTable(NT_TABLE *table);
