@@ -27,12 +27,13 @@ void ntFreeGarbageCollector(NT_GC *gc)
 
 static int64_t ntFindObject(const NT_GC *gc, const NT_OBJECT *object)
 {
-    NT_OBJECT *ptr;
-    for (size_t offset = 0; offset < gc->objects.count;
-         offset += ntArrayGet(&gc->objects, offset, &ptr, sizeof(NT_OBJECT *)))
+    NT_OBJECT *ptr = NULL;
+    for (size_t offset = 0; offset < gc->objects.count;)
     {
+        const size_t inc = ntArrayGet(&gc->objects, offset, &ptr, sizeof(NT_OBJECT *));
         if (ptr == object)
             return offset / sizeof(NT_OBJECT *);
+        offset += inc;
     }
     return -1;
 }
