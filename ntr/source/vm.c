@@ -704,7 +704,7 @@ static NT_RESULT run(NT_VM *vm)
             result = ntPopObject(vm, (NT_OBJECT **)&str);
             assert(result);
             char *s = ntToChar(str->chars);
-            printf("%s\n", s);
+            printf("%s", s);
             ntFree(s);
         }
         break;
