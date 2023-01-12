@@ -280,10 +280,10 @@ static void endScope(NT_CODEGEN *codegen, const NT_NODE *node)
 static void addLocal(NT_CODEGEN *codegen, const NT_STRING *name, const NT_TYPE *type)
 {
     // TODO: check type in vstack
-    NT_SYMBOL_ENTRY entry = {
+    const NT_SYMBOL_ENTRY entry = {
         .symbol_name = name,
         .type = SYMBOL_TYPE_VARIABLE,
-        .data = codegen->stack->sp - type->stackSize,
+        .data = codegen->stack->sp,
         .exprType = type,
     };
     const bool result = ntInsertSymbol(codegen->scope, &entry);
@@ -292,10 +292,10 @@ static void addLocal(NT_CODEGEN *codegen, const NT_STRING *name, const NT_TYPE *
 
 static void addParam(NT_CODEGEN *codegen, const NT_STRING *name, const NT_TYPE *type)
 {
-    NT_SYMBOL_ENTRY entry = {
+    const NT_SYMBOL_ENTRY entry = {
         .symbol_name = name,
         .type = SYMBOL_TYPE_PARAM,
-        .data = codegen->stack->sp - type->stackSize,
+        .data = codegen->stack->sp,
         .exprType = type,
     };
     const bool result = ntInsertSymbol(codegen->scope, &entry);
@@ -305,7 +305,7 @@ static void addParam(NT_CODEGEN *codegen, const NT_STRING *name, const NT_TYPE *
 static void addSymbol(NT_CODEGEN *codegen, const NT_STRING *name, NT_SYMBOL_TYPE symbolType,
                       const NT_TYPE *type, size_t data)
 {
-    NT_SYMBOL_ENTRY entry = {
+    const NT_SYMBOL_ENTRY entry = {
         .symbol_name = name,
         .type = symbolType,
         .data = data,
