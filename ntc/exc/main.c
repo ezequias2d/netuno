@@ -1,41 +1,65 @@
+#include <netuno/common.h>
 #include <netuno/debug.h>
+#include <netuno/memory.h>
 #include <netuno/ntc.h>
 #include <netuno/nto.h>
+#include <netuno/str.h>
 #include <netuno/vm.h>
+#include <stdint.h>
+#include <stdio.h>
 
-const char_t *str = (char_t *)(L"sub main()\n"
-                               L"   if false\n"
-                               L"       print int(2.0f)\n"
-                               L"   else\n"
-                               L"       print 1\n"
-                               L"   next\n"
-                               L"end\n");
-int main()
+const char *readFile(const char *filename)
 {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL)
+        return NULL;
+
+    fseek(file, 0, SEEK_END);
+    size_t fsize = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    char *code = (char *)ntMalloc(fsize + 1);
+    fread(code, fsize, 1, file);
+    fclose(file);
+
+    code[fsize] = '\0';
+    return code;
+}
+
+int main(int argc, char **argv)
+{
+    if (argc != 2)
+    {
+        printf("Error: need a file to execute");
+        return 2;
+    }
+
+    const char *filename = argv[1];
+    const char *code = readFile(filename);
+    if (code == NULL)
+    {
+        printf("Error: could not open file %s\n", filename);
+        return 1;
+    }
+
+    const char_t *codet = ntToCharT(code);
+    ntFree((void *)code);
+
     NT_ASSEMBLY *assembly = ntCreateAssembly();
-    NT_CHUNK *chunk = ntCompile(assembly, str);
-    // ntDisassembleChunk(chunk, "main");
+    NT_CHUNK *chunk = ntCompile(assembly, codet);
+    ntFree((void *)codet);
 
     NT_VM *vm = ntCreateVM();
     ntRun(vm, chunk);
+
+    uint32_t result = INT32_MAX;
+    if (!ntPop32(vm, &result))
+    {
+        printf("Error: No return value in main!\n");
+    }
+
     ntFreeVM(vm);
-    // NT_CHUNK *chunk = ntCreateChunk();
-
-    // uint64_t contant = ntAddConstant32(chunk, 1);
-    // ntWriteChunk(chunk, OP_CONST_32, 123);
-    // ntWriteChunkVarint(chunk, contant, 123);
-    // ntWriteChunk(chunk, OP_CONST_32, 123);
-    // ntWriteChunkVarint(chunk, contant, 123);
-    // // ntWriteChunk(chunk, OP_NEG_I32, 123);
-    // ntWriteChunk(chunk, OP_ADD_I32, 123);
-    // ntWriteChunk(chunk, OP_RETURN, 124);
-
-    // NT_VM *vm = ntCreateVM();
-    // ntRun(vm, chunk);
-    // ntFreeVM(vm);
-    // // ntDisassembleChunk(chunk, "test chunk");
-    // ntFreeChunk(chunk);
-    // // testNetuno();
     ntFreeAssembly(assembly);
-    return 0;
+
+    return result;
 }
