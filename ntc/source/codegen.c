@@ -1922,56 +1922,60 @@ static void whileStatment(NT_CODEGEN *codegen, const NT_NODE *node, bool *hasRet
     endScope(codegen, node);
 }
 
-static void varStatement(NT_CODEGEN *codegen, const NT_NODE *node);
-
-static void statement(NT_CODEGEN *codegen, const NT_NODE *node, bool *hasReturn)
+static void declareVariable(NT_CODEGEN *codegen, const NT_NODE *node)
 {
-    *hasReturn |= false;
-    if (node->type.class != NC_STMT)
+    const NT_TYPE *type = NULL;
+    if (node->left != NULL)
     {
-        errorAt(codegen, node, "Invalid node, the node must be a statment!");
-        return;
+        type = findType(codegen, node->left);
+        if (node->right)
+        {
+            const NT_TYPE *initType = evalExprType(codegen, node->right);
+            if (type != initType)
+            {
+                errorAt(codegen, node, "Invalid initalizer type. Incompatible type!");
+                return;
+            }
+        }
+    }
+    else
+    {
+        if (node->right == NULL)
+        {
+            errorAt(codegen, node, "Variable must has a type or initializer.");
+            return;
+        }
+        type = evalExprType(codegen, node->right);
     }
 
-    switch (node->type.kind)
+    if (node->right)
     {
-    case NK_PRINT:
-        printStatement(codegen, node);
-        break;
-    case NK_EXPR:
-        expressionStatement(codegen, node);
-        break;
-    case NK_IF:
-        ifStatement(codegen, node, hasReturn);
-        break;
-    case NK_BLOCK:
-        blockStatment(codegen, node, hasReturn);
-        break;
-    case NK_UNTIL:
-        untilStatment(codegen, node, hasReturn);
-        break;
-    case NK_WHILE:
-        whileStatment(codegen, node, hasReturn);
-        break;
-    // case NK_DEF:
-    //     defStatement(codegen, node);
-    //     break;
-    // case NK_SUB:
-    //     subStatement(codegen, node);
-    //     break;
-    case NK_VAR:
-        varStatement(codegen, node);
-        break;
-    // case NK_RETURN:
-    //     *hasReturn = true;
-    //     returnStatement(codegen, node);
-    //     break;
-    default: {
-        const char *const label = ntGetKindLabel(node->type.kind);
-        errorAt(codegen, node, "Invalid statment. The statement with kind '%s' is invalid.", label);
-        break;
+        expression(codegen, node->right, true);
     }
+    else
+    {
+        switch (type->stackSize)
+        {
+        case sizeof(uint32_t):
+            emit(codegen, node, BC_ZERO_32);
+            break;
+        case sizeof(uint64_t):
+            emit(codegen, node, BC_ZERO_64);
+            break;
+        default:
+            errorAt(codegen, node, "CODEGEN invalid stackSize!");
+            return;
+        }
     }
+
+    const NT_STRING *varName = ntCopyString(node->token.lexeme, node->token.lexemeLength);
+    addLocal(codegen, varName, type);
+}
+
+static void varStatement(NT_CODEGEN *codegen, const NT_NODE *node)
+{
+    ensureStmt(node, NK_VAR);
+    declareVariable(codegen, node);
 }
 
 const char_t *const returnVariable = U"@return";
@@ -2025,7 +2029,22 @@ static void declareFunction(NT_CODEGEN *codegen, const NT_NODE *node, const bool
     if (returnValue)
     {
         returnType = findType(codegen, node->left);
+
         addParam(codegen, ntCopyString(returnVariable, ntStrLen(returnVariable)), returnType);
+
+        if (paramCount < 1)
+            switch (returnType->stackSize)
+            {
+            case sizeof(uint32_t):
+                emit(codegen, node, BC_ZERO_32);
+                break;
+            case sizeof(uint64_t):
+                emit(codegen, node, BC_ZERO_64);
+                break;
+            default:
+                errorAt(codegen, node, "CODEGEN invalid stackSize for return type!");
+                return;
+            }
     }
 
     for (size_t i = 0; i < paramCount; ++i)
@@ -2095,62 +2114,6 @@ static void subStatement(NT_CODEGEN *codegen, const NT_NODE *node)
     declareFunction(codegen, node, false);
 }
 
-static void declareVariable(NT_CODEGEN *codegen, const NT_NODE *node)
-{
-    const NT_TYPE *type = NULL;
-    if (node->left != NULL)
-    {
-        type = findType(codegen, node->left);
-        if (node->right)
-        {
-            const NT_TYPE *initType = evalExprType(codegen, node->right);
-            if (type != initType)
-            {
-                errorAt(codegen, node, "Invalid initalizer type. Incompatible type!");
-                return;
-            }
-        }
-    }
-    else
-    {
-        if (node->right == NULL)
-        {
-            errorAt(codegen, node, "Variable must has a type or initializer.");
-            return;
-        }
-        type = evalExprType(codegen, node->right);
-    }
-
-    if (node->right)
-    {
-        expression(codegen, node->right, true);
-    }
-    else
-    {
-        switch (type->stackSize)
-        {
-        case sizeof(uint32_t):
-            emit(codegen, node, BC_ZERO_32);
-            break;
-        case sizeof(uint64_t):
-            emit(codegen, node, BC_ZERO_64);
-            break;
-        default:
-            errorAt(codegen, node, "CODEGEN invalid stackSize!");
-            return;
-        }
-    }
-
-    const NT_STRING *varName = ntCopyString(node->token.lexeme, node->token.lexemeLength);
-    addLocal(codegen, varName, type);
-}
-
-static void varStatement(NT_CODEGEN *codegen, const NT_NODE *node)
-{
-    ensureStmt(node, NK_VAR);
-    declareVariable(codegen, node);
-}
-
 static void declaration(NT_CODEGEN *codegen, const NT_NODE *node)
 {
     switch (node->type.kind)
@@ -2166,6 +2129,63 @@ static void declaration(NT_CODEGEN *codegen, const NT_NODE *node)
         break;
     default:
         break;
+    }
+}
+
+static void returnStatement(NT_CODEGEN *codegen, const NT_NODE *node)
+{
+    ensureStmt(node, NK_RETURN);
+    endFunctionScope(codegen, node);
+    emit(codegen, node, BC_RETURN);
+}
+
+static void statement(NT_CODEGEN *codegen, const NT_NODE *node, bool *hasReturn)
+{
+    *hasReturn |= false;
+    if (node->type.class != NC_STMT)
+    {
+        errorAt(codegen, node, "Invalid node, the node must be a statment!");
+        return;
+    }
+
+    switch (node->type.kind)
+    {
+    case NK_PRINT:
+        printStatement(codegen, node);
+        break;
+    case NK_EXPR:
+        expressionStatement(codegen, node);
+        break;
+    case NK_IF:
+        ifStatement(codegen, node, hasReturn);
+        break;
+    case NK_BLOCK:
+        blockStatment(codegen, node, hasReturn);
+        break;
+    case NK_UNTIL:
+        untilStatment(codegen, node, hasReturn);
+        break;
+    case NK_WHILE:
+        whileStatment(codegen, node, hasReturn);
+        break;
+    // case NK_DEF:
+    //     defStatement(codegen, node);
+    //     break;
+    // case NK_SUB:
+    //     subStatement(codegen, node);
+    //     break;
+    case NK_VAR:
+        varStatement(codegen, node);
+        break;
+    case NK_RETURN:
+        *hasReturn = true;
+        returnStatement(codegen, node);
+        break;
+    default: {
+        const char *const label = ntGetKindLabel(node->type.kind);
+        errorAt(codegen, node, "Invalid statment. The statement with kind '%s' is invalid.", label);
+        break;
+    }
     }
 }
 
