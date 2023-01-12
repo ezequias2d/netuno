@@ -4,7 +4,10 @@
 #include "gc.h"
 #include "nto.h"
 
+#ifndef NDEBUG
 #define DEBUG_TRACE_EXECUTION
+#endif
+
 #define STACK_MAX 4096
 
 typedef enum

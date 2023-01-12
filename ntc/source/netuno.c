@@ -74,14 +74,16 @@ char *toCharS(const char_t *str, size_t len)
 
 NT_CHUNK *ntCompile(NT_ASSEMBLY *assembly, const char_t *str)
 {
-    // char_t *s = toCharT(str);
     NT_SCANNER *scanner = ntScannerCreate(str);
     NT_PARSER *parser = ntParserCreate(scanner);
 
     uint32_t count;
     NT_NODE **root = ntParse(parser, &count);
+
+#ifndef NDEBUG
     for (uint32_t i = 0; i < count; i++)
         ntPrintNode(0, root[i]);
+#endif
 
     NT_CHUNK *chunk = ntCreateChunk();
     NT_CODEGEN *codegen = ntCreateCodegen(assembly, chunk);
@@ -93,8 +95,6 @@ NT_CHUNK *ntCompile(NT_ASSEMBLY *assembly, const char_t *str)
     ntScannerDestroy(scanner);
     ntParserDestroy(parser);
     ntFreeCodegen(codegen);
-
-    // free(s);
 
     ntArrayAdd(&assembly->chunks, &chunk, sizeof(NT_CHUNK *));
 
