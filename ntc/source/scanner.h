@@ -19,7 +19,6 @@ typedef enum _NT_TK_TYPE
     TK_F64,
     TK_IDENT,
     TK_STRING,
-    TK_LABEL,
 
     TK_EOF,
     TK_ERROR,

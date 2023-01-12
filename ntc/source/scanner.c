@@ -167,13 +167,7 @@ static void identifier(NT_SCANNER *scanner, NT_TOKEN *result)
         return;
     }
 
-    NT_TK_TYPE tokenType = TK_IDENT;
-    if (c == ':')
-    {
-        advance(scanner);
-        tokenType = TK_LABEL;
-    }
-    makeToken(scanner, tokenType, result);
+    makeToken(scanner, TK_IDENT, result);
 }
 
 static void number(NT_SCANNER *scanner, NT_TOKEN *result)

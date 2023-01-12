@@ -268,19 +268,6 @@ static NT_NODE *makeLiteral(const NT_TOKEN token, NT_LITERAL_TYPE literalType)
     return node;
 }
 
-static NT_NODE *makeLabel(const NT_TOKEN name)
-{
-    return makeNode(NC_STMT, NK_LABEL, name, NULL, NULL);
-}
-
-static NT_NODE *labelDeclaration(NT_PARSER *parser)
-{
-    const NT_TOKEN name = parser->previous;
-    consumeId(parser, TK_KEYWORD, ':', "Expect a colon before a label identifier");
-
-    return makeLabel(name);
-}
-
 static NT_NODE *expression(NT_PARSER *parser);
 
 static NT_NODE *primary(NT_PARSER *parser)
@@ -653,8 +640,6 @@ static NT_NODE *declaration(NT_PARSER *parser, const bool returnValue)
         return functionDeclaration(parser, false);
     if (matchId(parser, TK_KEYWORD, KW_VAR))
         return variableDeclaration(parser);
-    if (match(parser, TK_LABEL))
-        return labelDeclaration(parser);
     return statement(parser, returnValue);
 }
 
