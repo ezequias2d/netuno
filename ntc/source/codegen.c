@@ -2080,9 +2080,8 @@ static void declareFunction(NT_CODEGEN *codegen, const NT_NODE *node, const bool
     {
         returnType = findType(codegen, node->left);
 
-        addParam(codegen, ntCopyString(returnVariable, ntStrLen(returnVariable)), returnType);
-
         if (paramCount < 1)
+        {
             switch (returnType->stackSize)
             {
             case sizeof(uint32_t):
@@ -2095,6 +2094,9 @@ static void declareFunction(NT_CODEGEN *codegen, const NT_NODE *node, const bool
                 errorAt(codegen, node, "CODEGEN invalid stackSize for return type!");
                 return;
             }
+            push(codegen, node, returnType);
+        }
+        addParam(codegen, ntCopyString(returnVariable, ntStrLen(returnVariable)), returnType);
     }
 
     for (size_t i = 0; i < paramCount; ++i)
