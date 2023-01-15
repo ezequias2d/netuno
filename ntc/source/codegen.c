@@ -260,13 +260,6 @@ static void beginScope(NT_CODEGEN *codegen, NT_SYMBOL_TABLE_TYPE type)
     codegen->scope = ntCreateSymbolTable(codegen->scope, type, codegen->stack->sp);
 }
 
-static void endScopeRemaining(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *type)
-{
-    const size_t delta = codegen->stack->sp - (codegen->scope->data + type->stackSize);
-    emitFixedPop(codegen, node, delta);
-    codegen->scope = codegen->scope->parent;
-}
-
 static void endScope(NT_CODEGEN *codegen, const NT_NODE *node)
 {
     const size_t delta = codegen->stack->sp - codegen->scope->data;
