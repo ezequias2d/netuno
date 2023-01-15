@@ -132,7 +132,7 @@ static size_t push(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *type
 
 static size_t pop(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *type)
 {
-    const NT_TYPE *popType;
+    const NT_TYPE *popType = NULL;
     const size_t result = ntVPop(codegen->stack, &popType);
 
     if (popType != type)
@@ -1390,7 +1390,7 @@ static void variable(NT_CODEGEN *codegen, const NT_NODE *node)
     }
 
     const NT_TYPE *type = entry.exprType;
-    const uint32_t delta = codegen->stack->sp - entry.data - type->stackSize;
+    const uint32_t delta = codegen->stack->sp - entry.data;
 
     switch (type->stackSize)
     {
