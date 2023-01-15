@@ -1770,7 +1770,7 @@ static void expressionStatement(NT_CODEGEN *codegen, const NT_NODE *node)
     emitPop(codegen, node, leftType);
 }
 
-static void statement(NT_CODEGEN *codegen, const NT_NODE *node, bool *hasReturn);
+static void statement(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE **returnType);
 
 static size_t emitCondition(NT_CODEGEN *codegen, const NT_NODE *node, bool isZero,
                             const NT_TYPE **pConditionType)
@@ -1798,7 +1798,7 @@ static size_t emitCondition(NT_CODEGEN *codegen, const NT_NODE *node, bool isZer
     }
 }
 
-static void ifStatement(NT_CODEGEN *codegen, const NT_NODE *node, bool *hasReturn)
+static void ifStatement(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE **returnType)
 {
     const bool hasElse = node->right != NULL;
 
@@ -1811,8 +1811,11 @@ static void ifStatement(NT_CODEGEN *codegen, const NT_NODE *node, bool *hasRetur
     if (hasElse)
         emitPop(codegen, node, conditionType);
 
+    const NT_TYPE *thenReturnType = NULL;
+    const NT_TYPE *elseReturnType = NULL;
+
     // emit then body
-    statement(codegen, node->left, hasReturn);
+    statement(codegen, node->left, &thenReturnType);
 
     // start of else branch
     size_t startElse = codegen->chunk->code.count;
@@ -1828,7 +1831,18 @@ static void ifStatement(NT_CODEGEN *codegen, const NT_NODE *node, bool *hasRetur
         emitPop(codegen, node, conditionType);
 
         // emit else body
-        statement(codegen, node->right, hasReturn);
+        statement(codegen, node->right, &elseReturnType);
+        if (elseReturnType && elseReturnType != *returnType)
+        {
+            char *expect =
+                ntToCharFixed((*returnType)->typeName->chars, (*returnType)->typeName->length);
+            char *current =
+                ntToCharFixed(elseReturnType->typeName->chars, elseReturnType->typeName->length);
+            errorAt(codegen, node, "The else branch expect '%s' type as return, but is '%s'.",
+                    expect, current);
+            ntFree(expect);
+            ntFree(current);
+        }
 
         // add offset as skipElse param
         ntInsertChunkVarint(codegen->chunk, skipElse + 1, codegen->chunk->code.count - skipElse);
@@ -1844,24 +1858,33 @@ static void ifStatement(NT_CODEGEN *codegen, const NT_NODE *node, bool *hasRetur
 
     const size_t delta = startElse - elseBranch;
     ntInsertChunkVarint(codegen->chunk, elseBranch + 1, delta);
+
+    if (thenReturnType && elseReturnType && !*returnType)
+        *returnType = thenReturnType;
 }
 
-static void blockStatment(NT_CODEGEN *codegen, const NT_NODE *node, bool *hasReturn)
+static void blockStatment(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE **returnType)
 {
     assert(node->type.class == NC_STMT);
     assert(node->type.kind == NK_BLOCK);
 
+    const NT_TYPE *blockReturnType = NULL;
     beginScope(codegen, STT_NONE);
+    const NT_SYMBOL_TABLE *const scope = codegen->scope;
     for (size_t i = 0; i < ntListLen(node->data); ++i)
     {
         const NT_NODE *stmt = ntListGet(node->data, i);
-        statement(codegen, stmt, hasReturn);
+        statement(codegen, stmt, &blockReturnType);
     }
-    endScope(codegen, node);
+    if (*returnType == NULL)
+        *returnType = blockReturnType;
+
+    if (scope == codegen->scope)
+        endScope(codegen, node);
 }
 
 static void conditionalLoopStatement(NT_CODEGEN *codegen, const NT_NODE *node, bool isZero,
-                                     bool *hasReturn)
+                                     const NT_TYPE **returnType)
 {
     const size_t loopStart = codegen->chunk->code.count;
 
@@ -1871,7 +1894,7 @@ static void conditionalLoopStatement(NT_CODEGEN *codegen, const NT_NODE *node, b
     assert(conditionType);
 
     emitPop(codegen, node, conditionType);
-    statement(codegen, node->left, hasReturn);
+    statement(codegen, node->left, returnType);
 
     // loop to start
     const size_t loopBranch = emit(codegen, node, BC_BRANCH);
@@ -1902,23 +1925,27 @@ static void conditionalLoopStatement(NT_CODEGEN *codegen, const NT_NODE *node, b
     emitPop(codegen, node, conditionType);
 }
 
-static void untilStatment(NT_CODEGEN *codegen, const NT_NODE *node, bool *hasReturn)
+static void untilStatment(NT_CODEGEN *codegen, const NT_NODE *node)
 {
     assert(node->type.class == NC_STMT);
     assert(node->type.kind == NK_UNTIL);
 
+    const NT_TYPE *returnType = NULL;
+
     beginScope(codegen, STT_BREAKABLE);
-    conditionalLoopStatement(codegen, node, false, hasReturn);
+    conditionalLoopStatement(codegen, node, false, &returnType);
     endScope(codegen, node);
 }
 
-static void whileStatment(NT_CODEGEN *codegen, const NT_NODE *node, bool *hasReturn)
+static void whileStatment(NT_CODEGEN *codegen, const NT_NODE *node)
 {
     assert(node->type.class == NC_STMT);
     assert(node->type.kind == NK_WHILE);
 
+    const NT_TYPE *returnType = NULL;
+
     beginScope(codegen, STT_BREAKABLE);
-    conditionalLoopStatement(codegen, node, true, hasReturn);
+    conditionalLoopStatement(codegen, node, true, &returnType);
     endScope(codegen, node);
 }
 
@@ -1980,14 +2007,16 @@ static void varStatement(NT_CODEGEN *codegen, const NT_NODE *node)
 
 const char_t *const returnVariable = U"@return";
 
-static void endFunctionScope(NT_CODEGEN *codegen, const NT_NODE *node)
+static void endFunctionScope(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE **returnType,
+                             bool isEndScope)
 {
-    while (codegen->scope->type != STT_FUNCTION && codegen->scope->type != STT_METHOD)
+    const NT_SYMBOL_TABLE *functionScope = codegen->scope;
+    while (functionScope->type != STT_FUNCTION && functionScope->type != STT_METHOD)
     {
-        endScope(codegen, node);
+        functionScope = functionScope->parent;
     }
 
-    if (codegen->scope->type == STT_FUNCTION)
+    if (functionScope->type == STT_FUNCTION)
     {
         if (node->left == NULL)
         {
@@ -1996,15 +2025,36 @@ static void endFunctionScope(NT_CODEGEN *codegen, const NT_NODE *node)
         assert(node->left);
 
         const NT_TYPE *type = evalExprType(codegen, node->left);
+        if (codegen->scope->scopeReturnType == NULL)
+            codegen->scope->scopeReturnType = type;
+
+        assert(codegen->scope->scopeReturnType == type);
+
         expression(codegen, node->left, true);
         emitAssign(codegen, node, type, returnVariable, ntStrLen(returnVariable),
                    "Critical codegen error! The variable for return must be declared.");
 
-        endScopeRemaining(codegen, node, type);
+        const size_t delta = codegen->stack->sp - (codegen->scope->data + type->stackSize);
+        emitFixedPop(codegen, node, delta);
+
+        if (returnType && *returnType == NULL)
+            *returnType = type;
     }
     else
     {
-        endScope(codegen, node);
+        const size_t delta = codegen->stack->sp - functionScope->data;
+        emitFixedPop(codegen, node, delta);
+    }
+
+    if (isEndScope)
+    {
+        while (codegen->scope->type != STT_FUNCTION && codegen->scope->type != STT_METHOD)
+        {
+            NT_SYMBOL_TABLE *oldScope = codegen->scope;
+            codegen->scope = oldScope->parent;
+            ntFreeSymbolTable(oldScope);
+        }
+        codegen->scope = functionScope->parent;
     }
 }
 
@@ -2067,9 +2117,10 @@ static void declareFunction(NT_CODEGEN *codegen, const NT_NODE *node, const bool
     for (size_t i = 0; i < ntListLen(node->right->data) && !hasReturn; ++i)
     {
         const NT_NODE *stmt = (NT_NODE *)ntListGet(node->right->data, i);
-        bool statmentReturn = false;
+        const NT_TYPE *statmentReturn = NULL;
         statement(codegen, stmt, &statmentReturn);
-        hasReturn |= statmentReturn;
+        if (statmentReturn != NULL)
+            hasReturn |= true;
     }
 
     if (returnValue)
@@ -2081,10 +2132,6 @@ static void declareFunction(NT_CODEGEN *codegen, const NT_NODE *node, const bool
                     lname);
             ntFree(lname);
 
-            while (codegen->scope->type != STT_FUNCTION && codegen->scope->type != STT_METHOD)
-            {
-                endScope(codegen, node);
-            }
             assert(codegen->scope->type != STT_METHOD);
             endScope(codegen, node);
             emit(codegen, node, BC_RETURN);
@@ -2092,7 +2139,7 @@ static void declareFunction(NT_CODEGEN *codegen, const NT_NODE *node, const bool
     }
     else
     {
-        endFunctionScope(codegen, node);
+        endFunctionScope(codegen, node, NULL, true);
         emit(codegen, node, BC_RETURN);
     }
 
@@ -2133,16 +2180,16 @@ static void declaration(NT_CODEGEN *codegen, const NT_NODE *node)
     }
 }
 
-static void returnStatement(NT_CODEGEN *codegen, const NT_NODE *node)
+static void returnStatement(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE **returnType)
 {
     ensureStmt(node, NK_RETURN);
-    endFunctionScope(codegen, node);
+    endFunctionScope(codegen, node, returnType, false);
     emit(codegen, node, BC_RETURN);
 }
 
-static void statement(NT_CODEGEN *codegen, const NT_NODE *node, bool *hasReturn)
+static void statement(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE **returnType)
 {
-    *hasReturn |= false;
+    *returnType = NULL;
     if (node->type.class != NC_STMT)
     {
         errorAt(codegen, node, "Invalid node, the node must be a statment!");
@@ -2158,29 +2205,22 @@ static void statement(NT_CODEGEN *codegen, const NT_NODE *node, bool *hasReturn)
         expressionStatement(codegen, node);
         break;
     case NK_IF:
-        ifStatement(codegen, node, hasReturn);
+        ifStatement(codegen, node, returnType);
         break;
     case NK_BLOCK:
-        blockStatment(codegen, node, hasReturn);
+        blockStatment(codegen, node, returnType);
         break;
     case NK_UNTIL:
-        untilStatment(codegen, node, hasReturn);
+        untilStatment(codegen, node);
         break;
     case NK_WHILE:
-        whileStatment(codegen, node, hasReturn);
+        whileStatment(codegen, node);
         break;
-    // case NK_DEF:
-    //     defStatement(codegen, node);
-    //     break;
-    // case NK_SUB:
-    //     subStatement(codegen, node);
-    //     break;
     case NK_VAR:
         varStatement(codegen, node);
         break;
     case NK_RETURN:
-        *hasReturn = true;
-        returnStatement(codegen, node);
+        returnStatement(codegen, node, returnType);
         break;
     default: {
         const char *const label = ntGetKindLabel(node->type.kind);
