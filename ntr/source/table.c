@@ -87,7 +87,7 @@ static void adjustSize(NT_TABLE *table, const size_t size)
     table->size = size;
 }
 
-void ntTableForAll(NT_TABLE *table, tableCallback callback, void *userdata)
+void ntTableForAll(const NT_TABLE *table, tableCallback callback, void *userdata)
 {
     for (size_t i = 0; i < table->size; ++i)
     {

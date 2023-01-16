@@ -1,21 +1,24 @@
 #ifndef NETUNO_TABLE_H
 #define NETUNO_TABLE_H
 
-#include "common.h"
-#include "object.h"
+#include <netuno/common.h>
 
-typedef struct _NT_ENTRY
+typedef struct _NT_STRING NT_STRING;
+typedef struct _NT_ENTRY NT_ENTRY;
+typedef struct _NT_TABLE NT_TABLE;
+
+struct _NT_ENTRY
 {
     const NT_STRING *key;
     void *value;
-} NT_ENTRY;
+};
 
-typedef struct _NT_TABLE
+struct _NT_TABLE
 {
     size_t count;
     size_t size;
     NT_ENTRY *pEntries;
-} NT_TABLE;
+};
 
 typedef void (*tableCallback)(const NT_STRING *key, void *value, void *userdata);
 
@@ -23,7 +26,7 @@ NT_TABLE *ntCreateTable(void);
 void ntInitTable(NT_TABLE *table);
 void ntDeinitTable(NT_TABLE *table);
 void ntFreeTable(NT_TABLE *table);
-void ntTableForAll(NT_TABLE *table, tableCallback callback, void *userdata);
+void ntTableForAll(const NT_TABLE *table, tableCallback callback, void *userdata);
 bool ntTableSet(NT_TABLE *table, const NT_STRING *key, void *value);
 void ntTableAddAll(const NT_TABLE *from, NT_TABLE *to);
 bool ntTableGet(const NT_TABLE *table, const NT_STRING *key, void **value);

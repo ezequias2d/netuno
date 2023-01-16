@@ -2,8 +2,11 @@
 #include <netuno/array.h>
 #include <netuno/memory.h>
 #include <netuno/nto.h>
+#include <netuno/object.h>
 #include <netuno/str.h>
 #include <netuno/string.h>
+#include <netuno/table.h>
+#include <netuno/type.h>
 #include <netuno/varint.h>
 
 NT_ASSEMBLY *ntCreateAssembly(void)
@@ -211,4 +214,152 @@ uint64_t ntAddConstantString(NT_CHUNK *chunk, const char_t *str, const size_t le
     ntArrayAdd(&chunk->constants, nullTerminatedStr, nullTerminatedSize);
     ntFree(nullTerminatedStr);
     return chunk->constants.count - nullTerminatedSize;
+}
+
+static uint64_t addConstantType(NT_CHUNK *chunk, const NT_TYPE *type)
+{
+    uint64_t offset;
+
+    const size_t size = sizeof(NT_LOCAL_TYPE);
+    const NT_LOCAL_TYPE localType = {
+        .objectType = type->objectType,
+        .constantTypeName =
+            ntAddConstantString(chunk, type->typeName->chars, type->typeName->length),
+        .stackSize = type->stackSize,
+        .instanceSize = type->instanceSize,
+    };
+
+    if (ntArrayFind(&chunk->constants, &localType, size, &offset))
+        return offset;
+
+    ntArrayAdd(&chunk->constants, &localType, size);
+    return chunk->constants.count - size;
+}
+
+typedef struct
+{
+    NT_CHUNK *chunk;
+    NT_LOCAL_CUSTOM_TYPE *localType;
+} ADD_CUSTOM_TYPE_USERDATA;
+
+static void addCustomTypeFieldIt(const NT_STRING *key, void *value, void *userdata)
+{
+    ADD_CUSTOM_TYPE_USERDATA *const u = (ADD_CUSTOM_TYPE_USERDATA *)userdata;
+    NT_LOCAL_CUSTOM_TYPE *const localType = u->localType;
+    NT_CHUNK *chunk = u->chunk;
+
+    const NT_FIELD *const field = (const NT_FIELD *)value;
+
+    const uint64_t i = localType->fieldsCount++;
+
+    localType->fields[i] = (NT_LOCAL_FIELD){
+        .constantType = ntAddConstantType(chunk, field->fieldType),
+        .constantName = ntAddConstantString(chunk, key->chars, key->length),
+        .fieldOffset = field->offset,
+    };
+}
+
+static uint64_t addConstantCustomType(NT_CHUNK *chunk, const NT_CUSTOM_TYPE *type)
+{
+    uint64_t offset;
+
+    const size_t size = sizeof(NT_LOCAL_CUSTOM_TYPE) + type->fields.count;
+    NT_LOCAL_CUSTOM_TYPE *localType = (NT_LOCAL_CUSTOM_TYPE *)ntMalloc(size);
+    *localType = (NT_LOCAL_CUSTOM_TYPE){
+        .localType =
+            {
+                .objectType = type->type.objectType,
+                .constantTypeName = ntAddConstantString(chunk, type->type.typeName->chars,
+                                                        type->type.typeName->length),
+                .stackSize = type->type.stackSize,
+                .instanceSize = type->type.instanceSize,
+            },
+        .constantFreeFunction = ntAddConstantFunction(
+            chunk, type->free->addr, (NT_DELEGATE_TYPE *)type->free->object.type, type->free->name),
+        .constantStringFunction = ntAddConstantFunction(
+            chunk, type->string->addr, (NT_DELEGATE_TYPE *)type->string->object.type,
+            type->string->name),
+        .constantEqualsFunction = ntAddConstantFunction(
+            chunk, type->equals->addr, (NT_DELEGATE_TYPE *)type->equals->object.type,
+            type->equals->name),
+        .fieldsCount = 0,
+    };
+    // type->fields.count
+
+    ADD_CUSTOM_TYPE_USERDATA userdata = {.localType = localType, .chunk = chunk};
+    ntTableForAll(&type->fields, addCustomTypeFieldIt, &userdata);
+
+    if (ntArrayFind(&chunk->constants, localType, size, &offset))
+        return offset;
+
+    ntArrayAdd(&chunk->constants, localType, size);
+    return chunk->constants.count - size;
+}
+
+static uint64_t addConstantDelegateType(NT_CHUNK *chunk, const NT_DELEGATE_TYPE *delegateType)
+{
+    size_t offset;
+
+    const size_t size =
+        sizeof(NT_LOCAL_DELEGATE_TYPE) + sizeof(uint64_t) * delegateType->paramCount;
+
+    NT_LOCAL_DELEGATE_TYPE *localType = (NT_LOCAL_DELEGATE_TYPE *)ntMalloc(size);
+
+    localType->paramCount = delegateType->paramCount;
+    localType->constantReturnType = ntAddConstantType(chunk, delegateType->returnType);
+
+    for (uint64_t i = 0; i < delegateType->paramCount; ++i)
+    {
+        const NT_LOCAL_PARAM param = {
+            .constantType = ntAddConstantType(chunk, delegateType->params[i].type),
+            .constantName = ntAddConstantString(chunk, delegateType->params[i].name->chars,
+                                                delegateType->params[i].name->length),
+        };
+        localType->constantParams[i] = param;
+    }
+
+    if (ntArrayFind(&chunk->constants, localType, size, &offset))
+    {
+        ntFree(localType);
+        return offset;
+    }
+
+    ntArrayAdd(&chunk->constants, localType, size);
+    ntFree(localType);
+    return chunk->constants.count - size;
+}
+
+uint64_t ntAddConstantType(NT_CHUNK *chunk, const NT_TYPE *type)
+{
+
+    if (type->objectType == NT_OBJECT_CUSTOM)
+        return addConstantCustomType(chunk, (const NT_CUSTOM_TYPE *)type);
+    else if (type->objectType == NT_OBJECT_FUNCTION)
+        return addConstantDelegateType(chunk, (const NT_DELEGATE_TYPE *)type);
+
+    return addConstantType(chunk, type);
+}
+
+uint64_t ntAddConstantFunction(NT_CHUNK *chunk, size_t addr, const NT_DELEGATE_TYPE *delegateType,
+                               const NT_STRING *name)
+{
+    uint64_t offset;
+
+    assert(chunk);
+    assert(delegateType);
+    assert(delegateType->type.objectType == NT_OBJECT_FUNCTION);
+    assert(name);
+    assert(name->object.type->objectType == NT_OBJECT_STRING);
+
+    const NT_LOCAL_FUNCTION function = {
+        .addr = addr,
+        .constantDelegateType = ntAddConstantType(chunk, (const NT_TYPE *)delegateType),
+        .constantString = ntAddConstantString(chunk, name->chars, name->length),
+    };
+
+    if (ntArrayFind(&chunk->constants, &function, sizeof(NT_LOCAL_FUNCTION), &offset))
+        return offset;
+
+    ntArrayAdd(&chunk->constants, &function, sizeof(NT_LOCAL_FUNCTION));
+    return chunk->constants.count - sizeof(NT_LOCAL_FUNCTION);
 }

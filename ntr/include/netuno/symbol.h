@@ -1,8 +1,8 @@
 #ifndef NETUNO_SYMBOL_H
 #define NETUNO_SYMBOL_H
 
-#include "array.h"
-#include "object.h"
+#include <netuno/array.h>
+#include <netuno/type.h>
 
 typedef enum
 {
@@ -18,19 +18,20 @@ struct _NT_SYMBOL_TABLE
     NT_SYMBOL_TABLE *parent;
     size_t data;
     uint32_t count;
+    const NT_TYPE *scopeReturnType;
     NT_SYMBOL_TABLE_TYPE type;
     NT_ARRAY *table;
 };
 
 typedef enum
 {
-    SYMBOL_TYPE_NONE,
-    SYMBOL_TYPE_FUNCTION,
-    SYMBOL_TYPE_SUBROUTINE,
-    SYMBOL_TYPE_VARIABLE,
-    SYMBOL_TYPE_CONSTANT,
-    SYMBOL_TYPE_PARAM,
-    SYMBOL_TYPE_TYPE,
+    SYMBOL_TYPE_NONE = 0,
+    SYMBOL_TYPE_FUNCTION = 1,
+    SYMBOL_TYPE_SUBROUTINE = 2,
+    SYMBOL_TYPE_VARIABLE = 4,
+    SYMBOL_TYPE_CONSTANT = 8,
+    SYMBOL_TYPE_PARAM = 16,
+    SYMBOL_TYPE_TYPE = 32,
 } NT_SYMBOL_TYPE;
 
 typedef struct _NT_SYMBOL_ENTRY

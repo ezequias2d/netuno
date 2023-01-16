@@ -1,49 +1,38 @@
 #ifndef NETUNO_OBJECT_H
 #define NETUNO_OBJECT_H
 
-#include "array.h"
-#include "common.h"
-
-#define IS_TYPE(obj, type) ((obj)->type == (type))
-
-typedef enum
-{
-    NT_OBJECT_ERROR,
-    NT_OBJECT_STRING,
-    NT_OBJECT_F64,
-    NT_OBJECT_F32,
-    NT_OBJECT_U64,
-    NT_OBJECT_I64,
-    NT_OBJECT_U32,
-    NT_OBJECT_I32,
-    NT_OBJECT_FUNCTION,
-    NT_OBJECT_CUSTOM,
-} NT_OBJECT_TYPE;
+#include <netuno/array.h>
+#include <netuno/common.h>
+#include <netuno/symbol.h>
+#include <netuno/table.h>
+#include <netuno/type.h>
 
 typedef struct _NT_VM NT_VM;
-typedef struct _NT_TYPE NT_TYPE;
+typedef struct _NT_FIELD NT_FIELD;
+typedef struct _NT_CUSTOM_TYPE NT_CUSTOM_TYPE;
 typedef struct _NT_DELEGATE_TYPE NT_DELEGATE_TYPE;
 typedef struct _NT_PARAM NT_PARAM;
+typedef struct _NT_CHUNK NT_CHUNK;
 
 typedef struct _NT_OBJECT NT_OBJECT;
 typedef struct _NT_STRING NT_STRING;
 typedef struct _NT_FUNCTION NT_FUNCTION;
 
-typedef void (*freeObj)(NT_OBJECT *obj);
-typedef const NT_STRING *(*toString)(NT_OBJECT *obj);
-typedef bool (*equalsObj)(NT_OBJECT *obj1, NT_OBJECT *obj2);
-typedef const NT_STRING *(*concatObj)(NT_OBJECT *obj1, NT_OBJECT *obj2);
 typedef void (*nativeFun)(NT_VM *vm, const NT_TYPE *delegateType);
 
-struct _NT_TYPE
+struct _NT_FIELD
 {
-    NT_OBJECT_TYPE objectType;
-    const NT_STRING *typeName;
-    freeObj free;
-    toString string;
-    equalsObj equals;
-    size_t stackSize;
-    size_t instanceSize;
+    const NT_TYPE *fieldType;
+    size_t offset;
+};
+
+struct _NT_CUSTOM_TYPE
+{
+    NT_TYPE type;
+    const NT_FUNCTION *free;
+    const NT_FUNCTION *string;
+    const NT_FUNCTION *equals;
+    NT_TABLE fields;
 };
 
 struct _NT_OBJECT

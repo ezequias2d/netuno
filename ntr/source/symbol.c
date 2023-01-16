@@ -12,6 +12,7 @@ NT_SYMBOL_TABLE *ntCreateSymbolTable(NT_SYMBOL_TABLE *parent, NT_SYMBOL_TABLE_TY
     symbolTable->count = 0;
     symbolTable->type = type;
     symbolTable->table = ntCreateArray();
+    symbolTable->scopeReturnType = NULL;
     return symbolTable;
 }
 

@@ -1,9 +1,10 @@
 #ifndef NT_STRING_H
 #define NT_STRING_H
 
-#include "object.h"
-#include "type.h"
+#include <netuno/common.h>
+#include <netuno/object.h>
 
+typedef struct _NT_TYPE NT_TYPE;
 typedef struct _NT_STRING NT_STRING;
 struct _NT_STRING
 {
