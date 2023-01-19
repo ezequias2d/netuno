@@ -308,6 +308,21 @@ static void addSymbol(NT_CODEGEN *codegen, const NT_STRING *name, NT_SYMBOL_TYPE
     assert(result);
 }
 
+static void addFunction(NT_CODEGEN *codegen, const NT_STRING *name, NT_SYMBOL_TYPE symbolType,
+                        const NT_DELEGATE_TYPE *delegateType, size_t pc)
+{
+    assert(codegen);
+    assert(codegen->chunk);
+    assert(name);
+    assert(IS_VALID_OBJECT(name));
+    assert(delegateType);
+    assert(IS_VALID_TYPE(delegateType));
+    assert(symbolType == SYMBOL_TYPE_FUNCTION || symbolType == SYMBOL_TYPE_SUBROUTINE);
+
+    const uint64_t functionId = ntAddConstantFunction(codegen->chunk, pc, delegateType, name);
+    addSymbol(codegen, name, symbolType, (const NT_TYPE *)delegateType, functionId);
+}
+
 static const NT_TYPE *findType(NT_CODEGEN *codegen, const NT_NODE *typeNode)
 {
     const NT_TOKEN *name = &typeNode->token;
@@ -2140,10 +2155,11 @@ static void declareFunction(NT_CODEGEN *codegen, const NT_NODE *node, const bool
         emit(codegen, node, BC_RETURN);
     }
 
-    const NT_TYPE *delegateType =
+    const NT_DELEGATE_TYPE *delegateType =
         ntDelegateType(codegen->assembly, returnType, paramCount, (NT_PARAM *)paramsArray.data);
     const NT_STRING *funcName = ntCopyString(name, nameLen);
-    addSymbol(codegen, funcName, symbolType, delegateType, startPc);
+
+    addFunction(codegen, funcName, symbolType, delegateType, startPc);
     ntDeinitArray(&paramsArray);
 }
 
