@@ -1,7 +1,6 @@
 #include "vstack.h"
 #include <assert.h>
 #include <netuno/memory.h>
-#include <netuno/type.h>
 
 NT_VSTACK *ntCreateVStack(void)
 {
