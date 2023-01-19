@@ -514,10 +514,12 @@ static const NT_TYPE *evalExprType(NT_CODEGEN *codegen, const NT_NODE *node)
             break;
         }
         if (entry.type != SYMBOL_TYPE_VARIABLE && entry.type != SYMBOL_TYPE_CONSTANT &&
-            entry.type != SYMBOL_TYPE_PARAM && entry.type != SYMBOL_TYPE_TYPE)
+            entry.type != SYMBOL_TYPE_PARAM && entry.type != SYMBOL_TYPE_TYPE &&
+            entry.type != SYMBOL_TYPE_FUNCTION && entry.type != SYMBOL_TYPE_SUBROUTINE)
         {
             char *str = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
-            errorAt(codegen, node, "The symbol '%s' is not a constant, parameter or variable!",
+            errorAt(codegen, node,
+                    "The symbol '%s' is not a constant, parameter, variable, method or function!",
                     str);
             ntFree(str);
             break;
