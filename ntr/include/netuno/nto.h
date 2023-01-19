@@ -2,6 +2,7 @@
 #define NETUNO_NTO_H
 
 #include <netuno/array.h>
+#include <netuno/function.h>
 #include <netuno/object.h>
 #include <netuno/table.h>
 
@@ -82,8 +83,8 @@ typedef struct _NT_ASSEMBLY
 
 NT_ASSEMBLY *ntCreateAssembly(void);
 void ntFreeAssembly(NT_ASSEMBLY *assembly);
-const NT_TYPE *ntDelegateType(NT_ASSEMBLY *assembly, const NT_TYPE *returnType, size_t count,
-                              const NT_PARAM *params);
+const NT_DELEGATE_TYPE *ntDelegateType(NT_ASSEMBLY *assembly, const NT_TYPE *returnType,
+                                       size_t count, const NT_PARAM *params);
 
 NT_CHUNK *ntCreateChunk(void);
 void ntInitChunk(NT_CHUNK *chunk);

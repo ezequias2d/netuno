@@ -3,7 +3,10 @@
 
 #include <netuno/common.h>
 
-#define IS_TYPE(obj, type) ((obj)->type == (type))
+#define IS_TYPE(obj, type) (((NT_OBJECT *)(obj))->type == (type))
+#define IS_VALID_TYPE(type)                                                                        \
+    ((type) && ((NT_TYPE *)(type))->objectType >= NT_OBJECT_ERROR &&                               \
+     ((NT_TYPE *)(type))->objectType <= NT_OBJECT_TYPE_MAX)
 
 typedef enum
 {
@@ -17,6 +20,9 @@ typedef enum
     NT_OBJECT_I32,
     NT_OBJECT_FUNCTION,
     NT_OBJECT_CUSTOM,
+
+    NT_OBJECT_TYPE_MIN = NT_OBJECT_ERROR,
+    NT_OBJECT_TYPE_MAX = NT_OBJECT_CUSTOM,
 } NT_OBJECT_TYPE;
 
 typedef struct _NT_OBJECT NT_OBJECT;
