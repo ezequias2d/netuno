@@ -50,8 +50,8 @@ void ntFreeAssembly(NT_ASSEMBLY *assembly)
     ntFree(assembly);
 }
 
-const NT_TYPE *ntDelegateType(NT_ASSEMBLY *assembly, const NT_TYPE *returnType, size_t paramCount,
-                              const NT_PARAM *params)
+const NT_DELEGATE_TYPE *ntDelegateType(NT_ASSEMBLY *assembly, const NT_TYPE *returnType,
+                                       size_t paramCount, const NT_PARAM *params)
 {
     assert(assembly);
 
@@ -62,12 +62,12 @@ const NT_TYPE *ntDelegateType(NT_ASSEMBLY *assembly, const NT_TYPE *returnType, 
         delegateName = ntTakeString(name, len);
     }
 
-    NT_TYPE *delegateType = NULL;
+    const NT_DELEGATE_TYPE *delegateType = NULL;
     if (ntTableGet(&assembly->delegates, delegateName, (void **)&delegateType))
         return delegateType;
 
     delegateType = ntCreateDelegateType(delegateName, returnType, paramCount, params);
-    ntTableSet(&assembly->delegates, delegateName, delegateType);
+    ntTableSet(&assembly->delegates, delegateName, (void *)delegateType);
     return delegateType;
 }
 
