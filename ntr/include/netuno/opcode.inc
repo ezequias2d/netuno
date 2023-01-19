@@ -9,6 +9,7 @@ bytecode(CONST_STRING)
 bytecode(PRINT)
 
 bytecode(CALL)
+bytecode(RETURN)
 
 bytecode(BRANCH)
 bytecode(BRANCH_Z_32)
@@ -177,5 +178,3 @@ bytecode(CTZ_I32)
 bytecode(CTZ_I64)
 bytecode(POPCNT_I32)
 bytecode(POPCNT_I64)
-
-bytecode(RETURN)
