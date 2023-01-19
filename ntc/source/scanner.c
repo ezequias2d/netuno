@@ -424,7 +424,7 @@ void ntScanToken(NT_SCANNER *scanner, NT_TOKEN *result)
                     result);
         break;
     case '%':
-        makeToken(scanner, match(scanner, '=') ? OP_A_MOD : '%', result);
+        makeKeyword(scanner, match(scanner, '=') ? OP_A_MOD : '%', result);
         break;
     case '.':
     case '(':
