@@ -390,7 +390,11 @@ void ntScanToken(NT_SCANNER *scanner, NT_TOKEN *result)
         makeKeyword(scanner, match(scanner, '=') ? OP_A_MUL : '*', result);
         break;
     case '=':
-        makeKeyword(scanner, match(scanner, '=') ? OP_EQ : '=', result);
+        makeKeyword(scanner,
+                    match(scanner, '=')   ? OP_EQ
+                    : match(scanner, '>') ? KW_ARROW
+                                          : '=',
+                    result);
         break;
     case '!':
         makeKeyword(scanner, match(scanner, '=') ? OP_NE : '!', result);
