@@ -1211,6 +1211,47 @@ static NT_RESULT run(NT_VM *vm)
             assert(result);
             break;
 
+        case BC_IS_ZERO_32:
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush32(vm, t32_1 == 0);
+            break;
+        case BC_IS_NOT_ZERO_32:
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush32(vm, t32_1 != 0);
+            break;
+        case BC_IS_ZERO_64:
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush64(vm, t64_1 == 0);
+            break;
+        case BC_IS_NOT_ZERO_64:
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush64(vm, t64_1 != 0);
+            break;
+        case BC_IS_ZERO_F32:
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush32(vm, *(float *)&t32_1 == 0.0f);
+            break;
+        case BC_IS_NOT_ZERO_F32:
+            result = ntPop32(vm, &t32_1);
+            assert(result);
+            result = ntPush32(vm, *(float *)&t32_1 != 0.0f);
+            break;
+        case BC_IS_ZERO_F64:
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush64(vm, *(double *)&t64_1 == 0.0);
+            break;
+        case BC_IS_NOT_ZERO_F64:
+            result = ntPop64(vm, &t64_1);
+            assert(result);
+            result = ntPush64(vm, *(double *)&t64_1 != 0.0);
+            break;
+
         case BC_ADD_I32:
             result = ntPop32(vm, &t32_2);
             assert(result);
