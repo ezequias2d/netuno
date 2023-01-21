@@ -11,6 +11,7 @@ set(ROOT_SOURCES
     "gc.c"
     "table.c"
     "memory.c"
+    "delegate.c"
 )
 
 set(CMAKE_C_STANDARD 11)
