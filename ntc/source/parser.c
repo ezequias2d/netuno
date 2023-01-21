@@ -713,21 +713,20 @@ static NT_NODE *makeIncrementStatement(NT_TOKEN mainToken, NT_TOKEN name, NT_NOD
             LT_I32);
     }
 
-    NT_NODE *variable = makeVariable(name);
     NT_NODE *sum = makeBinary(
         (NT_TOKEN){
             .type = TK_KEYWORD,
             .line = mainToken.line,
             .id = '+',
         },
-        variable, expr);
+        makeVariable(name), expr);
     NT_NODE *assign = makeAssign(
         (NT_TOKEN){
             .type = TK_KEYWORD,
             .line = mainToken.line,
             .id = '=',
         },
-        variable, sum);
+        makeVariable(name), sum);
 
     return makeNode(NC_STMT, NK_EXPR, mainToken, assign, NULL);
 }
