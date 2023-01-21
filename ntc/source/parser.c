@@ -751,9 +751,10 @@ static NT_NODE *forStatement(NT_PARSER *parser, const bool returnValue)
     NT_NODE *mainBody = block(parser, KW_NEXT, returnValue);
     NT_NODE *body = mainBody;
 
-    NT_NODE **incBlock = (NT_NODE **)ntMalloc(sizeof(NT_NODE *) * 2);
-    incBlock[0] = body;
-    incBlock[1] = makeIncrementStatement(step->token, name, step);
+    // create increment block
+    NT_LIST incBlock = ntCreateList();
+    ntListAdd(incBlock, body);
+    ntListAdd(incBlock, makeIncrementStatement(step->token, name, step));
     body = makeBlock(token, mainBody->token2, incBlock);
 
     // create loop
@@ -761,9 +762,9 @@ static NT_NODE *forStatement(NT_PARSER *parser, const bool returnValue)
     body = makeUntil(token, condition, body);
 
     // create var delcaration and initializer
-    NT_NODE **declBlock = (NT_NODE **)ntMalloc(sizeof(NT_NODE *) * 2);
-    declBlock[0] = makeVar(name, NULL, initializer);
-    declBlock[1] = body;
+    NT_LIST declBlock = ntCreateList();
+    ntListAdd(declBlock, makeVar(name, NULL, initializer));
+    ntListAdd(declBlock, body);
 
     body = makeBlock(token, mainBody->token2, declBlock);
     return body;
