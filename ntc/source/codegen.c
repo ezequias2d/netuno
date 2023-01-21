@@ -587,6 +587,120 @@ static const NT_TYPE *evalExprType(NT_CODEGEN *codegen, const NT_NODE *node)
     return NULL;
 }
 
+static const NT_TYPE *evalBlockReturnType(NT_CODEGEN *codegen, const NT_NODE *node)
+{
+    assert(node->type.class == NC_STMT);
+    assert(node->type.kind == NK_BLOCK);
+
+    const NT_TYPE *blockReturnType = NULL;
+    beginScope(codegen, STT_NONE);
+
+    for (size_t i = 0; i < ntListLen(node->data); ++i)
+    {
+        const NT_NODE *stmt = ntListGet(node->data, i);
+        const NT_TYPE *tmp = NULL;
+        assert(stmt->type.class == NC_STMT);
+
+        switch (stmt->type.kind)
+        {
+        case NK_RETURN:
+            tmp = evalExprType(codegen, stmt->left);
+            break;
+        case NK_BLOCK:
+            tmp = evalBlockReturnType(codegen, stmt);
+            break;
+        case NK_IF: {
+            assert(stmt->left->type.class == NC_STMT);
+            switch (stmt->left->type.kind)
+            {
+            case NK_BLOCK:
+                tmp = evalBlockReturnType(codegen, stmt->left);
+                break;
+            case NK_RETURN:
+                assert(stmt->left->left);
+                assert(stmt->left->left->type.class == NC_EXPR);
+                tmp = evalExprType(codegen, stmt->left->left);
+                break;
+            default:
+                break;
+            }
+
+            if (stmt->right) // else branch
+            {
+                const NT_TYPE *elseTmp = NULL;
+                switch (stmt->right->type.kind)
+                {
+                case NK_BLOCK:
+                    elseTmp = evalBlockReturnType(codegen, stmt->right);
+                    break;
+                case NK_RETURN:
+                    assert(stmt->right->left);
+                    assert(stmt->right->left->type.class == NC_EXPR);
+                    elseTmp = evalExprType(codegen, stmt->right->left);
+                    break;
+                default:
+                    break;
+                }
+
+                if (elseTmp != NULL && tmp != NULL && elseTmp != tmp)
+                {
+                    char *expectTypeName =
+                        ntToCharFixed(tmp->typeName->chars, tmp->typeName->length);
+                    char *currentTypeName =
+                        ntToCharFixed(elseTmp->typeName->chars, elseTmp->typeName->length);
+                    // more than one type as return
+                    errorAt(codegen, stmt,
+                            "The same type must be used in all return statements of if branches, "
+                            "expect type is %s, not %s",
+                            expectTypeName, currentTypeName);
+                    ntFree(expectTypeName);
+                    ntFree(currentTypeName);
+                }
+                else if (elseTmp != NULL && tmp == NULL)
+                    tmp = elseTmp;
+            }
+        }
+        break;
+        case NK_WHILE:
+        case NK_UNTIL:
+            assert(stmt->left->type.class == NC_STMT);
+            switch (stmt->left->type.kind)
+            {
+            case NK_BLOCK:
+                tmp = evalBlockReturnType(codegen, stmt->left);
+                break;
+            case NK_RETURN:
+                assert(stmt->left->left);
+                assert(stmt->left->left->type.class == NC_EXPR);
+                tmp = evalExprType(codegen, stmt->left->left);
+                break;
+            default:
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+
+        if (blockReturnType == NULL && tmp != NULL)
+            blockReturnType = tmp;
+        else if (blockReturnType != NULL && tmp != NULL && tmp != blockReturnType)
+        {
+            char *expectTypeName =
+                ntToCharFixed(blockReturnType->typeName->chars, blockReturnType->typeName->length);
+            char *currentTypeName = ntToCharFixed(tmp->typeName->chars, tmp->typeName->length);
+            // more than one type as return
+            errorAt(codegen, stmt,
+                    "The same type must be used in all return statements, expect type is %s, "
+                    "not %s",
+                    expectTypeName, currentTypeName);
+            ntFree(expectTypeName);
+            ntFree(currentTypeName);
+        }
+    }
+    return blockReturnType;
+}
+
 static void number(NT_CODEGEN *codegen, const NT_NODE *node)
 {
     char *str = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
@@ -1834,7 +1948,9 @@ static void ifStatement(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE 
 
         // emit else body
         statement(codegen, node->right, &elseReturnType);
-        if (elseReturnType && elseReturnType != *returnType)
+        if (*returnType == NULL)
+            *returnType = elseReturnType;
+        else if (elseReturnType && elseReturnType != *returnType)
         {
             char *expect =
                 ntToCharFixed((*returnType)->typeName->chars, (*returnType)->typeName->length);
@@ -2080,7 +2196,10 @@ static void declareFunction(NT_CODEGEN *codegen, const NT_NODE *node, const bool
 
     if (returnValue)
     {
-        returnType = findType(codegen, node->left);
+        if (node->left)
+            returnType = findType(codegen, node->left);
+        else
+            returnType = evalBlockReturnType(codegen, node->right);
 
         push(codegen, node, returnType);
         addParam(codegen, ntCopyString(returnVariable, ntStrLen(returnVariable)), returnType);
