@@ -419,7 +419,7 @@ static NT_NODE *bitwiseAnd(NT_PARSER *parser)
 {
     NT_NODE *expr = equality(parser);
 
-    while (matchId(parser, TK_KEYWORD, '^'))
+    while (matchId(parser, TK_KEYWORD, '&'))
     {
         NT_TOKEN op = parser->previous;
         NT_NODE *right = equality(parser);
