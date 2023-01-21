@@ -9,6 +9,7 @@
 #endif
 
 #define STACK_MAX 4096
+#define CALL_STACK_MAX 4096
 
 typedef enum
 {
@@ -20,11 +21,13 @@ typedef enum
 
 typedef struct _NT_VM
 {
-    NT_CHUNK *chunk;
+    const NT_CHUNK *chunk;
     NT_ASSEMBLY *assembly;
     size_t pc;
     uint8_t *stack;
     uint8_t *stackTop;
+    uint8_t *callStack;
+    uint8_t *callStackTop;
     bool stackOverflow;
     NT_GC *gc;
 #ifdef DEBUG_TRACE_EXECUTION
@@ -36,7 +39,7 @@ typedef struct _NT_VM
 NT_VM *ntCreateVM(void);
 void ntFreeVM(NT_VM *vm);
 
-NT_RESULT ntRun(NT_VM *vm, NT_CHUNK *chunk);
+NT_RESULT ntRun(NT_VM *vm, const NT_DELEGATE *entryPoint);
 
 void ntResetStack(NT_VM *vm);
 bool ntPush(NT_VM *vm, const void *data, const size_t dataSize);

@@ -56,14 +56,14 @@ NT_OBJECT *ntGetObject(const NT_GC *gc, uint32_t id)
     return ptr;
 }
 
-void ntRefObject(NT_GC *gc, uint32_t id)
-{
-    NT_OBJECT *obj = ntGetObject(gc, id);
-    obj->refCount++;
-}
+// void ntRefObject(NT_GC *gc, uint32_t id)
+// {
+//     NT_OBJECT *obj = ntGetObject(gc, id);
+//     obj->refCount++;
+// }
 
-void ntUnrefObject(NT_GC *gc, uint32_t id)
-{
-    NT_OBJECT *obj = ntGetObject(gc, id);
-    ntFreeObject(obj);
-}
+// void ntUnrefObject(NT_GC *gc, uint32_t id)
+// {
+//     NT_OBJECT *obj = ntGetObject(gc, id);
+//     ntFreeObject(obj);
+// }

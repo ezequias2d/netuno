@@ -9,12 +9,21 @@
 #include <netuno/vm.h>
 #include <stdio.h>
 
+typedef struct
+{
+    size_t pc;
+    const NT_CHUNK *chunk;
+} RETURN_ADR;
+
 NT_VM *ntCreateVM(void)
 {
     NT_VM *vm = (NT_VM *)ntMalloc(sizeof(NT_VM));
+    vm->gc = ntCreateGarbageCollector();
     vm->stack = ntMalloc(STACK_MAX);
     vm->stackTop = vm->stack;
-    vm->gc = ntCreateGarbageCollector();
+    vm->stackOverflow = false;
+    vm->callStack = ntMalloc(CALL_STACK_MAX);
+    vm->callStackTop = vm->callStack;
 #ifdef DEBUG_TRACE_EXECUTION
     vm->stackType = (size_t *)ntMalloc(sizeof(size_t) * STACK_MAX);
     vm->stackTypeTop = vm->stackType;
@@ -69,6 +78,33 @@ bool ntPeek(NT_VM *vm, void *data, const size_t dataSize, size_t offset)
         return false;
 
     ntMemcpy(data, vm->stackTop - dataSize - offset, dataSize);
+    return true;
+}
+
+static bool pushCall(NT_VM *vm, const RETURN_ADR value)
+{
+    const size_t available = CALL_STACK_MAX - (vm->callStackTop - vm->callStack);
+    if (available < sizeof(value))
+    {
+        vm->stackOverflow = true;
+        return false;
+    }
+    ntMemcpy(vm->callStackTop, &value, sizeof(value));
+    vm->callStackTop += sizeof(value);
+
+    return true;
+}
+
+static bool popCall(NT_VM *vm, RETURN_ADR *value)
+{
+    const size_t available = vm->callStackTop - vm->callStack;
+    if (available < sizeof(RETURN_ADR))
+    {
+        vm->stackOverflow = true;
+        return false;
+    }
+    vm->callStackTop -= sizeof(RETURN_ADR);
+    ntMemcpy(value, vm->callStackTop, sizeof(RETURN_ADR));
     return true;
 }
 
@@ -135,6 +171,31 @@ bool ntPushObject(NT_VM *vm, NT_OBJECT *object)
     return ntPush32(vm, ref);
 }
 
+bool ntCall(NT_VM *vm, const NT_DELEGATE *delegate)
+{
+    assert(vm);
+    assert(delegate);
+    assert(delegate->object.type);
+    assert(delegate->object.type->objectType == NT_OBJECT_DELEGATE);
+
+    if (delegate->native)
+    {
+        // TODO
+        assert(false);
+    }
+    else
+    {
+        pushCall(vm, (RETURN_ADR){
+                         .chunk = vm->chunk,
+                         .pc = vm->pc,
+                     });
+        vm->chunk = delegate->sourceChunk;
+        vm->pc = delegate->addr;
+        return true;
+    }
+    return false;
+}
+
 static uint32_t readConst32(NT_VM *vm)
 {
     uint64_t constant;
@@ -173,6 +234,13 @@ static const NT_STRING *readConstString(NT_VM *vm)
     const NT_STRING *str = ntTakeString(chars, length);
 
     return str;
+}
+
+static const NT_DELEGATE *readConstDelegate(NT_VM *vm)
+{
+    uint64_t constant;
+    vm->pc += ntReadVariant(vm->chunk, vm->pc, &constant);
+    return ntGetConstantDelegate(vm->chunk, constant);
 }
 
 static void printHex(const uint8_t *data, const size_t size)
@@ -677,6 +745,12 @@ static NT_RESULT run(NT_VM *vm)
 {
     for (;;)
     {
+        if (vm->chunk == NULL && vm->pc == SIZE_MAX)
+        {
+            return NT_OK;
+        }
+        assert(vm->chunk != NULL && vm->pc != SIZE_MAX);
+
 #ifdef DEBUG_TRACE_EXECUTION
         printf("          ");
         size_t debugOffset = 0;
@@ -690,6 +764,7 @@ static NT_RESULT run(NT_VM *vm)
         printf("\n");
         ntDisassembleInstruction(vm->chunk, vm->pc);
 #endif
+
         uint8_t instruction;
         uint64_t t64_1;
         uint64_t t64_2;
@@ -796,6 +871,12 @@ static NT_RESULT run(NT_VM *vm)
         case BC_CONST_STRING: {
             const NT_STRING *str = readConstString(vm);
             result = ntPushObject(vm, (NT_OBJECT *)str);
+            assert(result);
+            break;
+        }
+        case BC_CONST_DELEGATE: {
+            const NT_DELEGATE *delegate = readConstDelegate(vm);
+            result = ntPushObject(vm, (NT_OBJECT *)delegate);
             assert(result);
             break;
         }
@@ -1860,8 +1941,22 @@ static NT_RESULT run(NT_VM *vm)
             assert(result);
             break;
 
-        case BC_RETURN:
-            return NT_OK;
+        case BC_CALL: {
+            const NT_DELEGATE *delegate = NULL;
+            result = ntPopObject(vm, (NT_OBJECT **)&delegate);
+            assert(result);
+            result = ntCall(vm, delegate);
+            assert(result);
+            break;
+        }
+        case BC_RETURN: {
+            RETURN_ADR tmp;
+            result = popCall(vm, &tmp);
+            assert(result);
+            vm->chunk = tmp.chunk;
+            vm->pc = tmp.pc;
+            break;
+        }
         default:
             printf("Unsupported opcode %d.\n", instruction);
             break;
@@ -1872,9 +1967,11 @@ static NT_RESULT run(NT_VM *vm)
     }
 }
 
-NT_RESULT ntRun(NT_VM *vm, NT_CHUNK *chunk)
+NT_RESULT ntRun(NT_VM *vm, const NT_DELEGATE *entryPoint)
 {
-    vm->chunk = chunk;
-    vm->pc = 0;
+    assert(entryPoint);
+    vm->pc = SIZE_MAX;
+    vm->chunk = NULL;
+    ntCall(vm, entryPoint);
     return run(vm);
 }

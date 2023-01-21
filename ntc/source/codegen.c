@@ -2,12 +2,14 @@
 #include "parser.h"
 #include "scanner.h"
 #include <assert.h>
+#include <netuno/delegate.h>
 #include <netuno/memory.h>
 #include <netuno/nto.h>
 #include <netuno/object.h>
 #include <netuno/str.h>
 #include <netuno/string.h>
 #include <netuno/symbol.h>
+#include <netuno/type.h>
 #include <netuno/varint.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -225,6 +227,22 @@ static size_t emitPop(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *t
     return pop(codegen, node, type);
 }
 
+static void vFixedPop(NT_CODEGEN *codegen, const size_t popSize)
+{
+    if (popSize == 0)
+        return;
+
+    assert(popSize % sizeof(uint32_t) == 0);
+
+    int64_t rem = (int64_t)popSize;
+    while (rem > 0)
+    {
+        const NT_TYPE *poppedType = NULL;
+        ntVPop(codegen->stack, &poppedType);
+        rem -= poppedType->stackSize;
+    }
+}
+
 static size_t emitFixedPop(NT_CODEGEN *codegen, const NT_NODE *node, const size_t popSize)
 {
     if (popSize == 0)
@@ -319,7 +337,9 @@ static void addFunction(NT_CODEGEN *codegen, const NT_STRING *name, NT_SYMBOL_TY
     assert(IS_VALID_TYPE(delegateType));
     assert(symbolType == SYMBOL_TYPE_FUNCTION || symbolType == SYMBOL_TYPE_SUBROUTINE);
 
-    const uint64_t functionId = ntAddConstantFunction(codegen->chunk, pc, delegateType, name);
+    const NT_DELEGATE *delegate =
+        (const NT_DELEGATE *)ntDelegate(delegateType, codegen->chunk, pc, name);
+    const uint64_t functionId = ntAddConstantDelegate(codegen->chunk, delegate);
     addSymbol(codegen, name, symbolType, (const NT_TYPE *)delegateType, functionId);
 }
 
@@ -510,7 +530,7 @@ static const NT_TYPE *evalExprType(NT_CODEGEN *codegen, const NT_NODE *node)
         case NT_OBJECT_I64:
         case NT_OBJECT_U64:
         case NT_OBJECT_F64:
-        case NT_OBJECT_FUNCTION:
+        case NT_OBJECT_DELEGATE:
             return left;
         default: {
             char *str = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
@@ -1399,6 +1419,14 @@ static void variable(NT_CODEGEN *codegen, const NT_NODE *node)
         return;
     }
 
+    if (entry.type == SYMBOL_TYPE_FUNCTION || entry.type == SYMBOL_TYPE_SUBROUTINE)
+    {
+        emit(codegen, node, BC_CONST_DELEGATE);
+        ntWriteChunkVarint(codegen->chunk, entry.data, node->token.line);
+        push(codegen, node, entry.exprType);
+        return;
+    }
+
     const NT_TYPE *type = entry.exprType;
     const uint32_t delta = codegen->stack->sp - entry.data;
 
@@ -1613,70 +1641,13 @@ static void call(NT_CODEGEN *codegen, const NT_NODE *node, const bool needValue)
 {
     assert(codegen);
     assert(node);
-    assert(node->type.class == NC_EXPR && node->type.kind == NK_CALL);
 
-    const NT_TOKEN *callName = &node->left->token;
-    NT_SYMBOL_ENTRY entry;
-    if (!ntLookupSymbol(codegen->scope, callName->lexeme, callName->lexemeLength, &entry))
-    {
-        char *name = ntToCharFixed(callName->lexeme, callName->lexemeLength);
-        errorAt(codegen, node->left, "The function or subroutine '%s' must be declared.", name);
-        ntFree(name);
-        return;
-    }
+    const NT_DELEGATE_TYPE *delegateType =
+        (const NT_DELEGATE_TYPE *)evalExprType(codegen, node->left);
+    const bool hasReturn = delegateType->returnType != NULL;
 
-    if (callName->type == TK_KEYWORD && ntListLen(node->data) == 1)
-    {
-        // cast operator
-        const NT_NODE *expr = ntListGet(node->data, 0);
-        const NT_TYPE *exprType = evalExprType(codegen, expr);
-        const NT_TYPE *dstType;
-
-        expression(codegen, expr, true);
-
-        switch (callName->id)
-        {
-        case KW_I32:
-            dstType = ntI32Type();
-            break;
-        case KW_U32:
-            dstType = ntU32Type();
-            break;
-        case KW_F32:
-            dstType = ntI32Type();
-            break;
-        case KW_I64:
-            dstType = ntI32Type();
-            break;
-        case KW_U64:
-            dstType = ntU32Type();
-            break;
-        case KW_F64:
-            dstType = ntI32Type();
-            break;
-        case KW_STRING:
-            dstType = ntStringType();
-            break;
-        default: {
-            char *str = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
-            errorAt(codegen, node, "The keyword '%s' cannot be used to cast to.", str);
-            ntFree(str);
-            return;
-        }
-        }
-
-        cast(codegen, node, exprType, dstType);
-        return;
-    }
-    else if (entry.type != SYMBOL_TYPE_FUNCTION && entry.type != SYMBOL_TYPE_SUBROUTINE)
-    {
-        char *name = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
-        errorAt(codegen, node, "A symbol '%s' is not a function or subroutine.", name);
-        ntFree(name);
-        return;
-    }
-
-    if (needValue && entry.type == SYMBOL_TYPE_SUBROUTINE)
+    // if is subroutine and need a value as result, is a abstract tree error.
+    if (needValue && !hasReturn)
     {
         char *name = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
         errorAt(codegen, node, "A subroutine('%s') cannot return a value.", name);
@@ -1686,40 +1657,61 @@ static void call(NT_CODEGEN *codegen, const NT_NODE *node, const bool needValue)
 
     const uint32_t sp = codegen->stack->sp;
 
-    for (size_t i = 0; i < ntListLen(node->data); ++i)
+    const size_t callArgsCount = ntListLen(node->data);
+    if (callArgsCount != delegateType->paramCount)
     {
-        const NT_NODE *arg = (const NT_NODE *)ntListGet(node->data, i);
-        expression(codegen, arg, true);
+        char *name = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
+        errorAt(codegen, node,
+                "The '%s' call has wrong number of parameters, expect number is "
+                "%d, not %d.",
+                name, delegateType->paramCount, callArgsCount);
+        ntFree(name);
+        return;
     }
 
-    emitConstantString(codegen, node, node->token.lexeme, node->token.lexemeLength);
+    bool paramError = false;
+    for (size_t i = 0; i < callArgsCount; ++i)
+    {
+        const NT_NODE *arg = (const NT_NODE *)ntListGet(node->data, i);
+        const NT_TYPE *paramType = evalExprType(codegen, arg);
+        const NT_TYPE *expectType = delegateType->params[i].type;
+
+        expression(codegen, arg, true);
+
+        if (paramType != expectType)
+        {
+            char *expectTypeName =
+                ntToCharFixed(expectType->typeName->chars, expectType->typeName->length);
+            char *paramTypeName =
+                ntToCharFixed(paramType->typeName->chars, paramType->typeName->length);
+            char *paramName = ntToCharFixed(delegateType->params[i].name->chars,
+                                            delegateType->params[i].name->length);
+
+            errorAt(codegen, arg, "The argument('%s', %d) expect a value of type '%s', not '%s'.",
+                    paramName, i, expectTypeName, paramTypeName);
+
+            ntFree(expectTypeName);
+            ntFree(paramTypeName);
+            ntFree(paramName);
+            paramError = true;
+        }
+    }
+
+    if (paramError)
+        return;
+
+    // emit function name
+    expression(codegen, node->left, needValue);
     emit(codegen, node, BC_CALL);
 
     size_t delta = codegen->stack->sp - sp;
 
-    if (delta > 0 && entry.type == SYMBOL_TYPE_FUNCTION)
+    if (delta > 0 && delegateType->returnType != NULL)
     {
-        // ensure that dont pops the arg0, because is the return value.
-        switch (entry.exprType->objectType)
-        {
-        case NT_OBJECT_STRING:
-        case NT_OBJECT_CUSTOM:
-        case NT_OBJECT_F32:
-        case NT_OBJECT_U32:
-        case NT_OBJECT_I32:
-            delta -= sizeof(uint32_t);
-            break;
-        case NT_OBJECT_F64:
-        case NT_OBJECT_U64:
-        case NT_OBJECT_I64:
-            delta -= sizeof(uint64_t);
-            break;
-        default:
-            break;
-        }
+        // ensure that dont virtual pops the arg0, because is the return value.
+        delta -= delegateType->returnType->stackSize;
     }
-
-    emitFixedPop(codegen, node, delta);
+    vFixedPop(codegen, delta);
 }
 
 static void expression(NT_CODEGEN *codegen, const NT_NODE *node, const bool needValue)
@@ -2090,7 +2082,12 @@ static void declareFunction(NT_CODEGEN *codegen, const NT_NODE *node, const bool
     {
         returnType = findType(codegen, node->left);
 
-        if (paramCount < 1)
+        push(codegen, node, returnType);
+        addParam(codegen, ntCopyString(returnVariable, ntStrLen(returnVariable)), returnType);
+
+        if (paramCount >= 1)
+            pop(codegen, node, returnType);
+        else
         {
             switch (returnType->stackSize)
             {
@@ -2104,9 +2101,7 @@ static void declareFunction(NT_CODEGEN *codegen, const NT_NODE *node, const bool
                 errorAt(codegen, node, "CODEGEN invalid stackSize for return type!");
                 return;
             }
-            push(codegen, node, returnType);
         }
-        addParam(codegen, ntCopyString(returnVariable, ntStrLen(returnVariable)), returnType);
     }
 
     for (size_t i = 0; i < paramCount; ++i)
@@ -2117,6 +2112,7 @@ static void declareFunction(NT_CODEGEN *codegen, const NT_NODE *node, const bool
         const NT_STRING *paramName =
             ntCopyString(paramNode->token.lexeme, paramNode->token.lexemeLength);
 
+        push(codegen, paramNode, type);
         addParam(codegen, paramName, type);
 
         const NT_PARAM param = {
@@ -2243,7 +2239,8 @@ static void statement(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE **
     }
 }
 
-bool ntGen(NT_CODEGEN *codegen, const NT_NODE **block, size_t count)
+bool ntGen(NT_CODEGEN *codegen, const NT_NODE **block, size_t count, const char_t *entryPointName,
+           const NT_DELEGATE **entryPoint)
 {
     codegen->had_error = false;
 
@@ -2257,6 +2254,20 @@ bool ntGen(NT_CODEGEN *codegen, const NT_NODE **block, size_t count)
     {
         const NT_NODE *stmt = block[i];
         declaration(codegen, stmt);
+    }
+
+    if (entryPointName)
+    {
+        NT_SYMBOL_ENTRY symbolEntry;
+        const size_t entryPointLength = ntStrLen(entryPointName);
+        if (ntLookupSymbol(codegen->scope, entryPointName, entryPointLength, &symbolEntry) &&
+            entryPoint)
+        {
+            const NT_DELEGATE *delegate = ntGetConstantDelegate(codegen->chunk, symbolEntry.data);
+            assert(delegate);
+            assert(delegate->object.type->objectType == NT_OBJECT_DELEGATE);
+            *entryPoint = delegate;
+        }
     }
 
     return !codegen->had_error;

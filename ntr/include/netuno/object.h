@@ -14,7 +14,6 @@ typedef struct _NT_CHUNK NT_CHUNK;
 
 typedef struct _NT_OBJECT NT_OBJECT;
 typedef struct _NT_STRING NT_STRING;
-typedef struct _NT_FUNCTION NT_FUNCTION;
 
 typedef void (*nativeFun)(NT_VM *vm, const NT_TYPE *delegateType);
 
@@ -25,6 +24,7 @@ struct _NT_OBJECT
 };
 
 NT_OBJECT *ntCreateObject(const NT_TYPE *type);
+void ntRefObject(NT_OBJECT *object);
 void ntFreeObject(NT_OBJECT *object);
 const NT_STRING *ntToString(NT_OBJECT *object);
 bool ntEquals(NT_OBJECT *object1, NT_OBJECT *object2);

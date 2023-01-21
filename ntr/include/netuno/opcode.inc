@@ -5,6 +5,7 @@ bytecode(ONE_64)
 bytecode(CONST_32)
 bytecode(CONST_64)
 bytecode(CONST_STRING)
+bytecode(CONST_DELEGATE)
 
 bytecode(PRINT)
 

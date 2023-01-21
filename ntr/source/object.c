@@ -1,3 +1,4 @@
+#include "netuno/type.h"
 #include <assert.h>
 #include <netuno/memory.h>
 #include <netuno/object.h>
@@ -13,6 +14,12 @@ NT_OBJECT *ntCreateObject(const NT_TYPE *type)
     object->type = type;
     object->refCount = 1;
     return object;
+}
+
+void ntRef(NT_OBJECT *object)
+{
+    assert(object->refCount);
+    object->refCount++;
 }
 
 void ntFreeObject(NT_OBJECT *object)
@@ -107,71 +114,6 @@ static const NT_STRING *f64ToString(NT_OBJECT *object)
     ntFree(number);
 
     return ntTakeString(chars, length);
-}
-
-static const NT_STRING *delegateToString(NT_OBJECT *object)
-{
-    assert(object->type->objectType == NT_OBJECT_FUNCTION);
-    const NT_FUNCTION *function = (const NT_FUNCTION *)object;
-    return function->name;
-}
-
-static bool refEquals(NT_OBJECT *obj1, NT_OBJECT *obj2)
-{
-    return obj1 == obj2;
-}
-
-char_t *ntDelegateTypeName(const NT_TYPE *returnType, size_t paramCount, const NT_PARAM *params)
-{
-    NT_ARRAY array;
-    ntInitArray(&array);
-
-    const char_t *const delegate = U"delegate(";
-    ntArrayAdd(&array, delegate, ntStrLen(delegate));
-    for (size_t i_param = 0; i_param < paramCount; ++i_param)
-    {
-        const NT_PARAM *param = &params[i_param];
-        assert(param->type);
-        const NT_STRING *typeName = param->type->typeName;
-        ntArrayAdd(&array, typeName->chars, typeName->length * sizeof(char_t));
-    }
-    ntArrayAdd(&array, L")", sizeof(char_t));
-
-    if (returnType)
-    {
-        assert(returnType->typeName);
-        ntArrayAdd(&array, L":", sizeof(char_t));
-        ntArrayAdd(&array, returnType->typeName->chars, returnType->typeName->length);
-    }
-
-    const char_t term = '\0';
-    ntArrayAdd(&array, &term, sizeof(char_t));
-
-    return ntRealloc(array.data, array.count);
-}
-
-NT_TYPE *ntCreateDelegateType(const NT_STRING *name, const NT_TYPE *returnType, size_t paramCount,
-                              const NT_PARAM *params)
-{
-    NT_DELEGATE_TYPE *type =
-        (NT_DELEGATE_TYPE *)ntMalloc(sizeof(NT_DELEGATE_TYPE) + sizeof(NT_PARAM) * paramCount);
-
-    *type = (NT_DELEGATE_TYPE){
-        .type =
-            (NT_TYPE){
-                .objectType = NT_OBJECT_FUNCTION,
-                .typeName = name,
-                .free = freeNone,
-                .string = delegateToString,
-                .equals = refEquals,
-                .stackSize = sizeof(uint32_t),
-                .instanceSize = 0,
-            },
-        .paramCount = paramCount,
-        .returnType = returnType,
-    };
-    ntMemcpy((void *)type->params, params, sizeof(NT_PARAM) * paramCount);
-    return (NT_TYPE *)type;
 }
 
 static NT_TYPE I32_TYPE = {

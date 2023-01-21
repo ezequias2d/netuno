@@ -14,7 +14,7 @@ NT_GC *ntCreateGarbageCollector(void);
 void ntFreeGarbageCollector(NT_GC *gc);
 uint32_t ntAddObject(NT_GC *gc, NT_OBJECT *object);
 NT_OBJECT *ntGetObject(const NT_GC *gc, uint32_t id);
-void ntRefObject(NT_GC *gc, uint32_t id);
-void ntUnrefObject(NT_GC *gc, uint32_t id);
+// void ntRefObject(NT_GC *gc, uint32_t id);
+// void ntUnrefObject(NT_GC *gc, uint32_t id);
 
 #endif

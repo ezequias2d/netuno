@@ -19,6 +19,7 @@ typedef struct
 
 NT_CODEGEN *ntCreateCodegen(NT_ASSEMBLY *assembly, NT_CHUNK *chunk);
 void ntFreeCodegen(NT_CODEGEN *codegen);
-bool ntGen(NT_CODEGEN *codegen, const NT_NODE **block, size_t count);
+bool ntGen(NT_CODEGEN *codegen, const NT_NODE **block, size_t count, const char_t *entryPointName,
+           const NT_DELEGATE **entryPoint);
 
 #endif

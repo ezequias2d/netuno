@@ -46,7 +46,8 @@ static size_t constant64Instruction(const char *name, const NT_CHUNK *chunk, con
     printf("%-16s %4ld '", name, constant);
 
     uint64_t value;
-    assert(ntArrayGetU64(&chunk->constants, constant, &value));
+    const size_t size = ntArrayGetU64(&chunk->constants, constant, &value);
+    assert(size);
     printf("%ld\n", value);
 
     return readed + 1;
@@ -88,7 +89,8 @@ size_t ntDisassembleInstruction(const NT_CHUNK *chunk, const size_t offset)
         printf("   | ");
 
     uint8_t instruction;
-    assert(ntArrayGet(&chunk->code, offset, &instruction, sizeof(uint8_t)));
+    const size_t size = ntArrayGet(&chunk->code, offset, &instruction, sizeof(uint8_t));
+    assert(size);
 
     if (instruction < BC_LAST)
     {

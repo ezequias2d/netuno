@@ -1,5 +1,6 @@
 #include <netuno/common.h>
 #include <netuno/debug.h>
+#include <netuno/delegate.h>
 #include <netuno/memory.h>
 #include <netuno/ntc.h>
 #include <netuno/nto.h>
@@ -46,11 +47,14 @@ int main(int argc, char **argv)
     ntFree((void *)code);
 
     NT_ASSEMBLY *assembly = ntCreateAssembly();
-    NT_CHUNK *chunk = ntCompile(assembly, codet);
+
+    const NT_DELEGATE *entryPoint = NULL;
+    ntCompile(assembly, codet, U"main", &entryPoint);
+
     ntFree((void *)codet);
 
     NT_VM *vm = ntCreateVM();
-    ntRun(vm, chunk);
+    ntRun(vm, entryPoint);
 
     uint32_t result = INT32_MAX;
     if (!ntPop32(vm, &result))

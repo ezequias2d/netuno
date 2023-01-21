@@ -72,7 +72,8 @@ char *toCharS(const char_t *str, size_t len)
     return s;
 }
 
-NT_CHUNK *ntCompile(NT_ASSEMBLY *assembly, const char_t *str)
+NT_CHUNK *ntCompile(NT_ASSEMBLY *assembly, const char_t *str, const char_t *entryPointName,
+                    const NT_DELEGATE **entryPoint)
 {
     NT_SCANNER *scanner = ntScannerCreate(str);
     NT_PARSER *parser = ntParserCreate(scanner);
@@ -87,7 +88,7 @@ NT_CHUNK *ntCompile(NT_ASSEMBLY *assembly, const char_t *str)
 
     NT_CHUNK *chunk = ntCreateChunk();
     NT_CODEGEN *codegen = ntCreateCodegen(assembly, chunk);
-    ntGen(codegen, (const NT_NODE **)root, count);
+    ntGen(codegen, (const NT_NODE **)root, count, entryPointName, entryPoint);
     for (uint32_t i = 0; i < count; i++)
         ntDestroyNode(root[i]);
     ntFree(root);
