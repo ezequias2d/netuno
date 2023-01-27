@@ -727,14 +727,8 @@ static const NT_TYPE *evalExprType(NT_CODEGEN *codegen, const NT_NODE *node)
     case NK_CALL: {
         switch (left->objectType)
         {
-        case NT_OBJECT_I32:
-        case NT_OBJECT_U32:
-        case NT_OBJECT_F32:
-        case NT_OBJECT_I64:
-        case NT_OBJECT_U64:
-        case NT_OBJECT_F64:
         case NT_OBJECT_DELEGATE:
-            return left;
+            return ((const NT_DELEGATE_TYPE *)left)->returnType;
         default: {
             char *str = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
             errorAt(codegen, node, "The function or method '%s' must be declareed.", str);
@@ -2018,6 +2012,8 @@ static void call(NT_CODEGEN *codegen, const NT_NODE *node, const bool needValue)
     // emit function name
     expression(codegen, node->left, needValue);
     emit(codegen, node, BC_CALL);
+    pop(codegen, node, (const NT_TYPE *)delegateType);
+    push(codegen, node, delegateType->returnType);
 
     size_t delta = codegen->stack->sp - sp;
 
