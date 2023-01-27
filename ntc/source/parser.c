@@ -774,15 +774,23 @@ static NT_NODE *ifStatement(NT_PARSER *parser, const bool returnValue)
 {
     const NT_TOKEN token = parser->previous;
     NT_NODE *condition = expression(parser);
-
-    NT_NODE *thenBranch = block2(parser, KW_NEXT, KW_ELSE, returnValue);
+    NT_NODE *thenBranch = NULL;
     NT_NODE *elseBranch = NULL;
-    if (thenBranch->token2.id == KW_ELSE)
+
+    if (matchId(parser, TK_KEYWORD, KW_ARROW))
+        thenBranch = statement(parser, returnValue);
+    else
     {
-        if (matchId(parser, TK_KEYWORD, KW_IF))
-            elseBranch = ifStatement(parser, returnValue);
-        else
-            elseBranch = block(parser, KW_NEXT, returnValue);
+        thenBranch = block2(parser, KW_NEXT, KW_ELSE, returnValue);
+        if (thenBranch->token2.id == KW_ELSE)
+        {
+            if (matchId(parser, TK_KEYWORD, KW_IF))
+                elseBranch = ifStatement(parser, returnValue);
+            else if (matchId(parser, TK_KEYWORD, KW_ARROW))
+                elseBranch = statement(parser, returnValue);
+            else
+                elseBranch = block(parser, KW_NEXT, returnValue);
+        }
     }
 
     return makeIf(token, condition, thenBranch, elseBranch);
