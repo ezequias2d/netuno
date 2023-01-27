@@ -788,10 +788,10 @@ static NT_RESULT run(NT_VM *vm)
             // t64_1 = offset between current instruction and target
             // t64_2 = bytes used by offset in current instruction
             // because current instruction is in PC - 1
-            // target offset is t64_1 + t64_2 - 1
+            // target offset is t64_1 - 1
             // this is same for BRANCH_Z_32 and BRANCH_Z_64 instructions
             t64_2 = ntReadVariant(vm->chunk, vm->pc, &t64_1);
-            vm->pc += t64_1 + t64_2 - 1;
+            vm->pc += t64_1 - 1;
             break;
         case BC_BRANCH_Z_32:
             t64_2 = ntReadVariant(vm->chunk, vm->pc, &t64_1);
@@ -803,7 +803,7 @@ static NT_RESULT run(NT_VM *vm)
             }
 
             if (t32_1 == 0)
-                vm->pc += t64_1 + t64_2 - 1;
+                vm->pc += t64_1 - 1;
             else
                 vm->pc += t64_2;
             break;
@@ -817,7 +817,7 @@ static NT_RESULT run(NT_VM *vm)
             }
 
             if (t64_3 == 0)
-                vm->pc += t64_1 + t64_2 - 1;
+                vm->pc += t64_1 - 1;
             else
                 vm->pc += t64_2;
             break;
@@ -831,7 +831,7 @@ static NT_RESULT run(NT_VM *vm)
             }
 
             if (t32_1 != 0)
-                vm->pc += t64_1 + t64_2 - 1;
+                vm->pc += t64_1 - 1;
             else
                 vm->pc += t64_2;
             break;
@@ -845,7 +845,7 @@ static NT_RESULT run(NT_VM *vm)
             }
 
             if (t64_3 != 0)
-                vm->pc += t64_1 + t64_2 - 1;
+                vm->pc += t64_1 - 1;
             else
                 vm->pc += t64_2;
             break;

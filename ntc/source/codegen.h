@@ -13,6 +13,7 @@ typedef struct
     NT_CHUNK *chunk;
     NT_ASSEMBLY *assembly;
     NT_SYMBOL_TABLE *scope;
+    NT_SYMBOL_TABLE *functionScope;
     NT_VSTACK *stack;
     bool had_error;
 } NT_CODEGEN;

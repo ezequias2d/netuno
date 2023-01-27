@@ -32,13 +32,17 @@ typedef enum
     SYMBOL_TYPE_CONSTANT = 8,
     SYMBOL_TYPE_PARAM = 16,
     SYMBOL_TYPE_TYPE = 32,
+    SYMBOL_TYPE_LABEL = 64,
+    SYMBOL_TYPE_BRANCH = 128,
 } NT_SYMBOL_TYPE;
 
 typedef struct _NT_SYMBOL_ENTRY
 {
     const NT_STRING *symbol_name;
+    const NT_STRING *target_label; // for branch
     NT_SYMBOL_TYPE type;
     size_t data;
+    size_t data2;
     const NT_TYPE *exprType;
 } NT_SYMBOL_ENTRY;
 
@@ -47,6 +51,9 @@ NT_SYMBOL_TABLE *ntCreateSymbolTable(NT_SYMBOL_TABLE *parent, NT_SYMBOL_TABLE_TY
 void ntFreeSymbolTable(NT_SYMBOL_TABLE *symbolTable);
 bool ntLookupSymbol(NT_SYMBOL_TABLE *symbolTable, const char_t *symbolName,
                     const size_t symbolNameLen, NT_SYMBOL_ENTRY *symbolEntry);
+bool ntLookupSymbolCurrent(NT_SYMBOL_TABLE *symbolTable, const char_t *symbolName,
+                           const size_t symbolNameLen, NT_SYMBOL_ENTRY *symbolEntry);
 bool ntInsertSymbol(NT_SYMBOL_TABLE *symbolTable, const NT_SYMBOL_ENTRY *symbolEntry);
+bool ntUpdateSymbol(NT_SYMBOL_TABLE *symbolTable, const NT_SYMBOL_ENTRY *symbolEntry);
 
 #endif

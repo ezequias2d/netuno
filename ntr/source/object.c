@@ -16,7 +16,7 @@ NT_OBJECT *ntCreateObject(const NT_TYPE *type)
     return object;
 }
 
-void ntRef(NT_OBJECT *object)
+void ntRefObject(NT_OBJECT *object)
 {
     assert(object->refCount);
     object->refCount++;

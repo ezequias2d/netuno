@@ -31,6 +31,7 @@ NT_CODEGEN *ntCreateCodegen(NT_ASSEMBLY *assembly, NT_CHUNK *chunk)
 
     codegen->chunk = chunk;
     codegen->scope = ntCreateSymbolTable(NULL, STT_NONE, 0);
+    codegen->functionScope = codegen->scope;
     codegen->stack = ntCreateVStack();
     codegen->had_error = false;
     codegen->assembly = assembly;
@@ -276,6 +277,128 @@ static void ensureStmt(const NT_NODE *node, NT_NODE_KIND kind)
 static void beginScope(NT_CODEGEN *codegen, NT_SYMBOL_TABLE_TYPE type)
 {
     codegen->scope = ntCreateSymbolTable(codegen->scope, type, codegen->stack->sp);
+
+    if (type == STT_FUNCTION || type == STT_METHOD)
+        codegen->functionScope = codegen->scope;
+}
+
+static bool resolveBranchSymbol(NT_CODEGEN *codegen, const NT_NODE *node,
+                                NT_SYMBOL_ENTRY *const branchEntry, uint64_t *offset)
+{
+    assert(codegen);
+    assert(node);
+    assert(branchEntry);
+    assert(offset);
+
+    NT_SYMBOL_ENTRY label;
+    bool result = ntLookupSymbolCurrent(codegen->functionScope, branchEntry->target_label->chars,
+                                        branchEntry->target_label->length, &label);
+    if (!result)
+    {
+        char *labelName =
+            ntToCharFixed(branchEntry->target_label->chars, branchEntry->target_label->length);
+        errorAt(codegen, node, "Label '%s' was not reached", labelName);
+        ntFree(labelName);
+    }
+    assert(result);
+
+    const uint64_t boffset = label.data2 - (branchEntry->data + *offset);
+    const size_t size = ntVarintEncodedSize(ZigZagEncoding(boffset));
+    *offset += size;
+    if (size != branchEntry->data2)
+    {
+        branchEntry->data2 = size;
+        ntUpdateSymbol(codegen->functionScope, branchEntry);
+        return true;
+    }
+    return false;
+}
+
+static bool resolveLabelSymbol(NT_CODEGEN *codegen, NT_SYMBOL_ENTRY *const labelSymbol,
+                               const uint64_t *offset)
+{
+    assert(codegen);
+    assert(labelSymbol);
+    assert(offset);
+
+    const uint64_t boffset = labelSymbol->data + *offset;
+
+    if (boffset != labelSymbol->data2)
+    {
+        labelSymbol->data2 = boffset;
+        ntUpdateSymbol(codegen->functionScope, labelSymbol);
+        return true;
+    }
+    return false;
+}
+
+static void resolveLabelAndBranchSymbols(NT_CODEGEN *codegen, const NT_NODE *node)
+{
+    NT_SYMBOL_TABLE *const fscope = codegen->functionScope;
+    uint64_t offset;
+    bool dirth = false;
+    do
+    {
+        offset = 0;
+        dirth = false;
+
+        for (size_t i = 0; i < fscope->table->count; i += sizeof(NT_SYMBOL_ENTRY))
+        {
+            NT_SYMBOL_ENTRY current;
+            const bool result = ntArrayGet(fscope->table, i, &current, sizeof(NT_SYMBOL_ENTRY)) ==
+                                sizeof(NT_SYMBOL_ENTRY);
+            assert(result);
+
+            switch (current.type)
+            {
+            case SYMBOL_TYPE_LABEL:
+                dirth |= resolveLabelSymbol(codegen, &current, &offset);
+                break;
+            case SYMBOL_TYPE_BRANCH:
+                dirth |= resolveBranchSymbol(codegen, node, &current, &offset);
+                break;
+            default:
+                break;
+            }
+        }
+    } while (dirth);
+
+    offset = 0;
+    for (size_t i = 0; i < fscope->table->count; i += sizeof(NT_SYMBOL_ENTRY))
+    {
+        NT_SYMBOL_ENTRY current;
+        const bool result = ntArrayGet(fscope->table, i, &current, sizeof(NT_SYMBOL_ENTRY)) ==
+                            sizeof(NT_SYMBOL_ENTRY);
+        assert(result);
+
+        switch (current.type)
+        {
+        case SYMBOL_TYPE_BRANCH: {
+            NT_SYMBOL_ENTRY label;
+            const bool result =
+                ntLookupSymbolCurrent(codegen->functionScope, current.target_label->chars,
+                                      current.target_label->length, &label);
+            if (!result)
+            {
+                char *labelName =
+                    ntToCharFixed(current.target_label->chars, current.target_label->length);
+                errorAt(codegen, node, "Label '%s' was not reached", labelName);
+                ntFree(labelName);
+            }
+            assert(result);
+
+            const uint64_t boffset = label.data2 - (current.data + offset);
+            offset += current.data2;
+            const uint64_t z = ZigZagEncoding(boffset);
+            assert(current.data2 == ntVarintEncodedSize(z));
+
+            ntInsertChunkVarint(codegen->chunk, offset + current.data, boffset);
+        }
+        break;
+        default:
+            break;
+        }
+    }
 }
 
 static void endScope(NT_CODEGEN *codegen, const NT_NODE *node)
@@ -283,8 +406,17 @@ static void endScope(NT_CODEGEN *codegen, const NT_NODE *node)
     const size_t delta = codegen->stack->sp - codegen->scope->data;
     emitFixedPop(codegen, node, delta);
 
-    NT_SYMBOL_TABLE *oldScope = codegen->scope;
+    NT_SYMBOL_TABLE *const oldScope = codegen->scope;
     codegen->scope = oldScope->parent;
+
+    if (oldScope->type == STT_FUNCTION || oldScope->type == STT_METHOD)
+    {
+        codegen->functionScope = oldScope->parent;
+        while (codegen->scope->type != STT_FUNCTION && codegen->scope->type != STT_METHOD)
+        {
+            codegen->functionScope = codegen->functionScope->parent;
+        }
+    }
     ntFreeSymbolTable(oldScope);
 }
 
@@ -324,6 +456,77 @@ static void addSymbol(NT_CODEGEN *codegen, const NT_STRING *name, NT_SYMBOL_TYPE
     };
     const bool result = ntInsertSymbol(codegen->scope, &entry);
     assert(result);
+}
+
+static void addLabel(NT_CODEGEN *codegen, const NT_STRING *label)
+{
+    const size_t pc = codegen->chunk->code.count;
+    ntRefObject((NT_OBJECT *)label);
+
+    const NT_SYMBOL_ENTRY entry = {
+        .symbol_name = label,
+        .type = SYMBOL_TYPE_LABEL,
+        .data = pc,
+        .data2 = pc,
+        .exprType = NULL,
+    };
+    const bool result = ntInsertSymbol(codegen->functionScope, &entry);
+    assert(result);
+}
+
+static const NT_STRING *genString(NT_CODEGEN *codegen, const char_t *prefix)
+{
+    const uint64_t pc = codegen->chunk->code.count;
+    const NT_STRING *str = ntU64Type()->string((NT_OBJECT *)&pc);
+    const size_t strlen = ntStrLen(prefix);
+    if (strlen == 0)
+        return str;
+
+    const NT_STRING *strPrefix = ntCopyString(prefix, strlen);
+    const NT_STRING *label = ntConcat((NT_OBJECT *)strPrefix, (NT_OBJECT *)str);
+
+    ntFreeObject((NT_OBJECT *)strPrefix);
+    ntFreeObject((NT_OBJECT *)str);
+
+    return label;
+}
+
+static const NT_STRING *genLabel(NT_CODEGEN *codegen)
+{
+    const NT_STRING *label = genString(codegen, U":");
+    addLabel(codegen, label);
+    return label;
+}
+
+static void addBranch(NT_CODEGEN *codegen, const NT_STRING *label)
+{
+    const size_t pc = codegen->chunk->code.count;
+    ntRefObject((NT_OBJECT *)label);
+    const NT_STRING *branchName = genString(codegen, U"#");
+    const NT_SYMBOL_ENTRY entry = {
+        .symbol_name = branchName,
+        .target_label = label,
+        .type = SYMBOL_TYPE_BRANCH,
+        .data = pc,
+        .data2 = pc,
+    };
+    const bool result = ntInsertSymbol(codegen->functionScope, &entry);
+    assert(result);
+}
+
+static void emitBranchLabel(NT_CODEGEN *codegen, const NT_NODE *node, NT_OPCODE branchOpcode,
+                            const NT_STRING *label)
+{
+    addBranch(codegen, label);
+    emit(codegen, node, branchOpcode);
+}
+
+static const NT_STRING *emitBranch(NT_CODEGEN *codegen, const NT_NODE *node, NT_OPCODE branchOpcode)
+{
+    const NT_STRING *label = genString(codegen, U":");
+    emitBranchLabel(codegen, node, branchOpcode, label);
+    ntFreeObject((NT_OBJECT *)label);
+    return label;
 }
 
 static void addFunction(NT_CODEGEN *codegen, const NT_STRING *name, NT_SYMBOL_TYPE symbolType,
@@ -1677,7 +1880,7 @@ static void typeToBool(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE *
 static void logicalAnd(NT_CODEGEN *codegen, const NT_NODE *node)
 {
     // branch when left value is false
-    const size_t falseBranch = emit(codegen, node, BC_BRANCH_Z_32);
+    const NT_STRING *falseBranch = emitBranch(codegen, node, BC_BRANCH_Z_32);
 
     // consume left 'true' value and check right value
     emitPop(codegen, node, ntBoolType());
@@ -1686,25 +1889,22 @@ static void logicalAnd(NT_CODEGEN *codegen, const NT_NODE *node)
     expression(codegen, node->right, true);
     typeToBool(codegen, node, right);
 
-    ntInsertChunkVarint(codegen->chunk, falseBranch + 1, codegen->chunk->code.count - falseBranch);
+    addLabel(codegen, falseBranch);
 }
 
 static void logicalOr(NT_CODEGEN *codegen, const NT_NODE *node)
 {
-    // branch to right value when left value is false
-    const size_t elseBranch = emit(codegen, node, BC_BRANCH_Z_32);
-
-    // branch to end, because left value is true
-    const size_t trueBranch = emit(codegen, node, BC_BRANCH);
+    // branch to end, when first value is true
+    const NT_STRING *trueBranch = emitBranch(codegen, node, BC_BRANCH_NZ_32);
 
     // consume left 'false' value
-    const size_t elseLocation = emitPop(codegen, node, ntBoolType());
+    emitPop(codegen, node, ntBoolType());
 
     // eval right
     const NT_TYPE *right = evalExprType(codegen, node->right);
     expression(codegen, node->right, true);
 
-    // logical not
+    // logical is not zero
     switch (right->objectType)
     {
     case NT_OBJECT_I32:
@@ -1719,8 +1919,9 @@ static void logicalOr(NT_CODEGEN *codegen, const NT_NODE *node)
         errorAt(codegen, node, "Invalid argument cast to bool.");
         break;
     }
-    ntInsertChunkVarint(codegen->chunk, trueBranch + 1, codegen->chunk->code.count - trueBranch);
-    ntInsertChunkVarint(codegen->chunk, elseBranch + 1, elseLocation - elseBranch);
+
+    // true:
+    addLabel(codegen, trueBranch);
 }
 
 static void logical(NT_CODEGEN *codegen, const NT_NODE *node)
@@ -1888,8 +2089,8 @@ static void expressionStatement(NT_CODEGEN *codegen, const NT_NODE *node)
 
 static void statement(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE **returnType);
 
-static size_t emitCondition(NT_CODEGEN *codegen, const NT_NODE *node, bool isZero,
-                            const NT_TYPE **pConditionType)
+static const NT_STRING *emitCondition(NT_CODEGEN *codegen, const NT_NODE *node, bool isZero,
+                                      const NT_TYPE **pConditionType)
 {
     assert(codegen);
     assert(node);
@@ -1903,14 +2104,14 @@ static size_t emitCondition(NT_CODEGEN *codegen, const NT_NODE *node, bool isZer
     {
     case NT_OBJECT_I32:
     case NT_OBJECT_U32:
-        return emit(codegen, node, isZero ? BC_BRANCH_Z_32 : BC_BRANCH_NZ_32);
+        return emitBranch(codegen, node, isZero ? BC_BRANCH_Z_32 : BC_BRANCH_NZ_32);
     case NT_OBJECT_I64:
     case NT_OBJECT_U64:
-        return emit(codegen, node, isZero ? BC_BRANCH_Z_64 : BC_BRANCH_NZ_64);
+        return emitBranch(codegen, node, isZero ? BC_BRANCH_Z_64 : BC_BRANCH_NZ_64);
     default:
         errorAt(codegen, node,
                 "Invalid expression, must evaluate to basic types like int, long, etc.");
-        return 0;
+        return NULL;
     }
 }
 
@@ -1920,7 +2121,7 @@ static void ifStatement(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE 
 
     // emit condition and branch
     const NT_TYPE *conditionType;
-    const size_t elseBranch = emitCondition(codegen, node, true, &conditionType);
+    const NT_STRING *elseBranch = emitCondition(codegen, node, true, &conditionType);
     assert(conditionType);
 
     // if has else body, each body pops the condition from stack, otherwise, pop in end
@@ -1933,9 +2134,6 @@ static void ifStatement(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE 
     // emit then body
     statement(codegen, node->left, &thenReturnType);
 
-    // start of else branch
-    size_t startElse = codegen->chunk->code.count;
-
     // emit else body if exist
     if (hasElse)
     {
@@ -1943,8 +2141,11 @@ static void ifStatement(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE 
         push(codegen, node, conditionType);
 
         // skip else body, when then body has taken
-        const size_t skipElse = emit(codegen, node, BC_BRANCH);
+        const NT_STRING *skipElse = emitBranch(codegen, node, BC_BRANCH);
         emitPop(codegen, node, conditionType);
+
+        // elseBranch:
+        addLabel(codegen, elseBranch);
 
         // emit else body
         statement(codegen, node->right, &elseReturnType);
@@ -1962,20 +2163,17 @@ static void ifStatement(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE 
             ntFree(current);
         }
 
-        // add offset as skipElse param
-        ntInsertChunkVarint(codegen->chunk, skipElse + 1, codegen->chunk->code.count - skipElse);
-
-        // increment startElse, to not skip skipElse branch.
-        startElse += 1 + ntReadVariant(codegen->chunk, skipElse + 1, NULL);
+        // skipElse:
+        addLabel(codegen, skipElse);
     }
     else
     {
+        // elseBranch:
+        addLabel(codegen, elseBranch);
+
         // pop condition when no has else
         emitPop(codegen, node, conditionType);
     }
-
-    const size_t delta = startElse - elseBranch;
-    ntInsertChunkVarint(codegen->chunk, elseBranch + 1, delta);
 
     if (thenReturnType && elseReturnType && !*returnType)
         *returnType = thenReturnType;
@@ -2004,43 +2202,30 @@ static void blockStatment(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYP
 static void conditionalLoopStatement(NT_CODEGEN *codegen, const NT_NODE *node, bool isZero,
                                      const NT_TYPE **returnType)
 {
-    const size_t loopStart = codegen->chunk->code.count;
+    // loop:
+    const NT_STRING *loopLabel = genLabel(codegen);
 
-    // start
+    // check condition
     const NT_TYPE *conditionType;
-    const size_t exit = emitCondition(codegen, node, isZero, &conditionType);
+    const NT_STRING *exitLabel = emitCondition(codegen, node, isZero, &conditionType);
     assert(conditionType);
 
+    // code block
     emitPop(codegen, node, conditionType);
     statement(codegen, node->left, returnType);
 
     // loop to start
-    const size_t loopBranch = emit(codegen, node, BC_BRANCH);
-    const size_t loopOffset = loopStart - loopBranch;
+    emitBranchLabel(codegen, node, BC_BRANCH, loopLabel);
 
-    const size_t exitOffset = codegen->chunk->code.count - exit;
-
-    size_t correctedExitOffset = exitOffset;
-    size_t correctedLoopOffset = loopOffset;
-
-    do
-    {
-        correctedExitOffset = exitOffset + ntVarintEncodedSize(ZigZagEncoding(correctedLoopOffset));
-        correctedLoopOffset = loopOffset -
-                              ntVarintEncodedSize(ZigZagEncoding(correctedExitOffset)) -
-                              ntVarintEncodedSize(ZigZagEncoding(correctedLoopOffset));
-    } while (correctedExitOffset !=
-                 exitOffset + ntVarintEncodedSize(ZigZagEncoding(correctedLoopOffset)) ||
-             correctedLoopOffset != loopOffset -
-                                        ntVarintEncodedSize(ZigZagEncoding(correctedExitOffset)) -
-                                        ntVarintEncodedSize(ZigZagEncoding(correctedLoopOffset)));
-
-    ntInsertChunkVarint(codegen->chunk, loopBranch + 1, correctedLoopOffset);
-    ntInsertChunkVarint(codegen->chunk, exit + 1, correctedExitOffset);
+    // exit:
+    addLabel(codegen, exitLabel);
 
     // pop condition value from stach when false
     push(codegen, node, conditionType);
     emitPop(codegen, node, conditionType);
+
+    // free label
+    ntFreeObject((NT_OBJECT *)loopLabel);
 }
 
 static void untilStatment(NT_CODEGEN *codegen, const NT_NODE *node)
@@ -2276,6 +2461,9 @@ static void declareFunction(NT_CODEGEN *codegen, const NT_NODE *node, const bool
 
     addFunction(codegen, funcName, symbolType, delegateType, startPc);
     ntDeinitArray(&paramsArray);
+
+    // resolve branchs and labels
+    resolveLabelAndBranchSymbols(codegen, node);
 }
 
 static void defStatement(NT_CODEGEN *codegen, const NT_NODE *node)
