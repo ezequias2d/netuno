@@ -564,8 +564,8 @@ static NT_NODE *functionDeclaration(NT_PARSER *parser, const bool returnValue)
     }
     else
     {
-        consumeId(parser, TK_KEYWORD, ':', "A function expect a explicit type as return.");
-        returnType = typeAnnotation(parser);
+        if (matchId(parser, TK_KEYWORD, ':'))
+            returnType = typeAnnotation(parser);
     }
 
     NT_NODE *body;
