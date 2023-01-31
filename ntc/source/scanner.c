@@ -401,10 +401,10 @@ void ntScanToken(NT_SCANNER *scanner, NT_TOKEN *result)
         makeKeyword(scanner, match(scanner, '=') ? OP_NE : '!', result);
         break;
     case '&':
-        makeKeyword(scanner, match(scanner, '=') ? OP_LOGAND : '&', result);
+        makeKeyword(scanner, match(scanner, '&') ? OP_LOGAND : '&', result);
         break;
     case '|':
-        makeKeyword(scanner, match(scanner, '=') ? OP_LOGOR : '|', result);
+        makeKeyword(scanner, match(scanner, '|') ? OP_LOGOR : '|', result);
         break;
     case '^':
         makeKeyword(scanner, match(scanner, '=') ? OP_A_XOR : '^', result);
