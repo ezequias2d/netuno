@@ -13,12 +13,13 @@ static const NT_KEYWORD_PAIR KEYWORDS[] = {
 
 static const uint32_t KEYWORDS_COUNT = sizeof(KEYWORDS) / sizeof(NT_KEYWORD_PAIR);
 
-NT_SCANNER *ntScannerCreate(const char_t *source)
+NT_SCANNER *ntScannerCreate(const char_t *source, const char_t *sourceName)
 {
     NT_SCANNER *scanner = (NT_SCANNER *)ntMalloc(sizeof(NT_SCANNER));
 
     *scanner = (NT_SCANNER){.keywords = ntTrieCreate(KEYWORDS_COUNT, KEYWORDS),
                             .source = source,
+                            .sourceName = sourceName,
                             .current = 0,
                             .line = 0};
 

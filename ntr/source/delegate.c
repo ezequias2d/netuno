@@ -1,11 +1,65 @@
-#include "netuno/gc.h"
 #include <assert.h>
 #include <netuno/delegate.h>
 #include <netuno/memory.h>
+#include <netuno/module.h>
 #include <netuno/object.h>
 #include <netuno/str.h>
 #include <netuno/string.h>
 #include <netuno/type.h>
+
+static bool refEquals(NT_OBJECT *obj1, NT_OBJECT *obj2)
+{
+    return obj1 == obj2;
+}
+
+static void freeDelegateType(NT_OBJECT *object)
+{
+    assert(object);
+    assert(IS_VALID_OBJECT(object));
+    assert(object->type->objectType == NT_OBJECT_TYPE_TYPE);
+
+    NT_DELEGATE_TYPE *delegateType = (NT_DELEGATE_TYPE *)object;
+    assert(IS_VALID_TYPE(delegateType));
+
+    ntFreeObject((NT_OBJECT *)delegateType->type.typeName);
+    ntFree(delegateType->params);
+}
+
+static const NT_STRING *typeToString(NT_OBJECT *object)
+{
+    assert(object);
+    assert(IS_VALID_OBJECT(object));
+    assert(object->type->objectType == NT_OBJECT_TYPE_TYPE);
+
+    NT_TYPE *type = (NT_TYPE *)object;
+    assert(IS_VALID_TYPE(type));
+
+    return type->typeName;
+}
+
+static NT_TYPE TYPE = {
+    .object =
+        (NT_OBJECT){
+            .type = NULL,
+            .refCount = 0,
+        },
+    .objectType = NT_OBJECT_TYPE_TYPE,
+    .typeName = NULL,
+    .free = freeDelegateType,
+    .string = typeToString,
+    .equals = refEquals,
+    .stackSize = sizeof(NT_REF),
+    .instanceSize = sizeof(NT_DELEGATE_TYPE),
+};
+
+const NT_TYPE *ntDelegateType(void)
+{
+    if (TYPE.object.type == NULL)
+        TYPE.object.type = ntType();
+    if (TYPE.typeName == NULL)
+        TYPE.typeName = ntCopyString(U"DelegateType", 12);
+    return &TYPE;
+}
 
 static void freeDelegate(NT_OBJECT *object)
 {
@@ -16,7 +70,7 @@ static void freeDelegate(NT_OBJECT *object)
     delegate->native = false;
     delegate->func = NULL;
     delegate->addr = 0;
-    delegate->sourceChunk = NULL;
+    delegate->sourceModule = NULL;
 }
 
 static const NT_STRING *delegateToString(NT_OBJECT *object)
@@ -26,34 +80,25 @@ static const NT_STRING *delegateToString(NT_OBJECT *object)
     return delegate->name;
 }
 
-static bool refEquals(NT_OBJECT *obj1, NT_OBJECT *obj2)
-{
-    return obj1 == obj2;
-}
-
 const NT_DELEGATE_TYPE *ntCreateDelegateType(const NT_STRING *delegateTypeName,
                                              const NT_TYPE *returnType, size_t paramCount,
                                              const NT_PARAM *params)
 {
-    NT_DELEGATE_TYPE *type =
-        (NT_DELEGATE_TYPE *)ntMalloc(sizeof(NT_DELEGATE_TYPE) + sizeof(NT_PARAM) * paramCount);
+    NT_DELEGATE_TYPE *delegateType = (NT_DELEGATE_TYPE *)ntCreateObject(ntDelegateType());
 
-    *type = (NT_DELEGATE_TYPE){
-        .type =
-            (NT_TYPE){
-                .objectType = NT_OBJECT_DELEGATE,
-                .typeName = delegateTypeName,
-                .free = freeDelegate,
-                .string = delegateToString,
-                .equals = refEquals,
-                .stackSize = sizeof(uint32_t),
-                .instanceSize = sizeof(NT_DELEGATE),
-            },
-        .paramCount = paramCount,
-        .returnType = returnType,
-    };
-    ntMemcpy((void *)type->params, params, sizeof(NT_PARAM) * paramCount);
-    return type;
+    delegateType->type.objectType = NT_OBJECT_DELEGATE;
+    delegateType->type.typeName = delegateTypeName;
+    delegateType->type.free = freeDelegate;
+    delegateType->type.string = delegateToString;
+    delegateType->type.equals = refEquals;
+    delegateType->type.stackSize = sizeof(NT_REF);
+    delegateType->type.instanceSize = sizeof(NT_DELEGATE);
+    delegateType->paramCount = paramCount;
+    delegateType->returnType = returnType;
+
+    delegateType->params = ntMalloc(sizeof(NT_PARAM) * paramCount);
+    ntMemcpy(delegateType->params, params, sizeof(NT_PARAM) * paramCount);
+    return delegateType;
 }
 
 char_t *ntDelegateTypeName(const NT_TYPE *returnType, size_t paramCount, const NT_PARAM *params)
@@ -85,13 +130,24 @@ char_t *ntDelegateTypeName(const NT_TYPE *returnType, size_t paramCount, const N
     return ntRealloc(array.data, array.count);
 }
 
-const NT_DELEGATE *ntDelegate(const NT_DELEGATE_TYPE *delegateType, const NT_CHUNK *chunk,
+const NT_DELEGATE *ntDelegate(const NT_DELEGATE_TYPE *delegateType, const NT_MODULE *module,
                               size_t addr, const NT_STRING *name)
 {
+    assert(delegateType);
+    assert(IS_VALID_OBJECT(delegateType));
+    assert(IS_VALID_TYPE(delegateType));
+    assert(delegateType->type.object.type->objectType == NT_OBJECT_TYPE_TYPE);
+    assert(delegateType->type.objectType == NT_OBJECT_DELEGATE);
+
+    assert(module);
+    assert(IS_VALID_OBJECT(module));
+    assert(module->object.type->object.type->objectType == NT_OBJECT_TYPE_TYPE);
+    assert(module->object.type->objectType == NT_OBJECT_MODULE);
+
     NT_DELEGATE *delegate = (NT_DELEGATE *)ntCreateObject((NT_TYPE *)delegateType);
     delegate->native = false;
     delegate->addr = addr;
-    delegate->sourceChunk = chunk;
+    delegate->sourceModule = module;
     delegate->name = name;
 
     return delegate;

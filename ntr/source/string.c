@@ -4,6 +4,7 @@
 #include <netuno/str.h>
 #include <netuno/string.h>
 #include <netuno/table.h>
+#include <netuno/type.h>
 #include <stdio.h>
 
 static NT_TABLE stringTable = {.count = 0, .size = 0, .pEntries = NULL};
@@ -40,6 +41,11 @@ static bool stringEquals(NT_OBJECT *_str1, NT_OBJECT *_str2)
 }
 
 static NT_TYPE STRING_TYPE = {
+    .object =
+        (NT_OBJECT){
+            .type = NULL,
+            .refCount = 0,
+        },
     .objectType = NT_OBJECT_STRING,
     .typeName = NULL,
     .free = freeString,
@@ -51,6 +57,8 @@ static NT_TYPE STRING_TYPE = {
 
 const NT_TYPE *ntStringType(void)
 {
+    if (STRING_TYPE.object.type == NULL)
+        STRING_TYPE.object.type = ntType();
     if (STRING_TYPE.typeName == NULL)
         STRING_TYPE.typeName = ntCopyString(U"string", 6);
     return &STRING_TYPE;

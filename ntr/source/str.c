@@ -73,3 +73,22 @@ size_t ntStrLen(const char_t *str)
         s++;
     return s;
 }
+
+const char_t *ntStrRChr(const char_t *str, char_t character)
+{
+    const char_t *last = NULL;
+    do
+    {
+        if (*str == character)
+            last = str;
+    } while (*str++);
+    return last;
+}
+
+const char_t *ntStrChr(const char_t *str, char_t character)
+{
+    for (; *str != character; ++str)
+        if (*str == '\0')
+            return NULL;
+    return str;
+}

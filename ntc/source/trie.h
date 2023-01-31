@@ -1,8 +1,7 @@
 #ifndef TRIE_H
 #define TRIE_H
 
-#include <netuno/ntc.h>
-#include <scanner.h>
+#include <netuno/common.h>
 
 typedef struct _NT_TRIE_NODE
 {

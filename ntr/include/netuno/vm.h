@@ -1,8 +1,7 @@
-#ifndef NETUNO_NTR_H
-#define NETUNO_NTR_H
+#ifndef NT_NTR_H
+#define NT_NTR_H
 
-#include "gc.h"
-#include "nto.h"
+#include <netuno/assembly.h>
 
 #ifndef NDEBUG
 #define DEBUG_TRACE_EXECUTION
@@ -21,7 +20,7 @@ typedef enum
 
 typedef struct _NT_VM
 {
-    const NT_CHUNK *chunk;
+    const NT_MODULE *module;
     NT_ASSEMBLY *assembly;
     size_t pc;
     uint8_t *stack;
@@ -29,7 +28,6 @@ typedef struct _NT_VM
     uint8_t *callStack;
     uint8_t *callStackTop;
     bool stackOverflow;
-    NT_GC *gc;
 #ifdef DEBUG_TRACE_EXECUTION
     size_t *stackType;
     size_t *stackTypeTop;
@@ -39,7 +37,7 @@ typedef struct _NT_VM
 NT_VM *ntCreateVM(void);
 void ntFreeVM(NT_VM *vm);
 
-NT_RESULT ntRun(NT_VM *vm, const NT_DELEGATE *entryPoint);
+NT_RESULT ntRun(NT_VM *vm, NT_ASSEMBLY *assembly, const NT_DELEGATE *entryPoint);
 
 void ntResetStack(NT_VM *vm);
 bool ntPush(NT_VM *vm, const void *data, const size_t dataSize);

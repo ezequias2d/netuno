@@ -199,6 +199,13 @@ static NT_NODE *makeBlock(const NT_TOKEN token, const NT_TOKEN end, NT_LIST stat
     return node;
 }
 
+static NT_NODE *makeSingleStatementBlock(NT_NODE *node)
+{
+    NT_LIST block = ntCreateList();
+    ntListAdd(block, node);
+    return makeBlock(node->token, node->token, block);
+}
+
 static NT_NODE *makeIf(const NT_TOKEN token, NT_NODE *condition, NT_NODE *thenBranch,
                        NT_NODE *elseBranch)
 {
@@ -352,13 +359,22 @@ static NT_NODE *call(NT_PARSER *parser)
 static NT_NODE *unary(NT_PARSER *parser)
 {
     if (matchId(parser, TK_KEYWORD, '-') || matchId(parser, TK_KEYWORD, '!') ||
-        matchId(parser, TK_KEYWORD, '~'))
+        matchId(parser, TK_KEYWORD, '~') || matchId(parser, TK_KEYWORD, OP_INC) ||
+        matchId(parser, TK_KEYWORD, OP_DEC))
     {
         NT_TOKEN op = parser->previous;
         NT_NODE *right = unary(parser);
         return makeNode(NC_EXPR, NK_UNARY, op, NULL, right);
     }
-    return call(parser);
+
+    NT_NODE *expr = call(parser);
+
+    if (matchId(parser, TK_KEYWORD, OP_INC) || matchId(parser, TK_KEYWORD, OP_DEC))
+    {
+        NT_TOKEN op = parser->previous;
+        return makeNode(NC_EXPR, NK_UNARY, op, expr, NULL);
+    }
+    return expr;
 }
 
 static NT_NODE *factor(NT_PARSER *parser)
@@ -570,7 +586,11 @@ static NT_NODE *functionDeclaration(NT_PARSER *parser, const bool returnValue)
 
     NT_NODE *body;
     if (matchId(parser, TK_KEYWORD, KW_ARROW))
+    {
         body = expression(parser);
+        body = makeNode(NC_STMT, NK_RETURN, body->token, body, NULL);
+        body = makeSingleStatementBlock(body);
+    }
     else
         body = block(parser, KW_END, returnValue);
 
@@ -601,31 +621,60 @@ static NT_NODE *variableDeclaration(NT_PARSER *parser)
     return makeVar(name, type, initializer);
 }
 
-static NT_NODE *typeOrModuleDeclaration(NT_PARSER *parser, NT_NODE_KIND kind)
+static NT_NODE *public(NT_PARSER *parser)
 {
-    consume(parser, TK_IDENT, "Expect a identifier for the type.");
-    const NT_TOKEN name = parser->previous;
+    return makeNode(NC_STMT, NK_PUBLIC, parser->previous, NULL, NULL);
+}
 
-    NT_LIST methods = ntCreateList();
-    NT_LIST fields = ntCreateList();
-    while (!checkId(parser, TK_KEYWORD, KW_END) && !ntIsAtEnd(parser->scanner))
+static NT_NODE *private(NT_PARSER *parser)
+{
+    return makeNode(NC_STMT, NK_PRIVATE, parser->previous, NULL, NULL);
+}
+
+static NT_NODE *typeOrModuleDeclarationNamed(NT_PARSER *parser, const NT_NODE_KIND kind,
+                                             NT_TK_ID end, const NT_TOKEN name)
+{
+    NT_LIST statements = ntCreateList();
+
+    while (!checkId(parser, TK_KEYWORD, end) && !ntIsAtEnd(parser->scanner))
     {
+        NT_NODE *current = NULL;
         if (check(parser, TK_IDENT))
         {
             const NT_TOKEN ident = parser->current;
             // constructor
             if (ntStrEqualsFixed(ident.lexeme, ident.lexemeLength, name.lexeme, name.lexemeLength))
-                ntListAdd(methods, functionDeclaration(parser, false));
+                current = functionDeclaration(parser, false);
             else
-                ntListAdd(fields, variableDeclaration(parser));
+                current = variableDeclaration(parser);
         }
-        else if (matchId(parser, TK_KEYWORD, KW_DEF))
-            ntListAdd(methods, functionDeclaration(parser, true));
-        else if (matchId(parser, TK_KEYWORD, KW_SUB))
-            ntListAdd(methods, functionDeclaration(parser, false));
+        else if (matchId(parser, TK_KEYWORD, KW_PUBLIC))
+            current = public(parser);
+        else if (matchId(parser, TK_KEYWORD, KW_PRIVATE))
+            current = private(parser);
+        else
+            current = declaration(parser, false);
+        ntListAdd(statements, current);
     }
 
-    return makeNode(NC_STMT, kind, name, fields, methods);
+    if (end != KW_NONE)
+    {
+        char *endLex = ntToChar(ntGetKeywordLexeme(end));
+        consumeId(parser, TK_KEYWORD, end, "Expect '%s' after the module or type block.", endLex);
+        ntFree(endLex);
+    }
+
+    NT_NODE *node = makeNode(NC_STMT, kind, name, NULL, NULL);
+    node->data = statements;
+
+    return node;
+}
+
+static NT_NODE *typeOrModuleDeclaration(NT_PARSER *parser, const NT_NODE_KIND kind)
+{
+    consume(parser, TK_IDENT, "Expect a identifier for the type.");
+    const NT_TOKEN name = parser->previous;
+    return typeOrModuleDeclarationNamed(parser, kind, KW_END, name);
 }
 
 static NT_NODE *declaration(NT_PARSER *parser, const bool returnValue)
@@ -778,7 +827,7 @@ static NT_NODE *ifStatement(NT_PARSER *parser, const bool returnValue)
     NT_NODE *elseBranch = NULL;
 
     if (matchId(parser, TK_KEYWORD, KW_ARROW))
-        thenBranch = statement(parser, returnValue);
+        thenBranch = makeSingleStatementBlock(statement(parser, returnValue));
     else
     {
         thenBranch = block2(parser, KW_NEXT, KW_ELSE, returnValue);
@@ -787,7 +836,7 @@ static NT_NODE *ifStatement(NT_PARSER *parser, const bool returnValue)
             if (matchId(parser, TK_KEYWORD, KW_IF))
                 elseBranch = ifStatement(parser, returnValue);
             else if (matchId(parser, TK_KEYWORD, KW_ARROW))
-                elseBranch = statement(parser, returnValue);
+                elseBranch = makeSingleStatementBlock(statement(parser, returnValue));
             else
                 elseBranch = block(parser, KW_NEXT, returnValue);
         }
@@ -816,7 +865,7 @@ static NT_NODE *whileStatement(NT_PARSER *parser, const bool returnValue)
 
     NT_NODE *body;
     if (matchId(parser, TK_KEYWORD, KW_ARROW))
-        body = statement(parser, returnValue);
+        body = makeSingleStatementBlock(statement(parser, returnValue));
     else
         body = block(parser, KW_NEXT, returnValue);
 
@@ -830,7 +879,7 @@ static NT_NODE *untilStatement(NT_PARSER *parser, const bool returnValue)
 
     NT_NODE *body = NULL;
     if (matchId(parser, TK_KEYWORD, KW_ARROW))
-        body = statement(parser, returnValue);
+        body = makeSingleStatementBlock(statement(parser, returnValue));
     else
         body = block(parser, KW_NEXT, returnValue);
 
@@ -863,29 +912,57 @@ static NT_NODE *statement(NT_PARSER *parser, const bool returnValue)
     return expressionStatement(parser);
 }
 
+static NT_NODE *module(NT_PARSER *parser)
+{
+    const NT_TOKEN token = parser->previous;
+    NT_TOKEN name;
+    NT_TK_ID end = KW_NONE;
+
+    // named module
+    if (token.type == TK_KEYWORD && token.id == KW_MODULE)
+    {
+        consume(parser, TK_IDENT, "Expect a module name after module declaration");
+        name = parser->previous;
+        end = KW_END;
+    }
+    // filename as module name
+    else
+    {
+        name = (NT_TOKEN){
+            .type = TK_IDENT,
+            .line = -1,
+            .id = 0,
+            .lexeme = parser->scanner->sourceName,
+            .lexemeLength = ntStrLen(parser->scanner->sourceName),
+        };
+    }
+
+    return typeOrModuleDeclarationNamed(parser, NK_MODULE, end, name);
+}
+
 NT_NODE **ntParse(NT_PARSER *parser, uint32_t *pCount)
 {
     advance(parser);
 
     uint32_t size = 64;
     uint32_t count = 0;
-    NT_NODE **statements = (NT_NODE **)ntMalloc(sizeof(NT_NODE *) * size);
+    NT_NODE **modules = (NT_NODE **)ntMalloc(sizeof(NT_NODE *) * size);
 
     while (!ntIsAtEnd(parser->scanner))
     {
-        NT_NODE *decl = declaration(parser, false);
+        NT_NODE *mod = module(parser);
         if (count >= size)
         {
             size = size * 3 / 2;
-            statements = (NT_NODE **)ntRealloc(statements, size * sizeof(NT_NODE *));
+            modules = (NT_NODE **)ntRealloc(modules, size * sizeof(NT_NODE *));
         }
-        statements[count++] = decl;
+        modules[count++] = mod;
     }
 
-    statements = (NT_NODE **)ntRealloc(statements, count * sizeof(NT_NODE *));
+    modules = (NT_NODE **)ntRealloc(modules, count * sizeof(NT_NODE *));
     *pCount = count;
 
-    return statements;
+    return modules;
 }
 
 static const char *const kinds[] = {
@@ -990,6 +1067,24 @@ static void printNode(uint32_t depth, NT_NODE *node)
             printf("\n");
             for (uint32_t i = 0; i < depth; ++i)
                 printf("  ");
+        }
+
+        if (node->type.kind == NK_MODULE || node->type.kind == NK_TYPE)
+        {
+            for (uint32_t i = 0; i < ntListLen(node->data); ++i)
+            {
+                NT_NODE *stmt = (NT_NODE *)ntListGet(node->data, i);
+                if (stmt != NULL)
+                    printNode(depth + 1, stmt);
+                else
+                {
+                    for (uint32_t i = 0; i < depth + 1; ++i)
+                        printf("  ");
+                    printf("\nNULL");
+                }
+            }
+
+            printf("\n");
         }
         printf("]");
     }

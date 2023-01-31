@@ -20,7 +20,7 @@ struct _NT_DELEGATE_TYPE
     NT_TYPE type;
     size_t paramCount;
     const NT_TYPE *returnType;
-    NT_PARAM params[];
+    NT_PARAM *params;
 };
 
 struct _NT_DELEGATE
@@ -31,18 +31,19 @@ struct _NT_DELEGATE
         struct
         {
             size_t addr;
-            const NT_CHUNK *sourceChunk;
+            const NT_MODULE *sourceModule;
         };
         nativeFun func;
     };
     bool native;
 };
 
+const NT_TYPE *ntDelegateType(void);
 char_t *ntDelegateTypeName(const NT_TYPE *returnType, size_t paramCount, const NT_PARAM *params);
 const NT_DELEGATE_TYPE *ntCreateDelegateType(const NT_STRING *delegateTypeName,
                                              const NT_TYPE *returnType, size_t paramCount,
                                              const NT_PARAM *params);
-const NT_DELEGATE *ntDelegate(const NT_DELEGATE_TYPE *delegateType, const NT_CHUNK *chunk,
+const NT_DELEGATE *ntDelegate(const NT_DELEGATE_TYPE *delegateType, const NT_MODULE *module,
                               size_t addr, const NT_STRING *name);
 
 #endif

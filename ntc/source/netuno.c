@@ -72,10 +72,9 @@ char *toCharS(const char_t *str, size_t len)
     return s;
 }
 
-NT_CHUNK *ntCompile(NT_ASSEMBLY *assembly, const char_t *str, const char_t *entryPointName,
-                    const NT_DELEGATE **entryPoint)
+NT_ASSEMBLY *ntCompile(NT_ASSEMBLY *assembly, const char_t *str, const char_t *sourceName)
 {
-    NT_SCANNER *scanner = ntScannerCreate(str);
+    NT_SCANNER *scanner = ntScannerCreate(str, sourceName);
     NT_PARSER *parser = ntParserCreate(scanner);
 
     uint32_t count;
@@ -86,9 +85,8 @@ NT_CHUNK *ntCompile(NT_ASSEMBLY *assembly, const char_t *str, const char_t *entr
         ntPrintNode(0, root[i]);
 #endif
 
-    NT_CHUNK *chunk = ntCreateChunk();
-    NT_CODEGEN *codegen = ntCreateCodegen(assembly, chunk);
-    ntGen(codegen, (const NT_NODE **)root, count, entryPointName, entryPoint);
+    NT_CODEGEN *codegen = ntCreateCodegen(assembly);
+    ntGen(codegen, (const NT_NODE **)root, count);
     for (uint32_t i = 0; i < count; i++)
         ntDestroyNode(root[i]);
     ntFree(root);
@@ -97,73 +95,5 @@ NT_CHUNK *ntCompile(NT_ASSEMBLY *assembly, const char_t *str, const char_t *entr
     ntParserDestroy(parser);
     ntFreeCodegen(codegen);
 
-    ntArrayAdd(&assembly->chunks, &chunk, sizeof(NT_CHUNK *));
-
-    return chunk;
-}
-
-void testNetuno(void)
-{
-    char sample[] = "def main(x, y) {\n"
-                    "    print(1)"
-                    "}\n";
-    // char sample[] = "def pow(x, y) {\n"
-    //                 "    var tmp = 1\n"
-    //                 "    var p = 0\n"
-    //                 "    while p < y {\n"
-    //                 "        tmp = tmp * x\n"
-    //                 "        p = p + 1\n"
-    //                 "    }\n"
-    //                 "    return tmp\n"
-    //                 "}\n";
-
-    char_t *s = toCharT(sample);
-    char *ds = toChar(s);
-    printf("%s\n", ds);
-
-    NT_SCANNER *scanner = ntScannerCreate(s);
-
-    // NT_TOKEN token;
-    NT_PARSER *parser = ntParserCreate(scanner);
-
-    uint32_t count;
-    NT_NODE **root = ntParse(parser, &count);
-    for (uint32_t i = 0; i < count; i++)
-        ntPrintNode(0, root[i]);
-    return;
-
-    // if (token.type != TK_EOF)
-    // {
-    //     do
-    //     {
-    //         if (token.type != TK_KEYWORD)
-    //         {
-    //             char *lexeme = toCharS(token.lexeme, token.lexemeLength);
-    //             printf("Token: %x, Lexeme: %s\n", token.type, lexeme);
-    //             free(lexeme);
-    //         }
-    //         else
-    //         {
-    //             const char_t *str = NULL;
-    //             bool find = false;
-
-    //             for (uint32_t i = 0; i < sizeof(KEYWORDS) / sizeof(NT_KEYWORD_PAIR); ++i)
-    //             {
-    //                 if (KEYWORDS[i].value == token.id)
-    //                 {
-    //                     find = true;
-    //                     str = KEYWORDS[i].keyword;
-    //                 }
-    //             }
-    //             if (find)
-    //             {
-    //                 char *lexeme = toCharS(str, strlenT(str));
-    //                 printf("Token: %x, Keyword: %s\n", token.type, lexeme);
-    //                 free(lexeme);
-    //             }
-    //             else
-    //                 printf("Token: %x, Keyword: %c\n", token.type, token.id);
-    //         }
-    //         ntScanToken(scanner, &token);
-    //     } while (token.type != TK_EOF);
+    return assembly;
 }

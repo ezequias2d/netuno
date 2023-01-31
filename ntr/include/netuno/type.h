@@ -2,6 +2,7 @@
 #define NETUNO_TYPE_H
 
 #include <netuno/common.h>
+#include <netuno/object.h>
 
 #define IS_TYPE(obj, type) (((NT_OBJECT *)(obj))->type == (type))
 #define IS_VALID_TYPE(type)                                                                        \
@@ -19,6 +20,9 @@ typedef enum
     NT_OBJECT_U32,
     NT_OBJECT_I32,
     NT_OBJECT_DELEGATE,
+    NT_OBJECT_ASSEMBLY,
+    NT_OBJECT_MODULE,
+    NT_OBJECT_TYPE_TYPE,
     NT_OBJECT_CUSTOM,
 
     NT_OBJECT_TYPE_MIN = NT_OBJECT_ERROR,
@@ -35,6 +39,7 @@ typedef bool (*equalsObj)(NT_OBJECT *obj1, NT_OBJECT *obj2);
 
 struct _NT_TYPE
 {
+    NT_OBJECT object;
     NT_OBJECT_TYPE objectType;
     const NT_STRING *typeName;
     freeObj free;
@@ -43,5 +48,7 @@ struct _NT_TYPE
     size_t stackSize;
     size_t instanceSize;
 };
+
+const NT_TYPE *ntType(void);
 
 #endif

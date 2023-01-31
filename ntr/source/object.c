@@ -8,6 +8,76 @@
 #include <stdio.h>
 #include <string.h>
 
+static bool refEquals(NT_OBJECT *obj1, NT_OBJECT *obj2)
+{
+    {
+        assert(obj1);
+        assert(IS_VALID_OBJECT(obj1));
+        assert(obj1->type->objectType == NT_OBJECT_TYPE_TYPE);
+
+        NT_TYPE *type = (NT_TYPE *)obj1;
+        assert(IS_VALID_TYPE(type));
+    }
+    {
+        assert(obj2);
+        assert(IS_VALID_OBJECT(obj2));
+        assert(obj2->type->objectType == NT_OBJECT_TYPE_TYPE);
+
+        NT_TYPE *type = (NT_TYPE *)obj2;
+        assert(IS_VALID_TYPE(type));
+    }
+
+    return obj1 == obj2;
+}
+
+static void freeType(NT_OBJECT *object)
+{
+    assert(object);
+    assert(IS_VALID_OBJECT(object));
+    assert(object->type->objectType == NT_OBJECT_TYPE_TYPE);
+
+    NT_TYPE *type = (NT_TYPE *)object;
+    assert(IS_VALID_TYPE(type));
+
+    ntFreeObject((NT_OBJECT *)type->typeName);
+}
+
+static const NT_STRING *typeToString(NT_OBJECT *object)
+{
+    assert(object);
+    assert(IS_VALID_OBJECT(object));
+    assert(object->type->objectType == NT_OBJECT_TYPE_TYPE);
+
+    NT_TYPE *type = (NT_TYPE *)object;
+    assert(IS_VALID_TYPE(type));
+
+    return type->typeName;
+}
+
+static NT_TYPE TYPE = {
+    .object =
+        (NT_OBJECT){
+            .type = NULL,
+            .refCount = 0,
+        },
+    .objectType = NT_OBJECT_TYPE_TYPE,
+    .typeName = NULL,
+    .free = freeType,
+    .string = typeToString,
+    .equals = refEquals,
+    .stackSize = sizeof(NT_REF),
+    .instanceSize = sizeof(NT_TYPE),
+};
+
+const NT_TYPE *ntType(void)
+{
+    if (TYPE.object.type == NULL)
+        TYPE.object.type = &TYPE;
+    if (TYPE.typeName == NULL)
+        TYPE.typeName = ntCopyString(U"Type", 4);
+    return &TYPE;
+}
+
 NT_OBJECT *ntCreateObject(const NT_TYPE *type)
 {
     NT_OBJECT *object = (NT_OBJECT *)ntMalloc(type->instanceSize);
@@ -24,13 +94,30 @@ void ntRefObject(NT_OBJECT *object)
 
 void ntFreeObject(NT_OBJECT *object)
 {
-    assert(object->refCount);
-    object->refCount--;
-    if (object->refCount <= 0)
+    assert(object);
+    // refCount == 0 for constant objects
+    if (object->refCount > 0)
     {
-        object->type->free(object);
-        ntFree(object);
+        object->refCount--;
+        if (object->refCount <= 0)
+        {
+            ntForceFreeObject(object);
+        }
     }
+}
+
+void ntMakeConstant(NT_OBJECT *object)
+{
+    object->refCount = 0;
+}
+
+void ntForceFreeObject(NT_OBJECT *object)
+{
+    assert(object);
+    assert(IS_VALID_OBJECT(object));
+
+    object->type->free(object);
+    ntFree(object);
 }
 
 const NT_STRING *ntToString(NT_OBJECT *object)
@@ -117,6 +204,11 @@ static const NT_STRING *f64ToString(NT_OBJECT *object)
 }
 
 static NT_TYPE I32_TYPE = {
+    .object =
+        (NT_OBJECT){
+            .type = NULL,
+            .refCount = 0,
+        },
     .objectType = NT_OBJECT_I32,
     .typeName = NULL,
     .free = freeNone,
@@ -128,6 +220,8 @@ static NT_TYPE I32_TYPE = {
 
 const NT_TYPE *ntI32Type(void)
 {
+    if (I32_TYPE.object.type == NULL)
+        I32_TYPE.object.type = ntType();
     if (I32_TYPE.typeName == NULL)
         I32_TYPE.typeName = ntCopyString(U"int", 3);
     return &I32_TYPE;
@@ -139,6 +233,11 @@ const NT_TYPE *ntBoolType(void)
 }
 
 static NT_TYPE I64_TYPE = {
+    .object =
+        (NT_OBJECT){
+            .type = NULL,
+            .refCount = 0,
+        },
     .objectType = NT_OBJECT_I64,
     .typeName = NULL,
     .free = freeNone,
@@ -150,12 +249,19 @@ static NT_TYPE I64_TYPE = {
 
 const NT_TYPE *ntI64Type(void)
 {
+    if (I64_TYPE.object.type == NULL)
+        I64_TYPE.object.type = ntType();
     if (I64_TYPE.typeName == NULL)
         I64_TYPE.typeName = ntCopyString(U"long", 4);
     return &I64_TYPE;
 }
 
 static NT_TYPE U32_TYPE = {
+    .object =
+        (NT_OBJECT){
+            .type = NULL,
+            .refCount = 0,
+        },
     .objectType = NT_OBJECT_U32,
     .typeName = NULL,
     .free = freeNone,
@@ -167,12 +273,19 @@ static NT_TYPE U32_TYPE = {
 
 const NT_TYPE *ntU32Type(void)
 {
+    if (U32_TYPE.object.type == NULL)
+        U32_TYPE.object.type = ntType();
     if (U32_TYPE.typeName == NULL)
         U32_TYPE.typeName = ntCopyString(U"uint", 4);
     return &U32_TYPE;
 }
 
 static NT_TYPE U64_TYPE = {
+    .object =
+        (NT_OBJECT){
+            .type = NULL,
+            .refCount = 0,
+        },
     .objectType = NT_OBJECT_U64,
     .typeName = NULL,
     .free = freeNone,
@@ -184,12 +297,19 @@ static NT_TYPE U64_TYPE = {
 
 const NT_TYPE *ntU64Type(void)
 {
+    if (U64_TYPE.object.type == NULL)
+        U64_TYPE.object.type = ntType();
     if (U64_TYPE.typeName == NULL)
         U64_TYPE.typeName = ntCopyString(U"ulong", 5);
     return &U64_TYPE;
 }
 
 static NT_TYPE F32_TYPE = {
+    .object =
+        (NT_OBJECT){
+            .type = NULL,
+            .refCount = 0,
+        },
     .objectType = NT_OBJECT_F32,
     .typeName = NULL,
     .free = freeNone,
@@ -201,12 +321,19 @@ static NT_TYPE F32_TYPE = {
 
 const NT_TYPE *ntF32Type(void)
 {
+    if (F32_TYPE.object.type == NULL)
+        F32_TYPE.object.type = ntType();
     if (F32_TYPE.typeName == NULL)
         F32_TYPE.typeName = ntCopyString(U"float", 5);
     return &F32_TYPE;
 }
 
 static NT_TYPE F64_TYPE = {
+    .object =
+        (NT_OBJECT){
+            .type = NULL,
+            .refCount = 0,
+        },
     .objectType = NT_OBJECT_F64,
     .typeName = NULL,
     .free = freeNone,
@@ -218,6 +345,8 @@ static NT_TYPE F64_TYPE = {
 
 const NT_TYPE *ntF64Type(void)
 {
+    if (F64_TYPE.object.type == NULL)
+        F64_TYPE.object.type = ntType();
     if (F64_TYPE.typeName == NULL)
         F64_TYPE.typeName = ntCopyString(U"double", 6);
     return &F64_TYPE;
@@ -231,6 +360,11 @@ static const NT_STRING *errorToString(NT_OBJECT *object)
 }
 
 static NT_TYPE ERROR_TYPE = {
+    .object =
+        (NT_OBJECT){
+            .type = NULL,
+            .refCount = 0,
+        },
     .objectType = NT_OBJECT_ERROR,
     .typeName = NULL,
     .free = freeNone,
@@ -242,6 +376,8 @@ static NT_TYPE ERROR_TYPE = {
 
 const NT_TYPE *ntErrorType(void)
 {
+    if (ERROR_TYPE.object.type == NULL)
+        ERROR_TYPE.object.type = ntType();
     if (ERROR_TYPE.typeName == NULL)
         ERROR_TYPE.typeName = ntCopyString(U"error", 3);
     return &ERROR_TYPE;

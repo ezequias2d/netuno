@@ -28,6 +28,8 @@ keyword(KW_DEF, U"def")
 keyword(KW_SUB, U"sub")
 keyword(KW_VAR, U"var")
 keyword(KW_CONST, U"const")
+keyword(KW_PUBLIC, U"public")
+keyword(KW_PRIVATE, U"private")
 
 keyword(KW_ARROW, U"=>")
 keyword(KW_DO, U"do")

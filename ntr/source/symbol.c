@@ -3,24 +3,35 @@
 #include <netuno/string.h>
 #include <netuno/symbol.h>
 
-NT_SYMBOL_TABLE *ntCreateSymbolTable(NT_SYMBOL_TABLE *parent, NT_SYMBOL_TABLE_TYPE type,
-                                     size_t data)
+NT_SYMBOL_TABLE *ntCreateSymbolTable(NT_SYMBOL_TABLE *parent, NT_SYMBOL_TABLE_TYPE type, void *data)
 {
     NT_SYMBOL_TABLE *symbolTable = (NT_SYMBOL_TABLE *)ntMalloc(sizeof(NT_SYMBOL_TABLE));
+    ntInitSymbolTable(symbolTable, parent, type, data);
+    return symbolTable;
+}
+
+void ntInitSymbolTable(NT_SYMBOL_TABLE *symbolTable, NT_SYMBOL_TABLE *parent,
+                       NT_SYMBOL_TABLE_TYPE type, void *data)
+{
     symbolTable->parent = parent;
     symbolTable->data = data;
     symbolTable->count = 0;
     symbolTable->type = type;
     symbolTable->table = ntCreateArray();
     symbolTable->scopeReturnType = NULL;
-    return symbolTable;
+}
+
+void ntDeinitSymbolTable(NT_SYMBOL_TABLE *symbolTable)
+{
+    assert(symbolTable);
+    ntFreeArray(symbolTable->table);
 }
 
 void ntFreeSymbolTable(NT_SYMBOL_TABLE *symbolTable)
 {
     if (symbolTable)
     {
-        ntFreeArray(symbolTable->table);
+        ntDeinitSymbolTable(symbolTable);
         ntFree(symbolTable);
     }
 }
@@ -46,13 +57,19 @@ bool ntLookupSymbolCurrent(NT_SYMBOL_TABLE *symbolTable, const char_t *symbolNam
 }
 
 bool ntLookupSymbol(NT_SYMBOL_TABLE *symbolTable, const char_t *symbolName,
-                    const size_t symbolNameLen, NT_SYMBOL_ENTRY *symbolEntry)
+                    const size_t symbolNameLen, NT_SYMBOL_TABLE **topSymbolTable,
+                    NT_SYMBOL_ENTRY *symbolEntry)
 {
     if (ntLookupSymbolCurrent(symbolTable, symbolName, symbolNameLen, symbolEntry))
+    {
+        if (topSymbolTable)
+            *topSymbolTable = symbolTable;
         return true;
+    }
 
     if (symbolTable->parent != NULL)
-        return ntLookupSymbol(symbolTable->parent, symbolName, symbolNameLen, symbolEntry);
+        return ntLookupSymbol(symbolTable->parent, symbolName, symbolNameLen, topSymbolTable,
+                              symbolEntry);
     return false;
 }
 

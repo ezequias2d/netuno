@@ -1,5 +1,4 @@
 set(ROOT_SOURCES
-    "nto.c"
     "array.c"
     "varint.c"
     "vm.c"
@@ -12,6 +11,8 @@ set(ROOT_SOURCES
     "table.c"
     "memory.c"
     "delegate.c"
+    "assembly.c"
+    "module.c"
 )
 
 set(CMAKE_C_STANDARD 11)

@@ -1,7 +1,6 @@
 #ifndef TOKEN_H
 #define TOKEN_H
 
-#include <netuno/ntc.h>
 #include <trie.h>
 
 typedef struct _NT_TRIE NT_TRIE;
@@ -65,11 +64,12 @@ typedef struct _NT_SCANNER
 {
     NT_TRIE *keywords;
     const char_t *source;
+    const char_t *sourceName;
     uint32_t current;
     int32_t line;
 } NT_SCANNER;
 
-NT_SCANNER *ntScannerCreate(const char_t *source);
+NT_SCANNER *ntScannerCreate(const char_t *source, const char_t *sourceName);
 void ntScannerDestroy(NT_SCANNER *scanner);
 const char_t *ntGetKeywordLexeme(const NT_TK_ID id);
 

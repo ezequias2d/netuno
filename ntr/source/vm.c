@@ -3,7 +3,9 @@
 #include <math.h>
 #include <netuno/debug.h>
 #include <netuno/memory.h>
+#include <netuno/module.h>
 #include <netuno/object.h>
+#include <netuno/opcode.h>
 #include <netuno/str.h>
 #include <netuno/string.h>
 #include <netuno/vm.h>
@@ -12,13 +14,12 @@
 typedef struct
 {
     size_t pc;
-    const NT_CHUNK *chunk;
+    const NT_MODULE *module;
 } RETURN_ADR;
 
 NT_VM *ntCreateVM(void)
 {
     NT_VM *vm = (NT_VM *)ntMalloc(sizeof(NT_VM));
-    vm->gc = ntCreateGarbageCollector();
     vm->stack = ntMalloc(STACK_MAX);
     vm->stackTop = vm->stack;
     vm->stackOverflow = false;
@@ -33,7 +34,6 @@ NT_VM *ntCreateVM(void)
 
 void ntFreeVM(NT_VM *vm)
 {
-    ntFreeGarbageCollector(vm->gc);
 #ifdef DEBUG_TRACE_EXECUTION
     ntFree(vm->stackType);
 #endif
@@ -147,6 +147,16 @@ bool ntPop32(NT_VM *vm, uint32_t *value)
     return ntPop(vm, value, sizeof(uint32_t));
 }
 
+bool ntPushRef(NT_VM *vm, NT_REF value)
+{
+    return ntPush(vm, &value, sizeof(NT_REF));
+}
+
+bool ntPopRef(NT_VM *vm, NT_REF *value)
+{
+    return ntPop(vm, value, sizeof(NT_REF));
+}
+
 bool ntPush64(NT_VM *vm, const uint64_t value)
 {
     return ntPush(vm, &value, sizeof(uint64_t));
@@ -155,20 +165,6 @@ bool ntPush64(NT_VM *vm, const uint64_t value)
 bool ntPop64(NT_VM *vm, uint64_t *value)
 {
     return ntPop(vm, value, sizeof(uint64_t));
-}
-
-bool ntPopObject(NT_VM *vm, NT_OBJECT **object)
-{
-    uint32_t ref;
-    const bool result = ntPop32(vm, &ref);
-    *object = ntGetObject(vm->gc, ref);
-    return result;
-}
-
-bool ntPushObject(NT_VM *vm, NT_OBJECT *object)
-{
-    const uint32_t ref = ntAddObject(vm->gc, object);
-    return ntPush32(vm, ref);
 }
 
 bool ntCall(NT_VM *vm, const NT_DELEGATE *delegate)
@@ -186,10 +182,10 @@ bool ntCall(NT_VM *vm, const NT_DELEGATE *delegate)
     else
     {
         pushCall(vm, (RETURN_ADR){
-                         .chunk = vm->chunk,
+                         .module = vm->module,
                          .pc = vm->pc,
                      });
-        vm->chunk = delegate->sourceChunk;
+        vm->module = delegate->sourceModule;
         vm->pc = delegate->addr;
         return true;
     }
@@ -199,10 +195,10 @@ bool ntCall(NT_VM *vm, const NT_DELEGATE *delegate)
 static uint32_t readConst32(NT_VM *vm)
 {
     uint64_t constant;
-    vm->pc += ntReadVariant(vm->chunk, vm->pc, &constant);
+    vm->pc += ntReadVariant(vm->module, vm->pc, &constant);
 
     uint32_t value;
-    const size_t size = ntArrayGetU32(&vm->chunk->constants, constant, &value);
+    const size_t size = ntArrayGetU32(&vm->module->constants, constant, &value);
     assert(size);
     return value;
 }
@@ -210,37 +206,12 @@ static uint32_t readConst32(NT_VM *vm)
 static uint64_t readConst64(NT_VM *vm)
 {
     uint64_t constant;
-    vm->pc += ntReadVariant(vm->chunk, vm->pc, &constant);
+    vm->pc += ntReadVariant(vm->module, vm->pc, &constant);
 
     uint64_t value;
-    const size_t size = ntArrayGetU64(&vm->chunk->constants, constant, &value);
+    const size_t size = ntArrayGetU64(&vm->module->constants, constant, &value);
     assert(size);
     return value;
-}
-
-static const NT_STRING *readConstString(NT_VM *vm)
-{
-    uint64_t constant;
-    vm->pc += ntReadVariant(vm->chunk, vm->pc, &constant);
-
-    char_t *chars;
-    size_t length;
-    ntArrayGetString(&vm->chunk->constants, constant, NULL, &length);
-
-    chars = (char_t *)ntMalloc(sizeof(char_t) * (length + 1));
-    ntArrayGetString(&vm->chunk->constants, constant, chars, &length);
-    chars[length] = '\0';
-
-    const NT_STRING *str = ntTakeString(chars, length);
-
-    return str;
-}
-
-static const NT_DELEGATE *readConstDelegate(NT_VM *vm)
-{
-    uint64_t constant;
-    vm->pc += ntReadVariant(vm->chunk, vm->pc, &constant);
-    return ntGetConstantDelegate(vm->chunk, constant);
 }
 
 static void printHex(const uint8_t *data, const size_t size)
@@ -745,11 +716,11 @@ static NT_RESULT run(NT_VM *vm)
 {
     for (;;)
     {
-        if (vm->chunk == NULL && vm->pc == SIZE_MAX)
+        if (vm->module == NULL && vm->pc == SIZE_MAX)
         {
             return NT_OK;
         }
-        assert(vm->chunk != NULL && vm->pc != SIZE_MAX);
+        assert(vm->module != NULL && vm->pc != SIZE_MAX);
 
 #ifdef DEBUG_TRACE_EXECUTION
         printf("          ");
@@ -762,7 +733,7 @@ static NT_RESULT run(NT_VM *vm)
             debugOffset += *i;
         }
         printf("\n");
-        ntDisassembleInstruction(vm->chunk, vm->pc);
+        ntDisassembleInstruction(vm->assembly, vm->module, vm->pc);
 #endif
 
         uint8_t instruction;
@@ -772,11 +743,11 @@ static NT_RESULT run(NT_VM *vm)
         uint32_t t32_1;
         uint32_t t32_2;
         bool result;
-        switch (instruction = ntRead(vm->chunk, vm->pc++))
+        switch (instruction = ntRead(vm->module, vm->pc++))
         {
         case BC_PRINT: {
             const NT_STRING *str;
-            result = ntPopObject(vm, (NT_OBJECT **)&str);
+            result = ntPopRef(vm, (NT_REF *)&str);
             assert(result);
             char *s = ntToChar(str->chars);
             printf("%s", s);
@@ -790,11 +761,11 @@ static NT_RESULT run(NT_VM *vm)
             // because current instruction is in PC - 1
             // target offset is t64_1 - 1
             // this is same for BRANCH_Z_32 and BRANCH_Z_64 instructions
-            t64_2 = ntReadVariant(vm->chunk, vm->pc, &t64_1);
+            t64_2 = ntReadVariant(vm->module, vm->pc, &t64_1);
             vm->pc += t64_1 - 1;
             break;
         case BC_BRANCH_Z_32:
-            t64_2 = ntReadVariant(vm->chunk, vm->pc, &t64_1);
+            t64_2 = ntReadVariant(vm->module, vm->pc, &t64_1);
             if (!ntPeek(vm, &t32_1, sizeof(uint32_t), 0))
             {
                 printf("Empty stack!");
@@ -808,7 +779,7 @@ static NT_RESULT run(NT_VM *vm)
                 vm->pc += t64_2;
             break;
         case BC_BRANCH_Z_64:
-            t64_2 = ntReadVariant(vm->chunk, vm->pc, &t64_1);
+            t64_2 = ntReadVariant(vm->module, vm->pc, &t64_1);
             if (!ntPeek(vm, &t64_3, sizeof(uint32_t), vm->pc))
             {
                 printf("Empty stack!");
@@ -822,7 +793,7 @@ static NT_RESULT run(NT_VM *vm)
                 vm->pc += t64_2;
             break;
         case BC_BRANCH_NZ_32:
-            t64_2 = ntReadVariant(vm->chunk, vm->pc, &t64_1);
+            t64_2 = ntReadVariant(vm->module, vm->pc, &t64_1);
             if (!ntPeek(vm, &t32_1, sizeof(uint32_t), 0))
             {
                 printf("Empty stack!");
@@ -836,7 +807,7 @@ static NT_RESULT run(NT_VM *vm)
                 vm->pc += t64_2;
             break;
         case BC_BRANCH_NZ_64:
-            t64_2 = ntReadVariant(vm->chunk, vm->pc, &t64_1);
+            t64_2 = ntReadVariant(vm->module, vm->pc, &t64_1);
             if (!ntPeek(vm, &t64_3, sizeof(uint32_t), vm->pc))
             {
                 printf("Empty stack!");
@@ -854,8 +825,36 @@ static NT_RESULT run(NT_VM *vm)
             result = ntPush32(vm, 0);
             assert(result);
             break;
+        case BC_ZERO_64:
+            result = ntPush64(vm, 0);
+            assert(result);
+            break;
+        case BC_ZERO_F32:
+            *(float *)&t32_1 = 0.0f;
+            result = ntPush32(vm, t32_1);
+            assert(result);
+            break;
+        case BC_ZERO_F64:
+            *(double *)&t64_1 = 0.0;
+            result = ntPush64(vm, t64_1);
+            assert(result);
+            break;
         case BC_ONE_32:
             result = ntPush32(vm, 1);
+            assert(result);
+            break;
+        case BC_ONE_64:
+            result = ntPush64(vm, 1);
+            assert(result);
+            break;
+        case BC_ONE_F32:
+            *(float *)&t32_1 = 1.0f;
+            result = ntPush32(vm, t32_1);
+            assert(result);
+            break;
+        case BC_ONE_F64:
+            *(double *)&t64_1 = 1.0f;
+            result = ntPush32(vm, t64_1);
             assert(result);
             break;
         case BC_CONST_32:
@@ -868,20 +867,19 @@ static NT_RESULT run(NT_VM *vm)
             result = ntPush64(vm, t64_1);
             assert(result);
             break;
-        case BC_CONST_STRING: {
-            const NT_STRING *str = readConstString(vm);
-            result = ntPushObject(vm, (NT_OBJECT *)str);
-            assert(result);
-            break;
-        }
-        case BC_CONST_DELEGATE: {
-            const NT_DELEGATE *delegate = readConstDelegate(vm);
-            result = ntPushObject(vm, (NT_OBJECT *)delegate);
+        case BC_CONST_OBJECT: {
+            vm->pc += ntReadVariant(vm->module, vm->pc, &t64_1);
+
+            NT_OBJECT *object = ntGetConstantObject(vm->assembly, t64_1);
+            assert(object);
+            assert(IS_VALID_OBJECT(object));
+
+            result = ntPushRef(vm, (NT_REF)object);
             assert(result);
             break;
         }
         case BC_LOAD_SP_32:
-            vm->pc += ntReadVariant(vm->chunk, vm->pc, &t64_1);
+            vm->pc += ntReadVariant(vm->module, vm->pc, &t64_1);
 
             result = ntPeek(vm, &t32_1, sizeof(uint32_t), t64_1);
             assert(result);
@@ -889,7 +887,7 @@ static NT_RESULT run(NT_VM *vm)
             assert(result);
             break;
         case BC_LOAD_SP_64:
-            vm->pc += ntReadVariant(vm->chunk, vm->pc, &t64_1);
+            vm->pc += ntReadVariant(vm->module, vm->pc, &t64_1);
 
             result = ntPeek(vm, &t64_1, sizeof(uint64_t), t64_1);
             assert(result);
@@ -897,14 +895,14 @@ static NT_RESULT run(NT_VM *vm)
             assert(result);
             break;
         case BC_STORE_SP_32:
-            vm->pc += ntReadVariant(vm->chunk, vm->pc, &t64_1);
+            vm->pc += ntReadVariant(vm->module, vm->pc, &t64_1);
             result = ntPeek(vm, &t32_1, sizeof(uint32_t), 0);
             assert(result);
             result = ntWriteSp(vm, &t32_1, sizeof(uint32_t), t64_1);
             assert(result);
             break;
         case BC_STORE_SP_64:
-            vm->pc += ntReadVariant(vm->chunk, vm->pc, &t64_1);
+            vm->pc += ntReadVariant(vm->module, vm->pc, &t64_1);
             result = ntPeek(vm, &t64_2, sizeof(uint64_t), 0);
             assert(result);
             result = ntWriteSp(vm, &t64_2, sizeof(uint64_t), t64_1);
@@ -1525,7 +1523,7 @@ static NT_RESULT run(NT_VM *vm)
             break;
         case BC_CONVERT_I32_STR: {
             const NT_STRING *str;
-            result = ntPopObject(vm, (NT_OBJECT **)&str);
+            result = ntPopRef(vm, (NT_REF *)&str);
             assert(result);
             result = ntPush32(vm, ntStringToI32(str));
             assert(result);
@@ -1533,7 +1531,7 @@ static NT_RESULT run(NT_VM *vm)
         }
         case BC_CONVERT_U32_STR: {
             const NT_STRING *str;
-            result = ntPopObject(vm, (NT_OBJECT **)&str);
+            result = ntPopRef(vm, (NT_REF *)&str);
             assert(result);
             result = ntPush32(vm, ntStringToU32(str));
             assert(result);
@@ -1541,7 +1539,7 @@ static NT_RESULT run(NT_VM *vm)
         }
         case BC_CONVERT_I64_STR: {
             const NT_STRING *str;
-            result = ntPopObject(vm, (NT_OBJECT **)&str);
+            result = ntPopRef(vm, (NT_REF *)&str);
             assert(result);
             result = ntPush64(vm, ntStringToI64(str));
             assert(result);
@@ -1549,7 +1547,7 @@ static NT_RESULT run(NT_VM *vm)
         }
         case BC_CONVERT_U64_STR: {
             const NT_STRING *str;
-            result = ntPopObject(vm, (NT_OBJECT **)&str);
+            result = ntPopRef(vm, (NT_REF *)&str);
             assert(result);
             result = ntPush64(vm, ntStringToU64(str));
             assert(result);
@@ -1557,7 +1555,7 @@ static NT_RESULT run(NT_VM *vm)
         }
         case BC_CONVERT_F32_STR: {
             const NT_STRING *str;
-            result = ntPopObject(vm, (NT_OBJECT **)&str);
+            result = ntPopRef(vm, (NT_REF *)&str);
             assert(result);
             result = ntPush32(vm, ntStringToF32(str));
             assert(result);
@@ -1565,7 +1563,7 @@ static NT_RESULT run(NT_VM *vm)
         }
         case BC_CONVERT_F64_STR: {
             const NT_STRING *str;
-            result = ntPopObject(vm, (NT_OBJECT **)&str);
+            result = ntPopRef(vm, (NT_REF *)&str);
             assert(result);
             result = ntPush64(vm, ntStringToF64(str));
             assert(result);
@@ -1577,7 +1575,7 @@ static NT_RESULT run(NT_VM *vm)
 
             const NT_TYPE *const type = ntI32Type();
             const NT_STRING *const str = type->string((NT_OBJECT *)&t32_1);
-            result = ntPushObject(vm, (NT_OBJECT *)str);
+            result = ntPushRef(vm, (NT_REF)str);
             assert(result);
             break;
         }
@@ -1587,7 +1585,7 @@ static NT_RESULT run(NT_VM *vm)
 
             const NT_TYPE *const type = ntU32Type();
             const NT_STRING *const str = type->string((NT_OBJECT *)&t32_1);
-            result = ntPushObject(vm, (NT_OBJECT *)str);
+            result = ntPushRef(vm, (NT_REF)str);
             assert(result);
             break;
         }
@@ -1597,7 +1595,7 @@ static NT_RESULT run(NT_VM *vm)
 
             const NT_TYPE *const type = ntI64Type();
             const NT_STRING *const str = type->string((NT_OBJECT *)&t64_1);
-            result = ntPushObject(vm, (NT_OBJECT *)str);
+            result = ntPushRef(vm, (NT_REF)str);
             assert(result);
             break;
         }
@@ -1607,7 +1605,7 @@ static NT_RESULT run(NT_VM *vm)
 
             const NT_TYPE *const type = ntU64Type();
             const NT_STRING *const str = type->string((NT_OBJECT *)&t64_1);
-            result = ntPushObject(vm, (NT_OBJECT *)str);
+            result = ntPushRef(vm, (NT_REF)str);
             assert(result);
             break;
         }
@@ -1617,7 +1615,7 @@ static NT_RESULT run(NT_VM *vm)
 
             const NT_TYPE *const type = ntF32Type();
             const NT_STRING *const str = type->string((NT_OBJECT *)&t32_1);
-            result = ntPushObject(vm, (NT_OBJECT *)str);
+            result = ntPushRef(vm, (NT_REF)str);
             assert(result);
             break;
         }
@@ -1627,7 +1625,7 @@ static NT_RESULT run(NT_VM *vm)
 
             const NT_TYPE *const type = ntF64Type();
             const NT_STRING *const str = type->string((NT_OBJECT *)&t64_1);
-            result = ntPushObject(vm, (NT_OBJECT *)str);
+            result = ntPushRef(vm, (NT_REF)str);
             assert(result);
             break;
         }
@@ -1952,7 +1950,7 @@ static NT_RESULT run(NT_VM *vm)
             assert(result);
             break;
         case BC_POP:
-            vm->pc += ntReadVariant(vm->chunk, vm->pc, &t64_1);
+            vm->pc += ntReadVariant(vm->module, vm->pc, &t64_1);
             t64_2 = 0;
             if (t64_1 > 0)
                 do
@@ -1984,7 +1982,7 @@ static NT_RESULT run(NT_VM *vm)
 
         case BC_CALL: {
             const NT_DELEGATE *delegate = NULL;
-            result = ntPopObject(vm, (NT_OBJECT **)&delegate);
+            result = ntPopRef(vm, (NT_REF *)&delegate);
             assert(result);
             result = ntCall(vm, delegate);
             assert(result);
@@ -1994,7 +1992,7 @@ static NT_RESULT run(NT_VM *vm)
             RETURN_ADR tmp;
             result = popCall(vm, &tmp);
             assert(result);
-            vm->chunk = tmp.chunk;
+            vm->module = tmp.module;
             vm->pc = tmp.pc;
             break;
         }
@@ -2008,11 +2006,12 @@ static NT_RESULT run(NT_VM *vm)
     }
 }
 
-NT_RESULT ntRun(NT_VM *vm, const NT_DELEGATE *entryPoint)
+NT_RESULT ntRun(NT_VM *vm, NT_ASSEMBLY *assembly, const NT_DELEGATE *entryPoint)
 {
     assert(entryPoint);
     vm->pc = SIZE_MAX;
-    vm->chunk = NULL;
+    vm->module = NULL;
+    vm->assembly = assembly;
     ntCall(vm, entryPoint);
     return run(vm);
 }

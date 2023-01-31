@@ -1,11 +1,14 @@
 bytecode(ZERO_32)
 bytecode(ZERO_64)
+bytecode(ZERO_F32)
+bytecode(ZERO_F64)
 bytecode(ONE_32)
 bytecode(ONE_64)
+bytecode(ONE_F32)
+bytecode(ONE_F64)
 bytecode(CONST_32)
 bytecode(CONST_64)
-bytecode(CONST_STRING)
-bytecode(CONST_DELEGATE)
+bytecode(CONST_OBJECT)
 
 bytecode(PRINT)
 
