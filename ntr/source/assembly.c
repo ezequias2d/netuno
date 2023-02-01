@@ -122,21 +122,27 @@ uint64_t ntAddConstantObject(NT_ASSEMBLY *assembly, NT_OBJECT *object)
     assert(object);
     assert(IS_VALID_OBJECT(object));
 
-    uint64_t offset;
+    size_t offset;
+    uint64_t result;
 
-    if (ntArrayFind(assembly->objects, &object, sizeof(NT_OBJECT *), &offset))
-        return offset;
+    if (!ntArrayFind(assembly->objects, &object, sizeof(NT_OBJECT *), &offset))
+    {
+        ntMakeConstant(object);
+        ntArrayAdd(assembly->objects, &object, sizeof(NT_OBJECT *));
+        offset = assembly->objects->count - sizeof(NT_OBJECT *);
+    }
 
-    ntMakeConstant(object);
-    ntArrayAdd(assembly->objects, &object, sizeof(NT_OBJECT *));
-    return assembly->objects->count - sizeof(NT_TYPE *);
+    result = offset / sizeof(NT_OBJECT *);
+    assert(result * sizeof(NT_OBJECT *) == offset);
+
+    return result;
 }
 
 NT_OBJECT *ntGetConstantObject(const NT_ASSEMBLY *assembly, uint64_t constant)
 {
     NT_OBJECT *object = NULL;
-    const bool result = ntArrayGet(assembly->objects, constant, &object, sizeof(NT_OBJECT *)) ==
-                        sizeof(NT_DELEGATE *);
+    const bool result = ntArrayGet(assembly->objects, constant * sizeof(NT_OBJECT *), &object,
+                                   sizeof(NT_OBJECT *)) == sizeof(NT_DELEGATE *);
     assert(result);
     return object;
 }
