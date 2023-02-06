@@ -28,6 +28,6 @@ typedef struct
 
 NT_CODEGEN *ntCreateCodegen(NT_ASSEMBLY *assembly);
 void ntFreeCodegen(NT_CODEGEN *codegen);
-bool ntGen(NT_CODEGEN *codegen, const NT_NODE **block, size_t count);
+bool ntGen(NT_CODEGEN *codegen, size_t count, const NT_NODE **moduleNodes);
 
 #endif

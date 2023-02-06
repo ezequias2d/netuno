@@ -2,6 +2,7 @@
 #include "list.h"
 #include <assert.h>
 #include <netuno/memory.h>
+#include <netuno/module.h>
 #include <netuno/str.h>
 #include <netuno/string.h>
 #include <stdarg.h>
@@ -268,6 +269,11 @@ static NT_NODE *makeCall(NT_TOKEN token, NT_NODE *callee, NT_LIST arguments)
     return node;
 }
 
+static NT_NODE *makeGet(NT_TOKEN token, NT_NODE *node)
+{
+    return makeNode(NC_EXPR, NK_GET, token, node, NULL);
+}
+
 static NT_NODE *makeLiteral(const NT_TOKEN token, NT_LITERAL_TYPE literalType)
 {
     NT_NODE *node = makeNode(NC_EXPR, NK_LITERAL, token, NULL, NULL);
@@ -348,9 +354,18 @@ static NT_NODE *finishCall(NT_PARSER *parser, NT_NODE *callee)
 static NT_NODE *call(NT_PARSER *parser)
 {
     NT_NODE *expr = primary(parser);
-    while (matchId(parser, TK_KEYWORD, '('))
+    while (true)
     {
-        expr = finishCall(parser, expr);
+        if (matchId(parser, TK_KEYWORD, '('))
+            expr = finishCall(parser, expr);
+        else if (matchId(parser, TK_KEYWORD, '.'))
+        {
+            consume(parser, TK_IDENT, "Expect identifier after '.'.");
+            const NT_TOKEN name = parser->previous;
+            expr = makeGet(name, expr);
+        }
+        else
+            break;
     }
 
     return expr;
@@ -621,6 +636,25 @@ static NT_NODE *variableDeclaration(NT_PARSER *parser)
     return makeVar(name, type, initializer);
 }
 
+static NT_NODE *packagePath(NT_PARSER *parser)
+{
+    consume(parser, TK_IDENT, "Expect a module identifier");
+    const NT_TOKEN token = parser->previous;
+
+    NT_NODE *right = NULL;
+    if (checkId(parser, TK_KEYWORD, '.'))
+        right = packagePath(parser);
+
+    return makeNode(NC_EXPR, NK_GET, token, NULL, right);
+}
+
+static NT_NODE *importDeclaration(NT_PARSER *parser)
+{
+    const NT_TOKEN importToken = parser->previous;
+    NT_NODE *path = packagePath(parser);
+    return makeNode(NC_STMT, NK_IMPORT, importToken, path, NULL);
+}
+
 static NT_NODE *public(NT_PARSER *parser)
 {
     return makeNode(NC_STMT, NK_PUBLIC, parser->previous, NULL, NULL);
@@ -667,6 +701,23 @@ static NT_NODE *typeOrModuleDeclarationNamed(NT_PARSER *parser, const NT_NODE_KI
     NT_NODE *node = makeNode(NC_STMT, kind, name, NULL, NULL);
     node->data = statements;
 
+    switch (kind)
+    {
+    case NK_TYPE:
+        // todo
+        assert(0);
+        break;
+    case NK_MODULE: {
+        NT_MODULE *module = ntCreateModule();
+        node->userdata = module;
+        module->type.typeName = ntCopyString(name.lexeme, name.lexemeLength);
+    }
+    break;
+    default:
+        errorAt(name, "Invalid node kind, expect type or module");
+        break;
+    }
+
     return node;
 }
 
@@ -689,19 +740,10 @@ static NT_NODE *declaration(NT_PARSER *parser, const bool returnValue)
         return functionDeclaration(parser, false);
     if (matchId(parser, TK_KEYWORD, KW_VAR))
         return variableDeclaration(parser);
+    if (matchId(parser, TK_KEYWORD, KW_IMPORT))
+        return importDeclaration(parser);
     return statement(parser, returnValue);
 }
-
-// NT_NODE *ntRoot(NT_PARSER *parser, NT_LIST types, const bool returnValue)
-// {
-//     const NT_TOKEN token = parser->previous;
-//     NT_LIST statements = ntCreateList();
-
-//     while (!ntIsAtEnd(parser->scanner))
-//         ntListAdd(statements, declaration(parser, returnValue));
-
-//     return makeBlock(token, (NT_TOKEN){}, statements);
-// }
 
 static NT_NODE *block(NT_PARSER *parser, NT_TK_ID end, const bool returnValue)
 {
@@ -845,19 +887,6 @@ static NT_NODE *ifStatement(NT_PARSER *parser, const bool returnValue)
     return makeIf(token, condition, thenBranch, elseBranch);
 }
 
-static NT_NODE *printStatement(NT_PARSER *parser)
-{
-    const NT_TOKEN token = parser->previous;
-    NT_NODE *expr = expression(parser);
-    while (matchId(parser, TK_KEYWORD, ','))
-    {
-        NT_TOKEN op = parser->previous;
-        NT_NODE *right = expression(parser);
-        expr = makeBinary(op, expr, right);
-    }
-    return makeNode(NC_STMT, NK_PRINT, token, expr, NULL);
-}
-
 static NT_NODE *whileStatement(NT_PARSER *parser, const bool returnValue)
 {
     const NT_TOKEN token = parser->previous;
@@ -898,8 +927,6 @@ static NT_NODE *statement(NT_PARSER *parser, const bool returnValue)
         return forStatement(parser, returnValue);
     if (matchId(parser, TK_KEYWORD, KW_IF))
         return ifStatement(parser, returnValue);
-    if (matchId(parser, TK_KEYWORD, KW_PRINT))
-        return printStatement(parser);
     if (matchId(parser, TK_KEYWORD, KW_RETURN))
         return returnStatement(parser, returnValue);
     if (matchId(parser, TK_KEYWORD, KW_WHILE))
@@ -924,6 +951,10 @@ static NT_NODE *module(NT_PARSER *parser)
         consume(parser, TK_IDENT, "Expect a module name after module declaration");
         name = parser->previous;
         end = KW_END;
+
+        if (!ntStrEqualsFixed(name.lexeme, name.lexemeLength, parser->scanner->sourceName,
+                              ntStrLen(parser->scanner->sourceName)))
+            errorAt(name, "Expect the toplevel module has same name as file");
     }
     // filename as module name
     else
@@ -940,29 +971,11 @@ static NT_NODE *module(NT_PARSER *parser)
     return typeOrModuleDeclarationNamed(parser, NK_MODULE, end, name);
 }
 
-NT_NODE **ntParse(NT_PARSER *parser, uint32_t *pCount)
+NT_NODE *ntParse(NT_PARSER *parser)
 {
     advance(parser);
 
-    uint32_t size = 64;
-    uint32_t count = 0;
-    NT_NODE **modules = (NT_NODE **)ntMalloc(sizeof(NT_NODE *) * size);
-
-    while (!ntIsAtEnd(parser->scanner))
-    {
-        NT_NODE *mod = module(parser);
-        if (count >= size)
-        {
-            size = size * 3 / 2;
-            modules = (NT_NODE **)ntRealloc(modules, size * sizeof(NT_NODE *));
-        }
-        modules[count++] = mod;
-    }
-
-    modules = (NT_NODE **)ntRealloc(modules, count * sizeof(NT_NODE *));
-    *pCount = count;
-
-    return modules;
+    return module(parser);
 }
 
 static const char *const kinds[] = {

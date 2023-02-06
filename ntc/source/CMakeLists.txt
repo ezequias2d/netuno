@@ -6,6 +6,8 @@ set(ROOT_SOURCES
     "list.c"
     "codegen.c"
     "vstack.c"
+    "path.c"
+    "resolver.c"
 )
 
 set(CMAKE_C_STANDARD 11)

@@ -50,14 +50,18 @@ static NT_TYPE TYPE = {
     .equals = refEquals,
     .stackSize = sizeof(NT_REF),
     .instanceSize = sizeof(NT_DELEGATE_TYPE),
+    .baseType = NULL,
 };
 
 const NT_TYPE *ntDelegateType(void)
 {
     if (TYPE.object.type == NULL)
+    {
         TYPE.object.type = ntType();
-    if (TYPE.typeName == NULL)
         TYPE.typeName = ntCopyString(U"DelegateType", 12);
+        TYPE.baseType = ntObjectType();
+        ntInitSymbolTable(&TYPE.fields, (NT_SYMBOL_TABLE *)&ntObjectType()->fields, STT_TYPE, 0);
+    }
     return &TYPE;
 }
 
@@ -93,6 +97,7 @@ const NT_DELEGATE_TYPE *ntCreateDelegateType(const NT_STRING *delegateTypeName,
     delegateType->type.equals = refEquals;
     delegateType->type.stackSize = sizeof(NT_REF);
     delegateType->type.instanceSize = sizeof(NT_DELEGATE);
+    delegateType->type.baseType = ntObjectType();
     delegateType->paramCount = paramCount;
     delegateType->returnType = returnType;
 
@@ -141,13 +146,32 @@ const NT_DELEGATE *ntDelegate(const NT_DELEGATE_TYPE *delegateType, const NT_MOD
 
     assert(module);
     assert(IS_VALID_OBJECT(module));
-    assert(module->object.type->object.type->objectType == NT_OBJECT_TYPE_TYPE);
-    assert(module->object.type->objectType == NT_OBJECT_MODULE);
+    assert(module->type.object.type->objectType == NT_OBJECT_TYPE_TYPE);
+    assert(module->type.objectType == NT_OBJECT_MODULE);
 
     NT_DELEGATE *delegate = (NT_DELEGATE *)ntCreateObject((NT_TYPE *)delegateType);
     delegate->native = false;
     delegate->addr = addr;
     delegate->sourceModule = module;
+    delegate->name = name;
+
+    return delegate;
+}
+
+const NT_DELEGATE *ntNativeDelegate(const NT_DELEGATE_TYPE *delegateType, nativeFun func,
+                                    const NT_STRING *name)
+{
+    assert(delegateType);
+    assert(IS_VALID_OBJECT(delegateType));
+    assert(IS_VALID_TYPE(delegateType));
+    assert(delegateType->type.object.type->objectType == NT_OBJECT_TYPE_TYPE);
+    assert(delegateType->type.objectType == NT_OBJECT_DELEGATE);
+
+    assert(func);
+
+    NT_DELEGATE *delegate = (NT_DELEGATE *)ntCreateObject((NT_TYPE *)delegateType);
+    delegate->native = true;
+    delegate->func = func;
     delegate->name = name;
 
     return delegate;

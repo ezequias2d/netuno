@@ -1,6 +1,7 @@
 #ifndef NETUNO_TYPE_H
 #define NETUNO_TYPE_H
 
+#include "netuno/symbol.h"
 #include <netuno/common.h>
 #include <netuno/object.h>
 
@@ -22,6 +23,7 @@ typedef enum
     NT_OBJECT_DELEGATE,
     NT_OBJECT_ASSEMBLY,
     NT_OBJECT_MODULE,
+    NT_OBJECT_OBJECT,
     NT_OBJECT_TYPE_TYPE,
     NT_OBJECT_CUSTOM,
 
@@ -47,8 +49,11 @@ struct _NT_TYPE
     equalsObj equals;
     size_t stackSize;
     size_t instanceSize;
+    const NT_TYPE *baseType;
+    NT_SYMBOL_TABLE fields;
 };
 
 const NT_TYPE *ntType(void);
+bool ntTypeIsAssignableFrom(const NT_TYPE *to, const NT_TYPE *from);
 
 #endif

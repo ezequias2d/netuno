@@ -130,7 +130,8 @@ bool ntPop(NT_VM *vm, void *data, const size_t dataSize)
         return false;
     }
     vm->stackTop -= dataSize;
-    ntMemcpy(data, vm->stackTop, dataSize);
+    if (data)
+        ntMemcpy(data, vm->stackTop, dataSize);
 #ifdef DEBUG_TRACE_EXECUTION
     vm->stackTypeTop--;
 #endif
@@ -176,8 +177,23 @@ bool ntCall(NT_VM *vm, const NT_DELEGATE *delegate)
 
     if (delegate->native)
     {
-        // TODO
-        assert(false);
+        const NT_DELEGATE_TYPE *delegateType = (const NT_DELEGATE_TYPE *)delegate->object.type;
+        uint8_t *finalStack = vm->stack;
+
+        for (size_t i = 0; i < delegateType->paramCount; ++i)
+        {
+            const NT_PARAM *const param = &delegateType->params[i];
+            finalStack -= param->type->stackSize;
+        }
+
+        if (delegateType->returnType)
+            finalStack += delegateType->returnType->stackSize;
+
+        const bool result = delegate->func(vm, delegateType);
+        const size_t delta = vm->stack - finalStack;
+        ntPop(vm, NULL, delta);
+
+        return result;
     }
     else
     {
@@ -745,16 +761,6 @@ static NT_RESULT run(NT_VM *vm)
         bool result;
         switch (instruction = ntRead(vm->module, vm->pc++))
         {
-        case BC_PRINT: {
-            const NT_STRING *str;
-            result = ntPopRef(vm, (NT_REF *)&str);
-            assert(result);
-            char *s = ntToChar(str->chars);
-            printf("%s", s);
-            ntFree(s);
-        }
-        break;
-
         case BC_BRANCH:
             // t64_1 = offset between current instruction and target
             // t64_2 = bytes used by offset in current instruction
@@ -1951,13 +1957,7 @@ static NT_RESULT run(NT_VM *vm)
             break;
         case BC_POP:
             vm->pc += ntReadVariant(vm->module, vm->pc, &t64_1);
-            t64_2 = 0;
-            if (t64_1 > 0)
-                do
-                {
-                    ntPop32(vm, &t32_1);
-                    t64_2++;
-                } while (t64_2 != t64_1);
+            ntPop(vm, NULL, sizeof(uint32_t) * t64_1);
             break;
         case BC_POP_32:
             result = ntPop32(vm, &t32_1);

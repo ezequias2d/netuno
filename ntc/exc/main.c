@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-static const char *readFile(const char *filepath)
+static char *readFile(const char *filepath)
 {
     FILE *file = fopen(filepath, "r");
     if (file == NULL)
@@ -39,12 +39,13 @@ static const NT_DELEGATE *findEntryPoint(const NT_ASSEMBLY *assembly, char_t *en
         assert(object);
         assert(IS_VALID_OBJECT(object));
 
-        if (object->type->objectType != NT_OBJECT_MODULE)
+        if (object->type->objectType != NT_OBJECT_TYPE_TYPE ||
+            ((NT_TYPE *)object)->objectType != NT_OBJECT_MODULE)
             continue;
 
         NT_MODULE *const module = (NT_MODULE *)object;
         NT_SYMBOL_ENTRY entry;
-        if (!ntLookupSymbolCurrent(&module->fields, entryPoint, ntStrLen(entryPoint), &entry))
+        if (!ntLookupSymbolCurrent(&module->type.fields, entryPoint, ntStrLen(entryPoint), &entry))
             continue;
 
         if ((entry.type & SYMBOL_TYPE_FUNCTION) == SYMBOL_TYPE_FUNCTION ||
@@ -56,47 +57,43 @@ static const NT_DELEGATE *findEntryPoint(const NT_ASSEMBLY *assembly, char_t *en
 
 int main(int argc, char **argv)
 {
-    if (argc != 2)
+    if (argc < 2)
     {
-        printf("Error: need a file to execute");
+        printf("Error: need a file to execute\n");
         return 2;
     }
 
-    const char *filepath = argv[1];
-    const char *code = readFile(filepath);
-    if (code == NULL)
+    const size_t count = argc - 1;
+    NT_FILE *files = (NT_FILE *)ntMalloc(sizeof(NT_FILE *) * count);
+
+    for (size_t i = 0; i < count; ++i)
     {
-        printf("Error: could not open file %s\n", filepath);
-        return 1;
+        char_t *filepath = ntToCharT(argv[1]);
+        char *code = readFile(argv[1]);
+        if (code == NULL)
+        {
+            printf("Error: could not open file %s\n", argv[1]);
+            return 1;
+        }
+
+        char_t *codet = ntToCharT(code);
+        ntFree(code);
+
+        files[i] = (NT_FILE){
+            .code = codet,
+            .source = filepath,
+        };
     }
 
-    const char_t *filename;
-    {
-        const char_t *filepatht = ntToCharT(filepath);
-        const char_t *filenamet = ntStrRChr(filepatht, U'/') + 1;
-        const char_t *dott = ntStrChr(filenamet, U'.');
-        const size_t lent = dott - filenamet;
-
-        char_t *fn = (char_t *)ntMalloc(sizeof(char_t) * (lent + 1));
-        ntMemcpy(fn, filenamet, lent * sizeof(char_t));
-        ntFree((char_t *)filepatht);
-
-        fn[lent] = U'\0';
-        filename = fn;
-    }
-
-    const char_t *codet = ntToCharT(code);
-    ntFree((void *)code);
     NT_ASSEMBLY *assembly = ntCreateAssembly();
-    ntCompile(assembly, codet, filename);
-    ntFree((void *)codet);
+    ntCompile(assembly, count, files);
 
     NT_VM *vm = ntCreateVM();
 
     const NT_DELEGATE *entryPoint = findEntryPoint(assembly, U"main");
     if (entryPoint == NULL)
     {
-        printf("Error: No entry point main!");
+        printf("Error: No entry point main!\n");
         return -1234;
     }
     ntRun(vm, assembly, entryPoint);

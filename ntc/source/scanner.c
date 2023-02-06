@@ -293,43 +293,57 @@ static char_t unicode_char(NT_SCANNER *scanner, const uint32_t len)
     return r;
 }
 
-static char_t escapeChar(NT_SCANNER *scanner)
+static char_t escapeChar(NT_SCANNER *scanner, char_t *c)
 {
-    const char_t c = peek(scanner);
-    switch (c)
+    *c = peek(scanner);
+    switch (*c)
     {
     case '\'':
     case '"':
     case '?':
     case '\\':
-        return c;
+        break;
     case 'a':
-        return '\a';
+        *c = '\a';
+        break;
     case 'b':
-        return '\b';
+        *c = '\b';
+        break;
     case 'f':
-        return '\f';
+        *c = '\f';
+        break;
     case 'n':
-        return '\n';
+        *c = '\n';
+        break;
     case 'r':
-        return '\r';
+        *c = '\r';
+        break;
     case 't':
-        return '\t';
+        *c = '\t';
+        break;
     case 'v':
-        return '\v';
+        *c = '\v';
+        break;
     case 'e':
-        return '\x1B';
+        *c = '\x1B';
+        break;
     case 'x':
-        return hex_char(scanner);
+        *c = hex_char(scanner);
+        break;
     case 'u':
-        return unicode_char(scanner, 4);
+        *c = unicode_char(scanner, 4);
+        break;
     case 'U':
-        return unicode_char(scanner, 8);
+        *c = unicode_char(scanner, 8);
+        break;
     case '0':
-        return oct_char(scanner);
+        *c = oct_char(scanner);
+        break;
     default:
-        return '\0';
+        return false;
     }
+
+    return true;
 }
 
 static void character(NT_SCANNER *scanner, NT_TOKEN *result)
@@ -338,8 +352,7 @@ static void character(NT_SCANNER *scanner, NT_TOKEN *result)
     // escape
     if (c == '\\')
     {
-        c = escapeChar(scanner);
-        if (c == '\0')
+        if (!escapeChar(scanner, &c))
         {
             errorToken(scanner, U"Invalid scape sequence!", result);
             return;

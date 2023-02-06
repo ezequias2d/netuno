@@ -45,5 +45,7 @@ const NT_DELEGATE_TYPE *ntCreateDelegateType(const NT_STRING *delegateTypeName,
                                              const NT_PARAM *params);
 const NT_DELEGATE *ntDelegate(const NT_DELEGATE_TYPE *delegateType, const NT_MODULE *module,
                               size_t addr, const NT_STRING *name);
+const NT_DELEGATE *ntNativeDelegate(const NT_DELEGATE_TYPE *delegateType, nativeFun func,
+                                    const NT_STRING *name);
 
 #endif

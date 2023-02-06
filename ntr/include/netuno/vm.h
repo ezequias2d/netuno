@@ -44,6 +44,10 @@ bool ntPush(NT_VM *vm, const void *data, const size_t dataSize);
 bool ntPop(NT_VM *vm, void *data, const size_t dataSize);
 bool ntPop32(NT_VM *vm, uint32_t *value);
 bool ntPush32(NT_VM *vm, const uint32_t value);
+bool ntPushRef(NT_VM *vm, NT_REF value);
+bool ntPopRef(NT_VM *vm, NT_REF *value);
 bool ntPop64(NT_VM *vm, uint64_t *value);
 bool ntPush64(NT_VM *vm, const uint64_t value);
+bool ntCall(NT_VM *vm, const NT_DELEGATE *delegate);
+
 #endif

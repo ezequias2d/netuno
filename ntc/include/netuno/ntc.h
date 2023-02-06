@@ -5,5 +5,11 @@
 #include <netuno/assembly.h>
 #include <netuno/common.h>
 
-NT_ASSEMBLY *ntCompile(NT_ASSEMBLY *assembly, const char_t *str, const char_t *sourceName);
+typedef struct _NT_FILE
+{
+    const char_t *code;
+    const char_t *source;
+} NT_FILE;
+
+NT_ASSEMBLY *ntCompile(NT_ASSEMBLY *assembly, size_t fileCount, const NT_FILE *files);
 #endif

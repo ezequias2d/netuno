@@ -22,6 +22,7 @@ static void addType(NT_MODGEN *modgen, const NT_TYPE *type)
         .type = SYMBOL_TYPE_TYPE,
         .data = 0,
         .exprType = type,
+        .weak = false,
     };
     ntInsertSymbol(modgen->scope, &entry);
 }
@@ -31,7 +32,7 @@ NT_MODGEN *ntCreateModgen(NT_CODEGEN *codegen, NT_MODULE *module)
     NT_MODGEN *modgen = (NT_MODGEN *)ntMalloc(sizeof(NT_MODGEN));
 
     modgen->module = module;
-    modgen->scope = &module->fields;
+    modgen->scope = (NT_SYMBOL_TABLE *)&module->type.fields;
     modgen->functionScope = modgen->scope;
     modgen->stack = ntCreateVStack();
     modgen->had_error = false;
@@ -505,6 +506,7 @@ static void addLocal(NT_MODGEN *modgen, const NT_STRING *name, const NT_TYPE *ty
         .type = SYMBOL_TYPE_VARIABLE,
         .data = (void *)modgen->stack->sp,
         .exprType = type,
+        .weak = false,
     };
     const bool result = ntInsertSymbol(modgen->scope, &entry);
     assert(result);
@@ -517,6 +519,7 @@ static void addParam(NT_MODGEN *modgen, const NT_STRING *name, const NT_TYPE *ty
         .type = SYMBOL_TYPE_PARAM,
         .data = (void *)modgen->stack->sp,
         .exprType = type,
+        .weak = false,
     };
     const bool result = ntInsertSymbol(modgen->scope, &entry);
     assert(result);
@@ -530,6 +533,7 @@ static void addSymbol(NT_MODGEN *modgen, const NT_STRING *name, NT_SYMBOL_TYPE s
         .type = symbolType,
         .data = data,
         .exprType = type,
+        .weak = false,
     };
     const bool result = ntInsertSymbol(modgen->scope, &entry);
     assert(result);
@@ -546,6 +550,7 @@ static void addLabel(NT_MODGEN *modgen, const NT_STRING *label)
         .data = (void *)pc,
         .data2 = pc,
         .exprType = NULL,
+        .weak = false,
     };
     const bool result = ntInsertSymbol(modgen->functionScope, &entry);
     assert(result);
@@ -586,6 +591,7 @@ static void addBranch(NT_MODGEN *modgen, const NT_STRING *label)
         .type = SYMBOL_TYPE_BRANCH,
         .data = (void *)pc,
         .data2 = pc,
+        .weak = false,
     };
     const bool result = ntInsertSymbol(modgen->functionScope, &entry);
     assert(result);
@@ -618,15 +624,14 @@ static void addFunction(NT_MODGEN *modgen, const NT_STRING *name, NT_SYMBOL_TYPE
     assert(((symbolType & SYMBOL_TYPE_FUNCTION) == SYMBOL_TYPE_FUNCTION) ||
            ((symbolType & SYMBOL_TYPE_SUBROUTINE) == SYMBOL_TYPE_SUBROUTINE));
 
-    if (modgen->functionScope->parent == &modgen->module->fields)
+    if (modgen->functionScope->parent != &modgen->module->type.fields)
     {
         ntAddModuleFunction(modgen->module, name, delegateType, pc, public);
         return;
     }
 
-    assert(public == false);
     const NT_DELEGATE *delegate =
-        ntAddModuleFunction(modgen->module, NULL, delegateType, pc, public);
+        ntAddModuleFunction(modgen->module, name, delegateType, pc, public);
     addSymbol(modgen, name, symbolType, (const NT_TYPE *)delegateType, (void *)delegate);
 }
 
@@ -693,293 +698,20 @@ static bool findSymbol(NT_MODGEN *modgen, const char_t *name, const size_t lengt
 
 static const NT_TYPE *evalExprType(NT_MODGEN *modgen, const NT_NODE *node)
 {
+    assert(modgen);
     assert(node->type.class == NC_EXPR);
-
-    const NT_TYPE *left = NULL;
-    const NT_TYPE *right = NULL;
-
-    if (node->left != NULL)
-    {
-        left = evalExprType(modgen, node->left);
-        assert(left);
-    }
-
-    if (node->right != NULL)
-    {
-        right = evalExprType(modgen, node->right);
-        assert(right);
-    }
-
-    switch (node->type.kind)
-    {
-    case NK_LITERAL:
-        switch (node->type.literalType)
-        {
-        case LT_BOOL:
-            assert(node->token.type == TK_KEYWORD);
-            return ntBoolType();
-        case LT_NONE:
-            return ntI32Type();
-        case LT_STRING:
-            return ntStringType();
-        case LT_I32:
-            return ntI32Type();
-        case LT_I64:
-            return ntI64Type();
-        case LT_U32:
-            return ntU32Type();
-        case LT_U64:
-            return ntU64Type();
-        case LT_F32:
-            return ntF32Type();
-        case LT_F64:
-            return ntF64Type();
-        default:
-            errorAt(modgen, node, "Invalid literal type! '%d'", node->type.literalType);
-            break;
-        }
-        break;
-    case NK_UNARY:
-        switch (node->token.id)
-        {
-        case '-':
-        case OP_DEC:
-        case OP_INC:
-            return left == NULL ? right : left;
-        case '!':
-            return ntBoolType();
-        case '~':
-            if (right->objectType == NT_OBJECT_I32 || right->objectType == NT_OBJECT_I64 ||
-                right->objectType == NT_OBJECT_U32 || right->objectType == NT_OBJECT_U64)
-                return right;
-            else
-            {
-                errorAt(modgen, node,
-                        "Invalid type for '~' operation! Must be a integer(i32, i64, u32 or u64).");
-                return NULL;
-            }
-        default:
-            errorAt(modgen, node, "Invalid unary operator!");
-            return NULL;
-        }
-    case NK_BINARY:
-        switch (node->token.id)
-        {
-        case OP_NE:
-        case OP_EQ:
-        case '>':
-        case OP_GE:
-        case '<':
-        case OP_LE:
-            return ntBoolType();
-        case '+':
-        case '-':
-        case '*':
-        case '/':
-        case '%':
-        case '|':
-        case '&':
-        case '^':
-            left = evalExprType(modgen, node->left);
-            right = evalExprType(modgen, node->right);
-
-            if (left->objectType == NT_OBJECT_CUSTOM || right->objectType == NT_OBJECT_CUSTOM)
-            {
-                // TODO: add operators support to objects.
-                errorAt(modgen, node, "Invalid math operation with custom object.");
-                return NULL;
-            }
-
-            if (left->objectType < right->objectType)
-                return left;
-            return right;
-        default:
-            errorAt(modgen, node, "Invalid binary operation. %d", node->token.id);
-            return NULL;
-        }
-        break;
-    case NK_LOGICAL:
-        switch (node->token.id)
-        {
-        case OP_LOGOR:
-        case OP_LOGAND:
-            return ntBoolType();
-        default:
-            errorAt(modgen, node, "Invalid logical operation. %d", node->token.id);
-            return NULL;
-        }
-    case NK_CALL: {
-        switch (left->objectType)
-        {
-        case NT_OBJECT_DELEGATE:
-            return ((const NT_DELEGATE_TYPE *)left)->returnType;
-        default: {
-            char *str = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
-            errorAt(modgen, node, "The function or method '%s' must be declareed.", str);
-            ntFree(str);
-            return NULL;
-        }
-        }
-        break;
-    }
-    case NK_VARIABLE: {
-        NT_SYMBOL_ENTRY entry;
-        if (!findSymbol(modgen, node->token.lexeme, node->token.lexemeLength, &entry))
-        {
-            errorAt(modgen, node, "The variable must be declared.");
-            break;
-        }
-        if ((entry.type & (SYMBOL_TYPE_VARIABLE | SYMBOL_TYPE_CONSTANT | SYMBOL_TYPE_PARAM |
-                           SYMBOL_TYPE_TYPE | SYMBOL_TYPE_FUNCTION | SYMBOL_TYPE_SUBROUTINE)) == 0)
-        {
-            char *str = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
-            errorAt(modgen, node,
-                    "The symbol '%s' is not a constant, parameter, variable, method or function!",
-                    str);
-            ntFree(str);
-            break;
-        }
-        return entry.exprType;
-    }
-    break;
-    case NK_ASSIGN: {
-        if (left != right)
-        {
-            char *leftName = ntToCharFixed(left->typeName->chars, left->typeName->length);
-            char *rightName = ntToCharFixed(right->typeName->chars, right->typeName->length);
-            errorAt(modgen, node,
-                    "Invalid type, variable is of type %s, but the value expression to assign is "
-                    "%s.",
-                    leftName, rightName);
-            ntFree(leftName);
-            ntFree(rightName);
-        }
-        return left;
-    }
-    break;
-    default:
-        errorAt(modgen, node, "AST invalid format, node kind cannot be %s!",
-                ntGetKindLabel(node->type.kind));
-        break;
-    }
-
-    errorAt(modgen, node, "Unkown expr.");
-    return NULL;
+    assert(node->expressionType);
+    return node->expressionType;
 }
 
 static const NT_TYPE *evalBlockReturnType(NT_MODGEN *modgen, const NT_NODE *node)
 {
+    assert(modgen);
     assert(node->type.class == NC_STMT);
     assert(node->type.kind == NK_BLOCK);
-
-    const NT_TYPE *blockReturnType = NULL;
-
-    for (size_t i = 0; i < ntListLen(node->data); ++i)
-    {
-        const NT_NODE *stmt = ntListGet(node->data, i);
-        const NT_TYPE *tmp = NULL;
-        assert(stmt->type.class == NC_STMT);
-
-        switch (stmt->type.kind)
-        {
-        case NK_RETURN:
-            tmp = evalExprType(modgen, stmt->left);
-            break;
-        case NK_BLOCK:
-            tmp = evalBlockReturnType(modgen, stmt);
-            break;
-        case NK_IF: {
-            assert(stmt->left->type.class == NC_STMT);
-            switch (stmt->left->type.kind)
-            {
-            case NK_BLOCK:
-                tmp = evalBlockReturnType(modgen, stmt->left);
-                break;
-            case NK_RETURN:
-                assert(stmt->left->left);
-                assert(stmt->left->left->type.class == NC_EXPR);
-                tmp = evalExprType(modgen, stmt->left->left);
-                break;
-            default:
-                break;
-            }
-
-            if (stmt->right) // else branch
-            {
-                const NT_TYPE *elseTmp = NULL;
-                switch (stmt->right->type.kind)
-                {
-                case NK_BLOCK:
-                    elseTmp = evalBlockReturnType(modgen, stmt->right);
-                    break;
-                case NK_RETURN:
-                    assert(stmt->right->left);
-                    assert(stmt->right->left->type.class == NC_EXPR);
-                    elseTmp = evalExprType(modgen, stmt->right->left);
-                    break;
-                default:
-                    break;
-                }
-
-                if (elseTmp != NULL && tmp != NULL && elseTmp != tmp)
-                {
-                    char *expectTypeName =
-                        ntToCharFixed(tmp->typeName->chars, tmp->typeName->length);
-                    char *currentTypeName =
-                        ntToCharFixed(elseTmp->typeName->chars, elseTmp->typeName->length);
-                    // more than one type as return
-                    errorAt(modgen, stmt,
-                            "The same type must be used in all return statements of if branches, "
-                            "expect type is %s, not %s",
-                            expectTypeName, currentTypeName);
-                    ntFree(expectTypeName);
-                    ntFree(currentTypeName);
-                }
-                else if (elseTmp != NULL && tmp == NULL)
-                    tmp = elseTmp;
-            }
-        }
-        break;
-        case NK_WHILE:
-        case NK_UNTIL:
-            assert(stmt->left->type.class == NC_STMT);
-            switch (stmt->left->type.kind)
-            {
-            case NK_BLOCK:
-                tmp = evalBlockReturnType(modgen, stmt->left);
-                break;
-            case NK_RETURN:
-                assert(stmt->left->left);
-                assert(stmt->left->left->type.class == NC_EXPR);
-                tmp = evalExprType(modgen, stmt->left->left);
-                break;
-            default:
-                break;
-            }
-            break;
-        default:
-            break;
-        }
-
-        if (blockReturnType == NULL && tmp != NULL)
-            blockReturnType = tmp;
-        else if (blockReturnType != NULL && tmp != NULL && tmp != blockReturnType)
-        {
-            char *expectTypeName =
-                ntToCharFixed(blockReturnType->typeName->chars, blockReturnType->typeName->length);
-            char *currentTypeName = ntToCharFixed(tmp->typeName->chars, tmp->typeName->length);
-            // more than one type as return
-            errorAt(modgen, stmt,
-                    "The same type must be used in all return statements, expect type is %s, "
-                    "not %s",
-                    expectTypeName, currentTypeName);
-            ntFree(expectTypeName);
-            ntFree(currentTypeName);
-        }
-    }
-    return blockReturnType;
+    assert(node->expressionType);
+    return node->expressionType;
 }
-
 static void number(NT_MODGEN *modgen, const NT_NODE *node)
 {
     char *str = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
@@ -2060,13 +1792,13 @@ static void emitAssign32(NT_MODGEN *modgen, const NT_NODE *node, const char_t *v
         va_end(vl);
     }
 
-    if (table->type == STT_MODULE)
+    if (table->type == STT_TYPE)
     {
         NT_MODULE *module = (NT_MODULE *)table->data;
 
         assert(module);
         assert(IS_VALID_OBJECT(module));
-        assert(module->object.type->objectType == NT_OBJECT_MODULE);
+        assert(module->type.objectType == NT_OBJECT_MODULE);
 
         // module variable
         emitConstantObject(modgen, node, (NT_OBJECT *)module);
@@ -2256,6 +1988,57 @@ static void logical(NT_MODGEN *modgen, const NT_NODE *node)
     }
 }
 
+static void get(NT_MODGEN *modgen, const NT_NODE *node)
+{
+    assert(modgen);
+    assert(node);
+    assert(node->type.class == NC_EXPR);
+    assert(node->type.kind == NK_GET);
+
+    NT_NODE *current = node->left;
+    NT_OBJECT *constantObject = NULL;
+
+    NT_SYMBOL_ENTRY entry;
+    do
+    {
+        const bool result = ntLookupSymbol(modgen->scope, current->token.lexeme,
+                                           current->token.lexemeLength, NULL, &entry);
+
+        if (result && (entry.type &
+                       (SYMBOL_TYPE_MODULE | SYMBOL_TYPE_FUNCTION | SYMBOL_TYPE_SUBROUTINE)) != 0)
+        {
+            constantObject = (NT_OBJECT *)entry.data;
+            current = current->left;
+        }
+        else
+            break;
+    } while (current);
+
+    if (constantObject->type->objectType == NT_OBJECT_TYPE_TYPE)
+    {
+        NT_TYPE *type = (NT_TYPE *)constantObject;
+        const bool result = ntLookupSymbol(&type->fields, node->token.lexeme,
+                                           node->token.lexemeLength, NULL, &entry);
+
+        if (result && (entry.type &
+                       (SYMBOL_TYPE_MODULE | SYMBOL_TYPE_FUNCTION | SYMBOL_TYPE_SUBROUTINE)) != 0)
+        {
+            constantObject = (NT_OBJECT *)entry.data;
+            emitConstantObject(modgen, node, constantObject);
+            return;
+        }
+    }
+
+    if (constantObject)
+    {
+        emitConstantObject(modgen, node, constantObject);
+    }
+
+    // dynamic
+    // TODO:
+    assert(0);
+}
+
 static void call(NT_MODGEN *modgen, const NT_NODE *node, const bool needValue)
 {
     assert(modgen);
@@ -2297,7 +2080,7 @@ static void call(NT_MODGEN *modgen, const NT_NODE *node, const bool needValue)
 
         expression(modgen, arg, true);
 
-        if (paramType != expectType)
+        if (!ntTypeIsAssignableFrom(expectType, paramType))
         {
             char *expectTypeName =
                 ntToCharFixed(expectType->typeName->chars, expectType->typeName->length);
@@ -2323,7 +2106,8 @@ static void call(NT_MODGEN *modgen, const NT_NODE *node, const bool needValue)
     expression(modgen, node->left, needValue);
     emit(modgen, node, BC_CALL);
     pop(modgen, node, (const NT_TYPE *)delegateType);
-    push(modgen, node, delegateType->returnType);
+    if (delegateType->returnType)
+        push(modgen, node, delegateType->returnType);
 
     size_t delta = modgen->stack->sp - sp;
 
@@ -2359,6 +2143,9 @@ static void expression(NT_MODGEN *modgen, const NT_NODE *node, const bool needVa
     case NK_LOGICAL:
         logical(modgen, node);
         break;
+    case NK_GET:
+        get(modgen, node);
+        break;
     case NK_CALL:
         call(modgen, node, needValue);
         break;
@@ -2371,26 +2158,14 @@ static void expression(NT_MODGEN *modgen, const NT_NODE *node, const bool needVa
     }
 }
 
-static void printStatement(NT_MODGEN *modgen, const NT_NODE *node)
-{
-    const NT_TYPE *leftType = evalExprType(modgen, node->left);
-    expression(modgen, node->left, true);
-
-    if (leftType->objectType != NT_OBJECT_STRING)
-        cast(modgen, node, leftType, ntStringType());
-
-    pop(modgen, node, ntStringType());
-    emit(modgen, node, BC_PRINT);
-}
-
 static void expressionStatement(NT_MODGEN *modgen, const NT_NODE *node)
 {
     assert(node->type.class == NC_STMT);
     assert(node->type.kind == NK_EXPR);
 
-    const NT_TYPE *leftType = evalExprType(modgen, node->left);
     expression(modgen, node->left, false);
-    emitPop(modgen, node, leftType);
+    if (node->expressionType)
+        emitPop(modgen, node, node->expressionType);
 }
 
 static void statement(NT_MODGEN *modgen, const NT_NODE *node, const NT_TYPE **returnType);
@@ -2793,7 +2568,6 @@ static void declaration(NT_MODGEN *modgen, const NT_NODE *node)
 {
     switch (node->type.kind)
     {
-    case NK_PUBLIC:
     case NK_DEF:
         defStatement(modgen, node);
         break;
@@ -2802,6 +2576,8 @@ static void declaration(NT_MODGEN *modgen, const NT_NODE *node)
         break;
     case NK_VAR:
         varStatement(modgen, node);
+        break;
+    case NK_IMPORT:
         break;
     default:
         errorAt(modgen, node, "Expect a declaration");
@@ -2827,9 +2603,6 @@ static void statement(NT_MODGEN *modgen, const NT_NODE *node, const NT_TYPE **re
 
     switch (node->type.kind)
     {
-    case NK_PRINT:
-        printStatement(modgen, node);
-        break;
     case NK_EXPR:
         expressionStatement(modgen, node);
         break;
@@ -2866,8 +2639,19 @@ static void module(NT_CODEGEN *codegen, const NT_NODE *node)
     assert(node->type.class == NC_STMT);
     assert(node->type.kind == NK_MODULE);
 
-    NT_MODULE *module = ntCreateModule();
-    module->fields.data = module;
+    NT_MODULE *module;
+    assert(node->userdata != NULL);
+    if (node->userdata == NULL)
+    {
+        printf("Something are wrong, field userdata of module node AST must has a module "
+               "instance.\n");
+        return;
+    }
+
+    module = (NT_MODULE *)node->userdata;
+    assert(IS_VALID_OBJECT(module));
+    assert(module->type.objectType == NT_OBJECT_MODULE);
+
     NT_MODGEN *modgen = ntCreateModgen(codegen, module);
 
     for (size_t i = 0; i < ntListLen(node->data); ++i)
@@ -2885,10 +2669,7 @@ static void module(NT_CODEGEN *codegen, const NT_NODE *node)
     ntAddConstantObject(codegen->assembly, (NT_OBJECT *)module);
 }
 
-bool ntGen(NT_CODEGEN *codegen, const NT_NODE **block, size_t count
-           // , const char_t *entryPointName,
-           //            const NT_DELEGATE **entryPoint
-)
+bool ntGen(NT_CODEGEN *codegen, size_t count, const NT_NODE **moduleNodes)
 {
     // for (size_t i = 0; i < ntListLen(block->data); ++i)
     // {
@@ -2898,7 +2679,7 @@ bool ntGen(NT_CODEGEN *codegen, const NT_NODE **block, size_t count
 
     for (size_t i = 0; i < count; ++i)
     {
-        const NT_NODE *stmt = block[i];
+        const NT_NODE *stmt = moduleNodes[i];
         module(codegen, stmt);
     }
 

@@ -1,9 +1,14 @@
-#include <codegen.h>
+#include "codegen.h"
+#include "parser.h"
+#include "path.h"
+#include "resolver.h"
+#include "scanner.h"
+#include <assert.h>
 #include <ctype.h>
 #include <netuno/memory.h>
 #include <netuno/ntc.h>
-#include <parser.h>
-#include <scanner.h>
+#include <netuno/std.h>
+#include <netuno/str.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -72,28 +77,83 @@ char *toCharS(const char_t *str, size_t len)
     return s;
 }
 
-NT_ASSEMBLY *ntCompile(NT_ASSEMBLY *assembly, const char_t *str, const char_t *sourceName)
+static bool insertModuleSymbol(NT_SYMBOL_TABLE *table, const NT_MODULE *module)
 {
-    NT_SCANNER *scanner = ntScannerCreate(str, sourceName);
-    NT_PARSER *parser = ntParserCreate(scanner);
+    assert(table);
+    assert(module);
+    assert(IS_VALID_OBJECT(module));
 
-    uint32_t count;
-    NT_NODE **root = ntParse(parser, &count);
+    const NT_SYMBOL_ENTRY entry = (NT_SYMBOL_ENTRY){
+        .symbol_name = module->type.typeName,
+        .target_label = NULL,
+        .type = SYMBOL_TYPE_MODULE | SYMBOL_TYPE_PUBLIC,
+        .data = (void *)module,
+        .data2 = 0,
+        .exprType = &module->type,
+        .weak = false,
+    };
 
-#ifndef NDEBUG
-    for (uint32_t i = 0; i < count; i++)
-        ntPrintNode(0, root[i]);
-#endif
+    return ntInsertSymbol(table, &entry);
+}
+
+NT_ASSEMBLY *ntCompile(NT_ASSEMBLY *assembly, size_t fileCount, const NT_FILE *files)
+{
+    assert(assembly != NULL);
+    assert(files != NULL);
+    assert(fileCount > 0);
+
+    NT_NODE **nodes = ntMalloc(sizeof(NT_NODE *) * fileCount);
+    NT_SYMBOL_TABLE *globalTable = ntCreateSymbolTable(NULL, STT_NONE, NULL);
+
+    insertModuleSymbol(globalTable, ntStdModule());
+
+    for (size_t i = 0; i < fileCount; ++i)
+    {
+        const NT_FILE *const current = &files[i];
+
+        char_t *filename = ntPathFilename(current->source, false);
+
+        NT_SCANNER *scanner = ntScannerCreate(current->code, filename);
+        NT_PARSER *parser = ntParserCreate(scanner);
+        nodes[i] = ntParse(parser);
+
+        ntParserDestroy(parser);
+        ntScannerDestroy(scanner);
+
+        assert(nodes[i]->userdata);
+        assert(IS_VALID_OBJECT(nodes[i]->userdata));
+        assert(((NT_OBJECT *)nodes[i]->userdata)->type->objectType == NT_OBJECT_TYPE_TYPE);
+        assert(((NT_TYPE *)nodes[i]->userdata)->objectType == NT_OBJECT_MODULE);
+
+        insertModuleSymbol(globalTable, (NT_MODULE *)nodes[i]->userdata);
+        ntFree(filename);
+    }
+
+    const bool resolveResult = ntResolve(assembly, globalTable, fileCount, nodes);
+    assert(resolveResult);
+    if (!resolveResult)
+    {
+        assembly = NULL;
+        goto error;
+    }
 
     NT_CODEGEN *codegen = ntCreateCodegen(assembly);
-    ntGen(codegen, (const NT_NODE **)root, count);
-    for (uint32_t i = 0; i < count; i++)
-        ntDestroyNode(root[i]);
-    ntFree(root);
+    const bool genResult = ntGen(codegen, fileCount, (const NT_NODE **)nodes);
+    assert(genResult);
+    if (!genResult)
+    {
+        assembly = NULL;
+        goto error;
+    }
 
-    ntScannerDestroy(scanner);
-    ntParserDestroy(parser);
     ntFreeCodegen(codegen);
+
+error:
+    for (size_t i = 0; i < fileCount; ++i)
+    {
+        ntDestroyNode(nodes[i]);
+    }
+    ntFree(nodes);
 
     return assembly;
 }

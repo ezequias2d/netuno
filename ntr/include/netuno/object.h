@@ -13,9 +13,10 @@ typedef struct _NT_MODULE NT_MODULE;
 
 typedef struct _NT_OBJECT NT_OBJECT;
 typedef struct _NT_TYPE NT_TYPE;
+typedef struct _NT_DELEGATE_TYPE NT_DELEGATE_TYPE;
 typedef struct _NT_STRING NT_STRING;
 
-typedef void (*nativeFun)(NT_VM *vm, const NT_TYPE *delegateType);
+typedef bool (*nativeFun)(NT_VM *vm, const NT_DELEGATE_TYPE *delegateType);
 
 struct _NT_OBJECT
 {
@@ -23,6 +24,7 @@ struct _NT_OBJECT
     size_t refCount;
 };
 
+const NT_TYPE *ntObjectType(void);
 NT_OBJECT *ntCreateObject(const NT_TYPE *type);
 void ntRefObject(NT_OBJECT *object);
 void ntFreeObject(NT_OBJECT *object);

@@ -10,8 +10,6 @@ bytecode(CONST_32)
 bytecode(CONST_64)
 bytecode(CONST_OBJECT)
 
-bytecode(PRINT)
-
 bytecode(CALL)
 bytecode(RETURN)
 

@@ -1,10 +1,10 @@
-#include "netuno/type.h"
 #include <assert.h>
 #include <netuno/memory.h>
 #include <netuno/object.h>
 #include <netuno/str.h>
 #include <netuno/string.h>
 #include <netuno/table.h>
+#include <netuno/type.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -67,15 +67,99 @@ static NT_TYPE TYPE = {
     .equals = refEquals,
     .stackSize = sizeof(NT_REF),
     .instanceSize = sizeof(NT_TYPE),
+    .baseType = NULL,
 };
 
 const NT_TYPE *ntType(void)
 {
     if (TYPE.object.type == NULL)
+    {
         TYPE.object.type = &TYPE;
-    if (TYPE.typeName == NULL)
         TYPE.typeName = ntCopyString(U"Type", 4);
+        TYPE.baseType = ntObjectType();
+        ntInitSymbolTable(&TYPE.fields, (NT_SYMBOL_TABLE *)&ntObjectType()->fields, STT_TYPE, 0);
+    }
     return &TYPE;
+}
+
+bool ntTypeIsAssignableFrom(const NT_TYPE *to, const NT_TYPE *from)
+{
+    assert(to);
+    assert(from);
+
+    const NT_TYPE *previous = NULL;
+    do
+    {
+        if (to == from)
+            return true;
+
+        previous = from;
+        from = from->baseType;
+    } while (from != NULL && previous != from);
+
+    return false;
+}
+
+static void freeObject(NT_OBJECT *object)
+{
+    assert(object);
+    assert(IS_VALID_OBJECT(object));
+}
+
+static const NT_STRING *objectToString(NT_OBJECT *object)
+{
+    assert(object);
+    assert(IS_VALID_OBJECT(object));
+    assert(object->type->objectType == NT_OBJECT_TYPE_TYPE);
+
+    const NT_STRING *addrString = NULL;
+    switch (sizeof(NT_OBJECT *))
+    {
+    case sizeof(uint32_t):
+        addrString = ntU32Type()->string((NT_OBJECT *)&object);
+        break;
+    default:
+        addrString = ntU64Type()->string((NT_OBJECT *)&object);
+        break;
+    }
+
+    const NT_STRING *className =
+        ntConcat((NT_OBJECT *)object->type->typeName, (NT_OBJECT *)ntCopyString(U" ", 1));
+
+    const NT_STRING *result = ntConcat((NT_OBJECT *)className, (NT_OBJECT *)addrString);
+
+    ntFreeObject((NT_OBJECT *)addrString);
+    ntFreeObject((NT_OBJECT *)className);
+
+    return result;
+}
+
+static NT_TYPE OBJECT_TYPE = {
+    .object =
+        (NT_OBJECT){
+            .type = NULL,
+            .refCount = 0,
+        },
+    .objectType = NT_OBJECT_TYPE_TYPE,
+    .typeName = NULL,
+    .free = freeObject,
+    .string = objectToString,
+    .equals = refEquals,
+    .stackSize = sizeof(NT_REF),
+    .instanceSize = sizeof(NT_OBJECT),
+    .baseType = NULL,
+};
+
+const NT_TYPE *ntObjectType(void)
+{
+    if (OBJECT_TYPE.object.type == NULL)
+    {
+        OBJECT_TYPE.object.type = ntType();
+        OBJECT_TYPE.typeName = ntCopyString(U"Object", 6);
+        OBJECT_TYPE.baseType = ntObjectType();
+        ntInitSymbolTable(&OBJECT_TYPE.fields, NULL, STT_TYPE, 0);
+    }
+    return &OBJECT_TYPE;
 }
 
 NT_OBJECT *ntCreateObject(const NT_TYPE *type)
@@ -88,8 +172,8 @@ NT_OBJECT *ntCreateObject(const NT_TYPE *type)
 
 void ntRefObject(NT_OBJECT *object)
 {
-    assert(object->refCount);
-    object->refCount++;
+    if (object->refCount)
+        object->refCount++;
 }
 
 void ntFreeObject(NT_OBJECT *object)
@@ -111,12 +195,19 @@ void ntMakeConstant(NT_OBJECT *object)
     object->refCount = 0;
 }
 
+static void freeBase(NT_OBJECT *object, const NT_TYPE *current)
+{
+    if (current->baseType)
+        freeBase(object, current->baseType);
+    current->free(object);
+}
+
 void ntForceFreeObject(NT_OBJECT *object)
 {
     assert(object);
     assert(IS_VALID_OBJECT(object));
 
-    object->type->free(object);
+    freeBase(object, object->type);
     ntFree(object);
 }
 
@@ -216,14 +307,17 @@ static NT_TYPE I32_TYPE = {
     .equals = NULL,
     .stackSize = sizeof(int32_t),
     .instanceSize = 0,
+    .baseType = NULL,
 };
 
 const NT_TYPE *ntI32Type(void)
 {
     if (I32_TYPE.object.type == NULL)
+    {
         I32_TYPE.object.type = ntType();
-    if (I32_TYPE.typeName == NULL)
         I32_TYPE.typeName = ntCopyString(U"int", 3);
+        ntInitSymbolTable(&I32_TYPE.fields, NULL, STT_TYPE, 0);
+    }
     return &I32_TYPE;
 }
 
@@ -245,14 +339,17 @@ static NT_TYPE I64_TYPE = {
     .equals = NULL,
     .stackSize = sizeof(int64_t),
     .instanceSize = 0,
+    .baseType = NULL,
 };
 
 const NT_TYPE *ntI64Type(void)
 {
     if (I64_TYPE.object.type == NULL)
+    {
         I64_TYPE.object.type = ntType();
-    if (I64_TYPE.typeName == NULL)
         I64_TYPE.typeName = ntCopyString(U"long", 4);
+        ntInitSymbolTable(&I64_TYPE.fields, NULL, STT_TYPE, 0);
+    }
     return &I64_TYPE;
 }
 
@@ -269,14 +366,17 @@ static NT_TYPE U32_TYPE = {
     .equals = NULL,
     .stackSize = sizeof(uint32_t),
     .instanceSize = 0,
+    .baseType = NULL,
 };
 
 const NT_TYPE *ntU32Type(void)
 {
     if (U32_TYPE.object.type == NULL)
+    {
         U32_TYPE.object.type = ntType();
-    if (U32_TYPE.typeName == NULL)
         U32_TYPE.typeName = ntCopyString(U"uint", 4);
+        ntInitSymbolTable(&U32_TYPE.fields, NULL, STT_TYPE, 0);
+    }
     return &U32_TYPE;
 }
 
@@ -293,14 +393,17 @@ static NT_TYPE U64_TYPE = {
     .equals = NULL,
     .stackSize = sizeof(uint64_t),
     .instanceSize = 0,
+    .baseType = NULL,
 };
 
 const NT_TYPE *ntU64Type(void)
 {
     if (U64_TYPE.object.type == NULL)
+    {
         U64_TYPE.object.type = ntType();
-    if (U64_TYPE.typeName == NULL)
         U64_TYPE.typeName = ntCopyString(U"ulong", 5);
+        ntInitSymbolTable(&U64_TYPE.fields, NULL, STT_TYPE, 0);
+    }
     return &U64_TYPE;
 }
 
@@ -317,14 +420,17 @@ static NT_TYPE F32_TYPE = {
     .equals = NULL,
     .stackSize = sizeof(float),
     .instanceSize = 0,
+    .baseType = NULL,
 };
 
 const NT_TYPE *ntF32Type(void)
 {
     if (F32_TYPE.object.type == NULL)
+    {
         F32_TYPE.object.type = ntType();
-    if (F32_TYPE.typeName == NULL)
         F32_TYPE.typeName = ntCopyString(U"float", 5);
+        ntInitSymbolTable(&F32_TYPE.fields, NULL, STT_TYPE, 0);
+    }
     return &F32_TYPE;
 }
 
@@ -341,14 +447,17 @@ static NT_TYPE F64_TYPE = {
     .equals = NULL,
     .stackSize = sizeof(double),
     .instanceSize = 0,
+    .baseType = NULL,
 };
 
 const NT_TYPE *ntF64Type(void)
 {
     if (F64_TYPE.object.type == NULL)
+    {
         F64_TYPE.object.type = ntType();
-    if (F64_TYPE.typeName == NULL)
         F64_TYPE.typeName = ntCopyString(U"double", 6);
+        ntInitSymbolTable(&F64_TYPE.fields, NULL, STT_TYPE, 0);
+    }
     return &F64_TYPE;
 }
 
@@ -372,13 +481,16 @@ static NT_TYPE ERROR_TYPE = {
     .equals = NULL,
     .stackSize = 0,
     .instanceSize = 0,
+    .baseType = NULL,
 };
 
 const NT_TYPE *ntErrorType(void)
 {
     if (ERROR_TYPE.object.type == NULL)
+    {
         ERROR_TYPE.object.type = ntType();
-    if (ERROR_TYPE.typeName == NULL)
         ERROR_TYPE.typeName = ntCopyString(U"error", 3);
+        ntInitSymbolTable(&ERROR_TYPE.fields, NULL, STT_TYPE, 0);
+    }
     return &ERROR_TYPE;
 }

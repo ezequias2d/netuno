@@ -57,14 +57,18 @@ static NT_TYPE ASSEMBLY_TYPE = {
     .equals = refEquals,
     .stackSize = sizeof(NT_REF),
     .instanceSize = sizeof(NT_ASSEMBLY),
+    .baseType = NULL,
 };
 
 const NT_TYPE *ntAssemblyType(void)
 {
     if (ASSEMBLY_TYPE.object.type == NULL)
+    {
         ASSEMBLY_TYPE.object.type = ntType();
-    if (ASSEMBLY_TYPE.typeName == NULL)
         ASSEMBLY_TYPE.typeName = ntCopyString(U"Assembly", 3);
+        ASSEMBLY_TYPE.baseType = ntObjectType();
+        ntInitSymbolTable(&ASSEMBLY_TYPE.fields, (NT_SYMBOL_TABLE *)&ntType()->fields, STT_TYPE, 0);
+    }
     return &ASSEMBLY_TYPE;
 }
 

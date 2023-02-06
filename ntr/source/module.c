@@ -23,7 +23,8 @@ static void freeModule(NT_OBJECT *object)
 {
     assert(object);
     assert(IS_VALID_OBJECT(object));
-    assert(object->type->objectType == NT_OBJECT_MODULE);
+    assert(object->type->objectType == NT_OBJECT_TYPE_TYPE);
+    assert(((NT_TYPE *)object)->objectType == NT_OBJECT_MODULE);
 
     NT_MODULE *module = (NT_MODULE *)object;
 
@@ -40,19 +41,21 @@ static const NT_STRING *moduleToString(NT_OBJECT *object)
 
     NT_MODULE *module = (NT_MODULE *)object;
 
-    const size_t length = module->object.type->typeName->length + 1 + module->name->length;
+    const size_t length = module->type.typeName->length + 1 + module->type.typeName->length;
     char_t *name = (char_t *)ntMalloc((length + 1) * sizeof(char_t));
     name[length] = U'\0';
 
     // copy type name (Module)
-    ntMemcpy(name, module->object.type->typeName->chars, module->object.type->typeName->length);
+    const char_t *moduleKeyword = U"Module";
+    const size_t moduleKeywordSize = ntStrLen(moduleKeyword);
+    ntMemcpy(name, moduleKeyword, moduleKeywordSize);
 
     // add space
-    name[module->object.type->typeName->length] = U' ';
+    name[moduleKeywordSize] = U' ';
 
     // copy module name
-    ntMemcpy(name + module->object.type->typeName->length + 1, module->name->chars,
-             module->name->length);
+    ntMemcpy(name + moduleKeywordSize + 1, module->type.typeName->chars,
+             module->type.typeName->length);
 
     return ntTakeString(name, length);
 }
@@ -63,34 +66,58 @@ static NT_TYPE MODULE_TYPE = {
             .type = NULL,
             .refCount = 0,
         },
-    .objectType = NT_OBJECT_MODULE,
+    .objectType = NT_OBJECT_TYPE_TYPE,
     .typeName = NULL,
     .free = freeModule,
     .string = moduleToString,
     .equals = refEquals,
     .stackSize = sizeof(NT_REF),
     .instanceSize = sizeof(NT_MODULE),
+    .baseType = NULL,
 };
 
 const NT_TYPE *ntModuleType(void)
 {
     if (MODULE_TYPE.object.type == NULL)
+    {
         MODULE_TYPE.object.type = ntType();
-    if (MODULE_TYPE.typeName == NULL)
         MODULE_TYPE.typeName = ntCopyString(U"Module", 3);
+        MODULE_TYPE.baseType = ntType();
+        ntInitSymbolTable(&MODULE_TYPE.fields, (NT_SYMBOL_TABLE *)&ntType()->fields, STT_TYPE, 0);
+    }
+
     return &MODULE_TYPE;
 }
 
 NT_MODULE *ntCreateModule(void)
 {
     NT_MODULE *module = (NT_MODULE *)ntCreateObject(ntModuleType());
+    ntInitModule(module);
+    return module;
+}
+
+void ntInitModule(NT_MODULE *module)
+{
+    const NT_TYPE *type = ntModuleType();
+    if (module->type.object.type != type)
+    {
+        module->type.object.type = type;
+        module->type.object.refCount = 1;
+    }
+
+    module->type.objectType = NT_OBJECT_MODULE;
+    module->type.typeName = NULL;
+    module->type.free = NULL;
+    module->type.string = NULL;
+    module->type.equals = NULL;
+    module->type.stackSize = 0;
+    module->type.instanceSize = 0;
+    module->type.baseType = NULL;
+    ntInitSymbolTable(&module->type.fields, NULL, STT_TYPE, 0);
 
     ntInitArray(&module->code);
     ntInitArray(&module->lines);
     ntInitArray(&module->constants);
-    ntInitSymbolTable(&module->fields, NULL, STT_MODULE, 0);
-
-    return module;
 }
 
 static void addLine(NT_MODULE *module, const size_t offset, const size_t line)
@@ -178,8 +205,22 @@ bool ntModuleAddSymbol(NT_MODULE *module, const NT_STRING *name, NT_SYMBOL_TYPE 
         .type = symbolType,
         .data = data,
         .exprType = type,
+        .weak = false,
     };
-    return ntInsertSymbol(&module->fields, &entry);
+    return ntInsertSymbol(&module->type.fields, &entry);
+}
+
+bool ntModuleAddWeakSymbol(NT_MODULE *module, const NT_STRING *name, NT_SYMBOL_TYPE symbolType,
+                           const NT_TYPE *type, void *data)
+{
+    const NT_SYMBOL_ENTRY entry = {
+        .symbol_name = name,
+        .type = symbolType,
+        .data = data,
+        .exprType = type,
+        .weak = true,
+    };
+    return ntInsertSymbol(&module->type.fields, &entry);
 }
 
 uint64_t ntAddConstant32(NT_MODULE *module, const uint32_t value)
@@ -221,6 +262,27 @@ uint64_t ntAddConstantString(NT_MODULE *module, const char_t *str, const size_t 
     return module->constants.count - nullTerminatedSize;
 }
 
+void ntAddModuleWeakFunction(NT_MODULE *module, const NT_STRING *name,
+                             const NT_DELEGATE_TYPE *delegateType, bool public)
+{
+    assert(module);
+    assert(delegateType);
+    assert(IS_VALID_TYPE(delegateType));
+    assert(delegateType->type.objectType == NT_OBJECT_DELEGATE);
+
+    const NT_DELEGATE *delegate =
+        (const NT_DELEGATE *)ntDelegate(delegateType, module, SIZE_MAX, name);
+
+    if (name)
+    {
+        const NT_SYMBOL_TYPE symbolType =
+            (delegateType->returnType != NULL ? SYMBOL_TYPE_FUNCTION : SYMBOL_TYPE_SUBROUTINE) |
+            (public ? SYMBOL_TYPE_PUBLIC : SYMBOL_TYPE_PRIVATE);
+        ntModuleAddWeakSymbol(module, name, symbolType, (const NT_TYPE *)delegateType,
+                              (void *)delegate);
+    }
+}
+
 const NT_DELEGATE *ntAddModuleFunction(NT_MODULE *module, const NT_STRING *name,
                                        const NT_DELEGATE_TYPE *delegateType, size_t pc, bool public)
 {
@@ -229,7 +291,51 @@ const NT_DELEGATE *ntAddModuleFunction(NT_MODULE *module, const NT_STRING *name,
     assert(IS_VALID_TYPE(delegateType));
     assert(delegateType->type.objectType == NT_OBJECT_DELEGATE);
 
-    const NT_DELEGATE *delegate = (const NT_DELEGATE *)ntDelegate(delegateType, module, pc, name);
+    NT_DELEGATE *delegate = NULL;
+    if (name)
+    {
+        NT_SYMBOL_ENTRY entry;
+        if (ntLookupSymbolCurrent(&module->type.fields, name->chars, name->length, &entry) &&
+            entry.weak)
+        {
+            delegate = (NT_DELEGATE *)entry.data;
+            assert(delegate);
+            assert(IS_VALID_OBJECT(delegate));
+            assert(delegate->object.type->objectType == NT_OBJECT_DELEGATE);
+        }
+    }
+
+    if (delegate == NULL)
+        delegate = (NT_DELEGATE *)ntDelegate(delegateType, module, pc, name);
+    else
+    {
+        delegate->addr = pc;
+        delegate->sourceModule = module;
+    }
+
+    if (name)
+    {
+        const NT_SYMBOL_TYPE symbolType =
+            (((const NT_DELEGATE_TYPE *)delegate->object.type)->returnType != NULL
+                 ? SYMBOL_TYPE_FUNCTION
+                 : SYMBOL_TYPE_SUBROUTINE) |
+            (public ? SYMBOL_TYPE_PUBLIC : SYMBOL_TYPE_PRIVATE);
+        ntModuleAddSymbol(module, name, symbolType, delegate->object.type, (void *)delegate);
+    }
+
+    return delegate;
+}
+
+const NT_DELEGATE *ntAddNativeModuleFunction(NT_MODULE *module, const NT_STRING *name,
+                                             const NT_DELEGATE_TYPE *delegateType, nativeFun func,
+                                             bool public)
+{
+    assert(module);
+    assert(delegateType);
+    assert(IS_VALID_TYPE(delegateType));
+    assert(delegateType->type.objectType == NT_OBJECT_DELEGATE);
+
+    const NT_DELEGATE *delegate = (const NT_DELEGATE *)ntNativeDelegate(delegateType, func, name);
 
     if (name)
     {

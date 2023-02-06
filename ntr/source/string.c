@@ -21,7 +21,7 @@ static void freeString(NT_OBJECT *object)
 static const NT_STRING *stringToString(NT_OBJECT *object)
 {
     assert(object->type->objectType == NT_OBJECT_STRING);
-    object->refCount++;
+    ntRefObject(object);
     return (const NT_STRING *)object;
 }
 
@@ -58,9 +58,12 @@ static NT_TYPE STRING_TYPE = {
 const NT_TYPE *ntStringType(void)
 {
     if (STRING_TYPE.object.type == NULL)
+    {
         STRING_TYPE.object.type = ntType();
-    if (STRING_TYPE.typeName == NULL)
         STRING_TYPE.typeName = ntCopyString(U"string", 6);
+        STRING_TYPE.baseType = ntObjectType();
+        ntInitSymbolTable(&STRING_TYPE.fields, (NT_SYMBOL_TABLE *)&ntType()->fields, STT_TYPE, 0);
+    }
     return &STRING_TYPE;
 }
 

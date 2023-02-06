@@ -2,6 +2,7 @@
 #define PARSER_H
 
 #include "list.h"
+#include <netuno/type.h>
 #include <scanner.h>
 #include <stdbool.h>
 
@@ -48,7 +49,11 @@ typedef struct _NT_NODE
     NT_NODE *left;
     NT_NODE *right;
     NT_NODE *condition;
+
     NT_LIST data;
+
+    const NT_TYPE *expressionType;
+    void *userdata;
 } NT_NODE;
 
 typedef struct _NT_PARSER
@@ -62,7 +67,7 @@ typedef struct _NT_PARSER
 NT_PARSER *ntParserCreate(NT_SCANNER *scanner);
 void ntParserDestroy(NT_PARSER *parser);
 
-NT_NODE **ntParse(NT_PARSER *parser, uint32_t *pCount);
+NT_NODE *ntParse(NT_PARSER *parser);
 
 const char *ntGetKindLabel(NT_NODE_KIND kind);
 const char *ntGetClassLabel(NT_NODE_CLASS class);

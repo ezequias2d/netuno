@@ -8,6 +8,7 @@ kind(VARIABLE)
 kind(ASSIGN)
 kind(LOGICAL)
 kind(CALL)
+kind(GET)
 
 // stmt
 kind(EXPR)
@@ -17,7 +18,6 @@ kind(BLOCK)
 kind(IF)
 kind(WHILE)
 kind(UNTIL)
-kind(PRINT)
 kind(DEF)
 kind(PUBLIC)
 kind(PRIVATE)
@@ -26,6 +26,7 @@ kind(VAR)
 kind(PARAM)
 kind(TYPE)
 kind(MODULE)
+kind(IMPORT)
 
 // type
 kind(U32)
