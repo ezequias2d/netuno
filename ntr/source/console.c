@@ -1,12 +1,12 @@
 #include <assert.h>
+#include <netuno/console.h>
 #include <netuno/memory.h>
-#include <netuno/std.h>
 #include <netuno/str.h>
 #include <netuno/string.h>
 #include <netuno/vm.h>
 #include <stdio.h>
 
-static NT_MODULE STD = {
+static NT_MODULE CONSOLE = {
     .type.object =
         (NT_OBJECT){
             .type = NULL,
@@ -47,21 +47,23 @@ static void addPrint(void)
         ntTakeString(delegateTypeNameCstr, ntStrLen(delegateTypeNameCstr));
 
     PrintType = ntCreateDelegateType(delegateTypeName, NULL, 1, &param);
-    const NT_STRING *printName = ntCopyString(U"print", 5);
-    ntAddNativeModuleFunction(&STD, printName, PrintType, stdPrint, true);
+    const NT_STRING *printName = ntCopyString(U"write", 5);
+    ntAddNativeModuleFunction(&CONSOLE, printName, PrintType, stdPrint, true);
 }
 
-const NT_MODULE *ntStdModule(void)
+const NT_MODULE *ntConsoleModule(void)
 {
-    if (STD.type.object.type == NULL)
+    if (CONSOLE.type.object.type == NULL)
     {
-        ntInitModule(&STD);
-        ntMakeConstant((NT_OBJECT *)&STD);
-        STD.type.typeName = ntCopyString(U"std", 3);
-        ntInitSymbolTable(&STD.type.fields, (NT_SYMBOL_TABLE *)&ntType()->fields, STT_TYPE, NULL);
+        ntInitModule(&CONSOLE);
+        ntMakeConstant((NT_OBJECT *)&CONSOLE);
+        const char_t *moduleName = U"console";
+        CONSOLE.type.typeName = ntCopyString(moduleName, ntStrLen(moduleName));
+        ntInitSymbolTable(&CONSOLE.type.fields, (NT_SYMBOL_TABLE *)&ntType()->fields, STT_TYPE,
+                          NULL);
 
         addPrint();
     }
 
-    return &STD;
+    return &CONSOLE;
 }

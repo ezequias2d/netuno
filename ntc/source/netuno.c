@@ -5,9 +5,9 @@
 #include "scanner.h"
 #include <assert.h>
 #include <ctype.h>
+#include <netuno/console.h>
 #include <netuno/memory.h>
 #include <netuno/ntc.h>
-#include <netuno/std.h>
 #include <netuno/str.h>
 #include <stdio.h>
 #include <string.h>
@@ -105,7 +105,7 @@ NT_ASSEMBLY *ntCompile(NT_ASSEMBLY *assembly, size_t fileCount, const NT_FILE *f
     NT_NODE **nodes = ntMalloc(sizeof(NT_NODE *) * fileCount);
     NT_SYMBOL_TABLE *globalTable = ntCreateSymbolTable(NULL, STT_NONE, NULL);
 
-    insertModuleSymbol(globalTable, ntStdModule());
+    insertModuleSymbol(globalTable, ntConsoleModule());
 
     for (size_t i = 0; i < fileCount; ++i)
     {

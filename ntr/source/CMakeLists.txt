@@ -13,6 +13,7 @@ set(ROOT_SOURCES
     "delegate.c"
     "assembly.c"
     "module.c"
+    "console.c"
 )
 
 set(CMAKE_C_STANDARD 11)
