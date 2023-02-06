@@ -777,9 +777,10 @@ static void string(NT_MODGEN *modgen, const NT_NODE *node)
 
     // remove quotes
     const char_t *start = node->token.lexeme + 1;
-    const size_t length = node->token.lexemeLength - 2;
+    size_t length = node->token.lexemeLength - 2;
 
-    const NT_STRING *string = ntCopyString(start, length);
+    char_t *str = ntEscapeString(start, &length);
+    const NT_STRING *string = ntTakeString(str, length);
     emitConstantObject(modgen, node, (NT_OBJECT *)string);
 }
 
