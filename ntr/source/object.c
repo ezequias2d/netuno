@@ -156,7 +156,7 @@ const NT_TYPE *ntObjectType(void)
     {
         OBJECT_TYPE.object.type = ntType();
         OBJECT_TYPE.typeName = ntCopyString(U"Object", 6);
-        OBJECT_TYPE.baseType = ntObjectType();
+        OBJECT_TYPE.baseType = NULL;
         ntInitSymbolTable(&OBJECT_TYPE.fields, NULL, STT_TYPE, 0);
     }
     return &OBJECT_TYPE;
