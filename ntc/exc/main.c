@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-static char *readFile(const char *filepath)
+static char *readFile(const char *filepath, size_t *length)
 {
     FILE *file = fopen(filepath, "r");
     if (file == NULL)
@@ -24,6 +24,7 @@ static char *readFile(const char *filepath)
     fclose(file);
 
     code[fsize] = '\0';
+    *length = fsize;
     return code;
 }
 
@@ -69,14 +70,15 @@ int main(int argc, char **argv)
     for (size_t i = 0; i < count; ++i)
     {
         char_t *filepath = ntToCharT(argv[1]);
-        char *code = readFile(argv[1]);
+        size_t length;
+        char *code = readFile(argv[1], &length);
         if (code == NULL)
         {
             printf("Error: could not open file %s\n", argv[1]);
             return 1;
         }
 
-        char_t *codet = ntToCharT(code);
+        char_t *codet = ntToCharTFixed(code, length);
         ntFree(code);
 
         files[i] = (NT_FILE){

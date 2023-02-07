@@ -1,6 +1,9 @@
+#include <assert.h>
+#include <errno.h>
 #include <netuno/array.h>
 #include <netuno/memory.h>
 #include <netuno/str.h>
+#include <stdio.h>
 #include <string.h>
 
 char *ntToChar(const char_t *str)
@@ -48,14 +51,49 @@ char_t *ntToCharT(const char *str)
     return s;
 }
 
+void show_errno(void)
+{
+    const char *err_info = "unknown error";
+    switch (errno)
+    {
+    case EDOM:
+        err_info = "domain error";
+        break;
+    case EILSEQ:
+        err_info = "illegal sequence";
+        break;
+    case ERANGE:
+        err_info = "pole or range error";
+        break;
+    case 0:
+        err_info = "no error";
+    }
+    fputs(err_info, stdout);
+    puts(" occurred");
+}
+
 char_t *ntToCharTFixed(const char *str, size_t len)
 {
     mbstate_t ps;
     memset(&ps, 0, sizeof(ps));
 
     size_t size = 0;
-    for (const char *i = str; (size_t)(i - str) < len; i += mbrtoc32(NULL, i, len + str - i, &ps))
+    for (const char *i = str; (size_t)(i - str) < len;)
+    {
         size++;
+        size_t result = mbrtoc32(NULL, i, len + str - i, &ps);
+        switch (result)
+        {
+        case -1:
+        case -2:
+        case -3:
+            show_errno();
+            return NULL;
+        default:
+            break;
+        }
+        i += result;
+    }
 
     char_t *s = (char_t *)ntMalloc((size + 1) * sizeof(char_t));
     char_t *j = s;
