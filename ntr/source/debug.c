@@ -13,12 +13,12 @@ static const char *const labels[] = {
 #undef bytecode
 };
 
-void ntDisassembleChunk(const NT_CHUNK *chunk, const char *name)
+void ntDisassembleModule(const NT_ASSEMBLY *assembly, const NT_MODULE *module, const char *name)
 {
     printf("====== %s =====\n", name);
 
-    for (size_t i = 0; i < chunk->code.count; ++i)
-        i = ntDisassembleInstruction(chunk, i);
+    for (size_t i = 0; i < module->code.count; ++i)
+        i = ntDisassembleInstruction(assembly, module, i);
 }
 
 static size_t simpleInstruction(const char *name, const size_t offset)
