@@ -1,5 +1,7 @@
 #include "codegen.h"
 #include "parser.h"
+#include "report.h"
+#include "resolver.h"
 #include "scanner.h"
 #include <assert.h>
 #include <netuno/delegate.h>
@@ -35,7 +37,7 @@ NT_MODGEN *ntCreateModgen(NT_CODEGEN *codegen, NT_MODULE *module)
     modgen->scope = (NT_SYMBOL_TABLE *)&module->type.fields;
     modgen->functionScope = modgen->scope;
     modgen->stack = ntCreateVStack();
-    modgen->had_error = false;
+    modgen->report.had_error = false;
     modgen->codegen = codegen;
     modgen->public = false;
 
@@ -79,70 +81,6 @@ static size_t emit(NT_MODGEN *modgen, const NT_NODE *node, uint8_t value)
     return ntWriteModule(modgen->module, value, node->token.line);
 }
 
-static void vErrorAt(NT_MODGEN *modgen, const NT_NODE *node, const char *message, va_list args)
-{
-    const NT_TOKEN token = node->token;
-
-    printf("[line %d] Error", token.line);
-
-    if (token.type == TK_EOF)
-        printf(" at end");
-    else if (token.type == TK_ERROR)
-    {
-    }
-    else
-    {
-        char *str = ntToCharFixed(token.lexeme, token.lexemeLength);
-        printf(" at '%s'", str);
-        ntFree(str);
-    }
-
-    printf(": ");
-    vprintf(message, args);
-    printf("\n");
-    modgen->had_error = true;
-}
-
-static void vWarningAt(NT_MODGEN *modgen, const NT_NODE *node, const char *message, va_list args)
-{
-    const NT_TOKEN token = node->token;
-
-    printf("[line %d] Warming", token.line);
-
-    if (token.type == TK_EOF)
-        printf(" at end");
-    else if (token.type == TK_ERROR)
-    {
-    }
-    else
-    {
-        char *str = ntToCharFixed(token.lexeme, token.lexemeLength);
-        printf(" at '%s'", str);
-        ntFree(str);
-    }
-
-    printf(": ");
-    vprintf(message, args);
-    printf("\n");
-    modgen->had_error = true;
-}
-
-static void errorAt(NT_MODGEN *modgen, const NT_NODE *node, const char *message, ...)
-{
-    va_list vl;
-    va_start(vl, message);
-    vErrorAt(modgen, node, message, vl);
-    va_end(vl);
-}
-
-static void warningAt(NT_MODGEN *modgen, const NT_NODE *node, const char *message, ...)
-{
-    va_list vl;
-    va_start(vl, message);
-    vWarningAt(modgen, node, message, vl);
-    va_end(vl);
-}
-
 static size_t push(NT_MODGEN *modgen, const NT_NODE *node, const NT_TYPE *type)
 {
     assert(type);
@@ -157,8 +95,8 @@ static size_t pop(NT_MODGEN *modgen, const NT_NODE *node, const NT_TYPE *type)
 
     if (popType != type)
     {
-        errorAt(
-            modgen, node,
+        ntErrorAtNode(
+            &modgen->report, node,
             "Sometime are wrong in modgen, the popped type dont match with pop type are wrong.");
     }
 
@@ -282,7 +220,7 @@ static size_t emitPop(NT_MODGEN *modgen, const NT_NODE *node, const NT_TYPE *typ
         emit(modgen, node, BC_POP_64);
         break;
     default:
-        warningAt(modgen, node, "Invalid objectType pop.");
+        ntWarningAtNode(node, "Invalid objectType pop.");
         return 0;
     }
     return pop(modgen, node, type);
@@ -381,7 +319,7 @@ static bool resolveBranchSymbol(NT_MODGEN *modgen, const NT_NODE *node,
     {
         char *labelName =
             ntToCharFixed(branchEntry->target_label->chars, branchEntry->target_label->length);
-        errorAt(modgen, node, "Label '%s' was not reached", labelName);
+        ntErrorAtNode(&modgen->report, node, "Label '%s' was not reached", labelName);
         ntFree(labelName);
     }
     assert(result);
@@ -468,7 +406,7 @@ static void resolveLabelAndBranchSymbols(NT_MODGEN *modgen, const NT_NODE *node)
             {
                 char *labelName =
                     ntToCharFixed(current.target_label->chars, current.target_label->length);
-                errorAt(modgen, node, "Label '%s' was not reached", labelName);
+                ntErrorAtNode(&modgen->report, node, "Label '%s' was not reached", labelName);
                 ntFree(labelName);
             }
             assert(result);
@@ -684,7 +622,7 @@ static const NT_TYPE *findType(NT_MODGEN *modgen, const NT_NODE *typeNode)
             return ntF64Type();
         default: {
             char *typeLex = ntToChar(ntGetKeywordLexeme(typeNode->token.id));
-            errorAt(modgen, typeNode, "The keyword '%s' is not a type.", typeLex);
+            ntErrorAtNode(&modgen->report, typeNode, "The keyword '%s' is not a type.", typeLex);
             ntFree(typeLex);
             return ntErrorType();
         }
@@ -697,7 +635,7 @@ static const NT_TYPE *findType(NT_MODGEN *modgen, const NT_NODE *typeNode)
         if (!ntLookupSymbol(modgen->scope, name->lexeme, name->lexemeLength, NULL, &entry))
         {
             char *lexeme = ntToCharFixed(name->lexeme, name->lexemeLength);
-            errorAt(modgen, typeNode, "The type '%s' don't exist.", lexeme);
+            ntErrorAtNode(&modgen->report, typeNode, "The type '%s' don't exist.", lexeme);
             ntFree(lexeme);
             return NULL;
         }
@@ -705,7 +643,7 @@ static const NT_TYPE *findType(NT_MODGEN *modgen, const NT_NODE *typeNode)
         if (entry.type != SYMBOL_TYPE_TYPE)
         {
             char *lexeme = ntToCharFixed(name->lexeme, name->lexemeLength);
-            errorAt(modgen, typeNode, "The identifier '%s' is not a type.", lexeme);
+            ntErrorAtNode(&modgen->report, typeNode, "The identifier '%s' is not a type.", lexeme);
             ntFree(lexeme);
             return NULL;
         }
@@ -719,22 +657,6 @@ static bool findSymbol(NT_MODGEN *modgen, const char_t *name, const size_t lengt
     return ntLookupSymbol(modgen->scope, name, length, NULL, pEntry);
 }
 
-static const NT_TYPE *evalExprType(NT_MODGEN *modgen, const NT_NODE *node)
-{
-    assert(modgen);
-    assert(node->type.class == NC_EXPR);
-    assert(node->expressionType);
-    return node->expressionType;
-}
-
-static const NT_TYPE *evalBlockReturnType(NT_MODGEN *modgen, const NT_NODE *node)
-{
-    assert(modgen);
-    assert(node->type.class == NC_STMT);
-    assert(node->type.kind == NK_BLOCK);
-    assert(node->expressionType);
-    return node->expressionType;
-}
 static void number(NT_MODGEN *modgen, const NT_NODE *node)
 {
     char *str = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
@@ -762,7 +684,7 @@ static void number(NT_MODGEN *modgen, const NT_NODE *node)
         sscanf(str, "%lf", (double *)&u64);
         break;
     default:
-        errorAt(modgen, node, "Invalid number token type! '%s'", node->token.type);
+        ntErrorAtNode(&modgen->report, node, "Invalid number token type! '%s'", node->token.type);
         break;
     }
     ntFree(str);
@@ -788,7 +710,7 @@ static void number(NT_MODGEN *modgen, const NT_NODE *node)
         emitConstantF64(modgen, node, u64);
         break;
     default:
-        errorAt(modgen, node, "Invalid number token type! '%s'", node->token.type);
+        ntErrorAtNode(&modgen->report, node, "Invalid number token type! '%s'", node->token.type);
         break;
     }
 }
@@ -828,10 +750,11 @@ static void literal(NT_MODGEN *modgen, const NT_NODE *node)
             break;
         default: {
             char *lexeme = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
-            errorAt(modgen, node,
-                    "AST invalid format, node id of a bool literal must be TK_TRUE or TK_FALSE "
-                    "cannot be '%s'!",
-                    lexeme);
+            ntErrorAtNode(
+                &modgen->report, node,
+                "AST invalid format, node id of a bool literal must be TK_TRUE or TK_FALSE "
+                "cannot be '%s'!",
+                lexeme);
             ntFree(lexeme);
         }
         break;
@@ -853,7 +776,7 @@ static void literal(NT_MODGEN *modgen, const NT_NODE *node)
         number(modgen, node);
         break;
     default:
-        errorAt(modgen, node, "Invalid literal type! '%d'", node->type.literalType);
+        ntErrorAtNode(&modgen->report, node, "Invalid literal type! '%d'", node->type.literalType);
         break;
     }
 }
@@ -889,7 +812,7 @@ static void unary(NT_MODGEN *modgen, const NT_NODE *node)
 
     if (node->left)
     {
-        type = evalExprType(modgen, node->left);
+        type = ntEvalExprType(&modgen->report, modgen->scope, node->left);
 
         const NT_NODE *identifier = node->left;
         assert(identifier);
@@ -911,8 +834,8 @@ static void unary(NT_MODGEN *modgen, const NT_NODE *node)
                 emit(modgen, node, BC_SUB_I32);
                 break;
             default:
-                errorAt(modgen, node, "Invalid unary operation. %d(%c)", node->token.id,
-                        (char)node->token.id);
+                ntErrorAtNode(&modgen->report, node, "Invalid unary operation. %d(%c)",
+                              node->token.id, (char)node->token.id);
                 break;
             }
             break;
@@ -928,8 +851,8 @@ static void unary(NT_MODGEN *modgen, const NT_NODE *node)
                 emit(modgen, node, BC_SUB_I64);
                 break;
             default:
-                errorAt(modgen, node, "Invalid unary operation. %d(%c)", node->token.id,
-                        (char)node->token.id);
+                ntErrorAtNode(&modgen->report, node, "Invalid unary operation. %d(%c)",
+                              node->token.id, (char)node->token.id);
                 break;
             }
             break;
@@ -944,8 +867,8 @@ static void unary(NT_MODGEN *modgen, const NT_NODE *node)
                 emit(modgen, node, BC_SUB_F32);
                 break;
             default:
-                errorAt(modgen, node, "Invalid unary operation. %d(%c)", node->token.id,
-                        (char)node->token.id);
+                ntErrorAtNode(&modgen->report, node, "Invalid unary operation. %d(%c)",
+                              node->token.id, (char)node->token.id);
                 break;
             }
             break;
@@ -960,15 +883,16 @@ static void unary(NT_MODGEN *modgen, const NT_NODE *node)
                 emit(modgen, node, BC_SUB_F64);
                 break;
             default:
-                errorAt(modgen, node, "Invalid unary operation. %d(%c)", node->token.id,
-                        (char)node->token.id);
+                ntErrorAtNode(&modgen->report, node, "Invalid unary operation. %d(%c)",
+                              node->token.id, (char)node->token.id);
                 break;
             }
             break;
         default: {
             char *str = ntToCharFixed(type->typeName->chars, type->typeName->length);
-            errorAt(modgen, node, "Invalid logical not('%s') operation with type '%s'.",
-                    node->token.id == OP_INC ? "++" : "--", str);
+            ntErrorAtNode(&modgen->report, node,
+                          "Invalid logical not('%s') operation with type '%s'.",
+                          node->token.id == OP_INC ? "++" : "--", str);
             ntFree(str);
         }
         break;
@@ -980,7 +904,7 @@ static void unary(NT_MODGEN *modgen, const NT_NODE *node)
         return;
     }
 
-    type = evalExprType(modgen, node->right);
+    type = ntEvalExprType(&modgen->report, modgen->scope, node->right);
     expression(modgen, node->right, true);
     pop(modgen, node, type);
 
@@ -1019,7 +943,8 @@ static void unary(NT_MODGEN *modgen, const NT_NODE *node)
         // TODO: call operator.
         default: {
             char *str = ntToChar(type->typeName->chars);
-            errorAt(modgen, node, "Invalid negate('-') operation with type '%s'.", str);
+            ntErrorAtNode(&modgen->report, node, "Invalid negate('-') operation with type '%s'.",
+                          str);
             ntFree(str);
         }
         break;
@@ -1041,7 +966,8 @@ static void unary(NT_MODGEN *modgen, const NT_NODE *node)
             break;
         default: {
             char *str = ntToChar(type->typeName->chars);
-            errorAt(modgen, node, "Invalid logical not('!') operation with type '%s'.", str);
+            ntErrorAtNode(&modgen->report, node,
+                          "Invalid logical not('!') operation with type '%s'.", str);
             ntFree(str);
             break;
         }
@@ -1069,7 +995,8 @@ static void unary(NT_MODGEN *modgen, const NT_NODE *node)
             break;
         default: {
             char *str = ntToCharFixed(type->typeName->chars, type->typeName->length);
-            errorAt(modgen, node, "Invalid logical not('!') operation with type '%s'.", str);
+            ntErrorAtNode(&modgen->report, node,
+                          "Invalid logical not('!') operation with type '%s'.", str);
             ntFree(str);
             break;
         }
@@ -1110,7 +1037,8 @@ static void unary(NT_MODGEN *modgen, const NT_NODE *node)
             break;
         default: {
             char *str = ntToCharFixed(type->typeName->chars, type->typeName->length);
-            errorAt(modgen, node, "Invalid logical not('++') operation with type '%s'.", str);
+            ntErrorAtNode(&modgen->report, node,
+                          "Invalid logical not('++') operation with type '%s'.", str);
             ntFree(str);
             break;
         }
@@ -1118,8 +1046,8 @@ static void unary(NT_MODGEN *modgen, const NT_NODE *node)
         const NT_NODE *identifier = node->right;
         emitAssign(modgen, node, type, identifier->token.lexeme, identifier->token.lexemeLength,
                    "The variable must be declared");
+        break;
     }
-    break;
     case OP_DEC: {
         switch (type->objectType)
         {
@@ -1155,7 +1083,8 @@ static void unary(NT_MODGEN *modgen, const NT_NODE *node)
             break;
         default: {
             char *str = ntToCharFixed(type->typeName->chars, type->typeName->length);
-            errorAt(modgen, node, "Invalid logical not('++') operation with type '%s'.", str);
+            ntErrorAtNode(&modgen->report, node,
+                          "Invalid logical not('++') operation with type '%s'.", str);
             ntFree(str);
             break;
         }
@@ -1164,11 +1093,11 @@ static void unary(NT_MODGEN *modgen, const NT_NODE *node)
         const NT_NODE *identifier = node->right;
         emitAssign(modgen, node, type, identifier->token.lexeme, identifier->token.lexemeLength,
                    "The variable must be declared");
+        break;
     }
-    break;
     default:
-        errorAt(modgen, node, "Invalid unary operation. %d(%c)", node->token.id,
-                (char)node->token.id);
+        ntErrorAtNode(&modgen->report, node, "Invalid unary operation. %d(%c)", node->token.id,
+                      (char)node->token.id);
         break;
     }
 }
@@ -1359,7 +1288,7 @@ error : {
     // TODO: object cast operator?
     char *fromStr = ntToChar(from->typeName->chars);
     char *dstStr = ntToChar(to->typeName->chars);
-    errorAt(modgen, node, "Invalid cast from '%s' to '%s'.", fromStr, dstStr);
+    ntErrorAtNode(&modgen->report, node, "Invalid cast from '%s' to '%s'.", fromStr, dstStr);
     ntFree(fromStr);
     ntFree(dstStr);
 
@@ -1372,8 +1301,8 @@ static void binary(NT_MODGEN *modgen, const NT_NODE *node)
     assert(node->type.class == NC_EXPR && node->type.kind == NK_BINARY);
     assert(node->left != NULL && node->right != NULL);
 
-    const NT_TYPE *leftType = evalExprType(modgen, node->left);
-    const NT_TYPE *rightType = evalExprType(modgen, node->right);
+    const NT_TYPE *leftType = ntEvalExprType(&modgen->report, modgen->scope, node->left);
+    const NT_TYPE *rightType = ntEvalExprType(&modgen->report, modgen->scope, node->right);
     const NT_TYPE *type = leftType->objectType < rightType->objectType ? leftType : rightType;
 
     expression(modgen, node->left, true);
@@ -1406,7 +1335,7 @@ static void binary(NT_MODGEN *modgen, const NT_NODE *node)
             break;
         default: {
             char *typeStr = ntToChar(type->typeName->chars);
-            errorAt(modgen, node, "Invalid != operation for type '%s'.", typeStr);
+            ntErrorAtNode(&modgen->report, node, "Invalid != operation for type '%s'.", typeStr);
             ntFree(typeStr);
             break;
         }
@@ -1432,7 +1361,7 @@ static void binary(NT_MODGEN *modgen, const NT_NODE *node)
             break;
         default: {
             char *typeStr = ntToChar(type->typeName->chars);
-            errorAt(modgen, node, "Invalid == operation for type '%s'.", typeStr);
+            ntErrorAtNode(&modgen->report, node, "Invalid == operation for type '%s'.", typeStr);
             ntFree(typeStr);
             break;
         }
@@ -1462,7 +1391,7 @@ static void binary(NT_MODGEN *modgen, const NT_NODE *node)
             break;
         default: {
             char *typeStr = ntToChar(type->typeName->chars);
-            errorAt(modgen, node, "Invalid > operation for type '%s'.", typeStr);
+            ntErrorAtNode(&modgen->report, node, "Invalid > operation for type '%s'.", typeStr);
             ntFree(typeStr);
             break;
         }
@@ -1492,7 +1421,7 @@ static void binary(NT_MODGEN *modgen, const NT_NODE *node)
             break;
         default: {
             char *typeStr = ntToChar(type->typeName->chars);
-            errorAt(modgen, node, "Invalid <= operation for type '%s'.", typeStr);
+            ntErrorAtNode(&modgen->report, node, "Invalid <= operation for type '%s'.", typeStr);
             ntFree(typeStr);
             break;
         }
@@ -1522,7 +1451,7 @@ static void binary(NT_MODGEN *modgen, const NT_NODE *node)
             break;
         default: {
             char *typeStr = ntToChar(type->typeName->chars);
-            errorAt(modgen, node, "Invalid < operation for type '%s'.", typeStr);
+            ntErrorAtNode(&modgen->report, node, "Invalid < operation for type '%s'.", typeStr);
             ntFree(typeStr);
             break;
         }
@@ -1552,7 +1481,7 @@ static void binary(NT_MODGEN *modgen, const NT_NODE *node)
             break;
         default: {
             char *typeStr = ntToChar(type->typeName->chars);
-            errorAt(modgen, node, "Invalid < operation for type '%s'.", typeStr);
+            ntErrorAtNode(&modgen->report, node, "Invalid < operation for type '%s'.", typeStr);
             ntFree(typeStr);
             break;
         }
@@ -1579,7 +1508,7 @@ static void binary(NT_MODGEN *modgen, const NT_NODE *node)
             break;
         default: {
             char *typeStr = ntToChar(type->typeName->chars);
-            errorAt(modgen, node, "Invalid + operation for type '%s'.", typeStr);
+            ntErrorAtNode(&modgen->report, node, "Invalid + operation for type '%s'.", typeStr);
             ntFree(typeStr);
             break;
         }
@@ -1605,7 +1534,7 @@ static void binary(NT_MODGEN *modgen, const NT_NODE *node)
             break;
         default: {
             char *typeStr = ntToChar(type->typeName->chars);
-            errorAt(modgen, node, "Invalid + operation for type '%s'.", typeStr);
+            ntErrorAtNode(&modgen->report, node, "Invalid - operation for type '%s'.", typeStr);
             ntFree(typeStr);
             break;
         }
@@ -1631,7 +1560,7 @@ static void binary(NT_MODGEN *modgen, const NT_NODE *node)
             break;
         default: {
             char *typeStr = ntToChar(type->typeName->chars);
-            errorAt(modgen, node, "Invalid * operation for type '%s'.", typeStr);
+            ntErrorAtNode(&modgen->report, node, "Invalid * operation for type '%s'.", typeStr);
             ntFree(typeStr);
             break;
         }
@@ -1661,7 +1590,7 @@ static void binary(NT_MODGEN *modgen, const NT_NODE *node)
             break;
         default: {
             char *typeStr = ntToChar(type->typeName->chars);
-            errorAt(modgen, node, "Invalid / operation for type '%s'.", typeStr);
+            ntErrorAtNode(&modgen->report, node, "Invalid / operation for type '%s'.", typeStr);
             ntFree(typeStr);
             break;
         }
@@ -1691,7 +1620,7 @@ static void binary(NT_MODGEN *modgen, const NT_NODE *node)
             break;
         default: {
             char *typeStr = ntToChar(type->typeName->chars);
-            errorAt(modgen, node, "Invalid / operation for type '%s'.", typeStr);
+            ntErrorAtNode(&modgen->report, node, "Invalid / operation for type '%s'.", typeStr);
             ntFree(typeStr);
             break;
         }
@@ -1711,7 +1640,7 @@ static void binary(NT_MODGEN *modgen, const NT_NODE *node)
             break;
         default: {
             char *typeStr = ntToChar(type->typeName->chars);
-            errorAt(modgen, node, "Invalid | operation for type '%s'.", typeStr);
+            ntErrorAtNode(&modgen->report, node, "Invalid | operation for type '%s'.", typeStr);
             ntFree(typeStr);
             break;
         }
@@ -1731,7 +1660,7 @@ static void binary(NT_MODGEN *modgen, const NT_NODE *node)
             break;
         default: {
             char *typeStr = ntToChar(type->typeName->chars);
-            errorAt(modgen, node, "Invalid & operation for type '%s'.", typeStr);
+            ntErrorAtNode(&modgen->report, node, "Invalid & operation for type '%s'.", typeStr);
             ntFree(typeStr);
             break;
         }
@@ -1751,7 +1680,7 @@ static void binary(NT_MODGEN *modgen, const NT_NODE *node)
             break;
         default: {
             char *typeStr = ntToChar(type->typeName->chars);
-            errorAt(modgen, node, "Invalid ^ operation for type '%s'.", typeStr);
+            ntErrorAtNode(&modgen->report, node, "Invalid ^ operation for type '%s'.", typeStr);
             ntFree(typeStr);
             break;
         }
@@ -1759,7 +1688,7 @@ static void binary(NT_MODGEN *modgen, const NT_NODE *node)
         push(modgen, node, type);
         break;
     default:
-        errorAt(modgen, node, "Invalid binary operation. %d", node->token.id);
+        ntErrorAtNode(&modgen->report, node, "Invalid binary operation. %d", node->token.id);
         break;
     }
 }
@@ -1771,7 +1700,7 @@ static void variable(NT_MODGEN *modgen, const NT_NODE *node)
     NT_SYMBOL_ENTRY entry;
     if (!findSymbol(modgen, node->token.lexeme, node->token.lexemeLength, &entry))
     {
-        errorAt(modgen, node, "The variable must be declared.");
+        ntErrorAtNode(&modgen->report, node, "The variable must be declared.");
         return;
     }
     if (((entry.type & SYMBOL_TYPE_FUNCTION) == SYMBOL_TYPE_FUNCTION) ||
@@ -1795,8 +1724,8 @@ static void variable(NT_MODGEN *modgen, const NT_NODE *node)
         emit(modgen, node, BC_LOAD_SP_64);
         break;
     default:
-        errorAt(modgen, node,
-                "The variable has a stack size incompatible with BC_LOAD_SP operation.");
+        ntErrorAtNode(&modgen->report, node,
+                      "The variable has a stack size incompatible with BC_LOAD_SP operation.");
         return;
     }
     ntWriteModuleVarint(modgen->module, delta, node->token.line);
@@ -1812,7 +1741,7 @@ static void emitAssign32(NT_MODGEN *modgen, const NT_NODE *node, const char_t *v
     {
         va_list vl;
         va_start(vl, message);
-        vErrorAt(modgen, node, message, vl);
+        ntVErrorAtNode(&modgen->report, node, message, vl);
         va_end(vl);
     }
 
@@ -1848,7 +1777,7 @@ static void emitAssign64(NT_MODGEN *modgen, const NT_NODE *node, const char_t *v
     {
         va_list vl;
         va_start(vl, message);
-        vErrorAt(modgen, node, message, vl);
+        ntVErrorAtNode(&modgen->report, node, message, vl);
         va_end(vl);
     }
 
@@ -1870,7 +1799,8 @@ static void emitAssign(NT_MODGEN *modgen, const NT_NODE *node, const NT_TYPE *ty
         emitAssign64(modgen, node, variableName, variableNameLen, message);
         break;
     default:
-        errorAt(modgen, node, "INTERNAL ERROR: Invalid objectType field! %d", type->objectType);
+        ntErrorAtNode(&modgen->report, node, "INTERNAL ERROR: Invalid objectType field! %d",
+                      type->objectType);
         break;
     }
 }
@@ -1882,7 +1812,7 @@ static void assign(NT_MODGEN *modgen, const NT_NODE *node)
     assert(node->type.class == NC_EXPR && node->type.kind == NK_ASSIGN);
     assert(node->left->type.class == NC_EXPR && node->left->type.kind == NK_VARIABLE);
 
-    const NT_TYPE *rightType = evalExprType(modgen, node->right);
+    const NT_TYPE *rightType = ntEvalExprType(&modgen->report, modgen->scope, node->right);   ;
     expression(modgen, node->right, true);
 
     const NT_NODE *identifier = node->left;
@@ -1891,7 +1821,7 @@ static void assign(NT_MODGEN *modgen, const NT_NODE *node)
     NT_SYMBOL_ENTRY entry;
     if (!findSymbol(modgen, identifier->token.lexeme, identifier->token.lexemeLength, &entry))
     {
-        errorAt(modgen, node, "The variable must be declared.");
+        ntErrorAtNode(&modgen->report, node, "The variable must be declared.");
         return;
     }
 
@@ -1899,8 +1829,9 @@ static void assign(NT_MODGEN *modgen, const NT_NODE *node)
     {
         char *rightTypeName = ntToChar(rightType->typeName->chars);
         char *variableTypeName = ntToChar(entry.exprType->typeName->chars);
-        errorAt(modgen, node, "The variable type '%s' is incompatible with expression type '%s'.",
-                variableTypeName, rightTypeName);
+        ntErrorAtNode(&modgen->report, node,
+                      "The variable type '%s' is incompatible with expression type '%s'.",
+                      variableTypeName, rightTypeName);
         ntFree(rightTypeName);
         ntFree(variableTypeName);
         return;
@@ -1929,7 +1860,8 @@ static void typeToBool(NT_MODGEN *modgen, const NT_NODE *node, const NT_TYPE *ty
         break;
     default: {
         char *typeStr = ntToChar(type->typeName->chars);
-        errorAt(modgen, node, "Invalid implicit cast from type '%s' to 'bool'.", typeStr);
+        ntErrorAtNode(&modgen->report, node, "Invalid implicit cast from type '%s' to 'bool'.",
+                      typeStr);
         ntFree(typeStr);
         break;
     }
@@ -1946,7 +1878,7 @@ static void logicalAnd(NT_MODGEN *modgen, const NT_NODE *node)
     // consume left 'true' value and check right value
     emitPop(modgen, node, ntBoolType());
 
-    const NT_TYPE *right = evalExprType(modgen, node->right);
+    const NT_TYPE *right = ntEvalExprType(&modgen->report, modgen->scope, node->right);
     expression(modgen, node->right, true);
     typeToBool(modgen, node, right);
 
@@ -1962,7 +1894,7 @@ static void logicalOr(NT_MODGEN *modgen, const NT_NODE *node)
     emitPop(modgen, node, ntBoolType());
 
     // eval right
-    const NT_TYPE *right = evalExprType(modgen, node->right);
+    const NT_TYPE *right = ntEvalExprType(&modgen->report, modgen->scope, node->right);
     expression(modgen, node->right, true);
 
     // logical is not zero
@@ -1977,7 +1909,7 @@ static void logicalOr(NT_MODGEN *modgen, const NT_NODE *node)
         push(modgen, node, ntBoolType());
         break;
     default:
-        errorAt(modgen, node, "Invalid argument cast to bool.");
+        ntErrorAtNode(&modgen->report, node, "Invalid argument cast to bool.");
         break;
     }
 
@@ -1991,7 +1923,7 @@ static void logical(NT_MODGEN *modgen, const NT_NODE *node)
     assert(node);
     assert(node->type.class == NC_EXPR && node->type.kind == NK_LOGICAL);
 
-    const NT_TYPE *type = evalExprType(modgen, node->left);
+    const NT_TYPE *type = ntEvalExprType(&modgen->report, modgen->scope, node->left);
     expression(modgen, node->left, true);
     typeToBool(modgen, node, type);
 
@@ -2005,7 +1937,8 @@ static void logical(NT_MODGEN *modgen, const NT_NODE *node)
         break;
     default: {
         char *str = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
-        errorAt(modgen, node, "Invalid logical operation with ID '%d'('%s').", node->token.id, str);
+        ntErrorAtNode(&modgen->report, node, "Invalid logical operation with ID '%d'('%s').",
+                      node->token.id, str);
         ntFree(str);
         break;
     }
@@ -2069,14 +2002,14 @@ static void call(NT_MODGEN *modgen, const NT_NODE *node, const bool needValue)
     assert(node);
 
     const NT_DELEGATE_TYPE *delegateType =
-        (const NT_DELEGATE_TYPE *)evalExprType(modgen, node->left);
+        (const NT_DELEGATE_TYPE *)ntEvalExprType(&modgen->report, modgen->scope, node->left);
     const bool hasReturn = delegateType->returnType != NULL;
 
     // if is subroutine and need a value as result, is a abstract tree error.
     if (needValue && !hasReturn)
     {
         char *name = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
-        errorAt(modgen, node, "A subroutine('%s') cannot return a value.", name);
+        ntErrorAtNode(&modgen->report, node, "A subroutine('%s') cannot return a value.", name);
         ntFree(name);
         return;
     }
@@ -2087,10 +2020,10 @@ static void call(NT_MODGEN *modgen, const NT_NODE *node, const bool needValue)
     if (callArgsCount != delegateType->paramCount)
     {
         char *name = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
-        errorAt(modgen, node,
-                "The '%s' call has wrong number of parameters, expect number is "
-                "%d, not %d.",
-                name, delegateType->paramCount, callArgsCount);
+        ntErrorAtNode(&modgen->report, node,
+                      "The '%s' call has wrong number of parameters, expect number is "
+                      "%d, not %d.",
+                      name, delegateType->paramCount, callArgsCount);
         ntFree(name);
         return;
     }
@@ -2099,7 +2032,7 @@ static void call(NT_MODGEN *modgen, const NT_NODE *node, const bool needValue)
     for (size_t i = 0; i < callArgsCount; ++i)
     {
         const NT_NODE *arg = (const NT_NODE *)ntListGet(node->data, i);
-        const NT_TYPE *paramType = evalExprType(modgen, arg);
+        const NT_TYPE *paramType = ntEvalExprType(&modgen->report, modgen->scope, (NT_NODE *)arg);
         const NT_TYPE *expectType = delegateType->params[i].type;
 
         expression(modgen, arg, true);
@@ -2113,8 +2046,9 @@ static void call(NT_MODGEN *modgen, const NT_NODE *node, const bool needValue)
             char *paramName = ntToCharFixed(delegateType->params[i].name->chars,
                                             delegateType->params[i].name->length);
 
-            errorAt(modgen, arg, "The argument('%s', %d) expect a value of type '%s', not '%s'.",
-                    paramName, i, expectTypeName, paramTypeName);
+            ntErrorAtNode(&modgen->report, arg,
+                          "The argument('%s', %d) expect a value of type '%s', not '%s'.",
+                          paramName, i, expectTypeName, paramTypeName);
 
             ntFree(expectTypeName);
             ntFree(paramTypeName);
@@ -2175,7 +2109,8 @@ static void expression(NT_MODGEN *modgen, const NT_NODE *node, const bool needVa
         break;
     default: {
         char *lexeme = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
-        errorAt(modgen, node, "CODEGEN unrecognized expression. (Lexeme: %s)", lexeme);
+        ntErrorAtNode(&modgen->report, node, "CODEGEN unrecognized expression. (Lexeme: %s)",
+                      lexeme);
         ntFree(lexeme);
         break;
     }
@@ -2202,7 +2137,7 @@ static const NT_STRING *emitCondition(NT_MODGEN *modgen, const NT_NODE *node, bo
     assert(pConditionType);
 
     // emit condition and branch
-    *pConditionType = evalExprType(modgen, node->condition);
+    *pConditionType = ntEvalExprType(&modgen->report, modgen->scope, node->condition);
     expression(modgen, node->condition, true);
 
     switch ((*pConditionType)->objectType)
@@ -2214,8 +2149,8 @@ static const NT_STRING *emitCondition(NT_MODGEN *modgen, const NT_NODE *node, bo
     case NT_OBJECT_U64:
         return emitBranch(modgen, node, isZero ? BC_BRANCH_Z_64 : BC_BRANCH_NZ_64);
     default:
-        errorAt(modgen, node,
-                "Invalid expression, must evaluate to basic types like int, long, etc.");
+        ntErrorAtNode(&modgen->report, node,
+                      "Invalid expression, must evaluate to basic types like int, long, etc.");
         return NULL;
     }
 }
@@ -2263,8 +2198,9 @@ static void ifStatement(NT_MODGEN *modgen, const NT_NODE *node, const NT_TYPE **
                 ntToCharFixed((*returnType)->typeName->chars, (*returnType)->typeName->length);
             char *current =
                 ntToCharFixed(elseReturnType->typeName->chars, elseReturnType->typeName->length);
-            errorAt(modgen, node, "The else branch expect '%s' type as return, but is '%s'.",
-                    expect, current);
+            ntErrorAtNode(&modgen->report, node,
+                          "The else branch expect '%s' type as return, but is '%s'.", expect,
+                          current);
             ntFree(expect);
             ntFree(current);
         }
@@ -2364,10 +2300,10 @@ static void declareVariable(NT_MODGEN *modgen, const NT_NODE *node)
         type = findType(modgen, node->left);
         if (node->right)
         {
-            const NT_TYPE *initType = evalExprType(modgen, node->right);
+            const NT_TYPE *initType = ntEvalExprType(&modgen->report, modgen->scope, node->right);
             if (type != initType)
             {
-                errorAt(modgen, node, "Invalid initalizer type. Incompatible type!");
+                ntErrorAtNode(&modgen->report, node, "Invalid initalizer type. Incompatible type!");
                 return;
             }
         }
@@ -2376,10 +2312,10 @@ static void declareVariable(NT_MODGEN *modgen, const NT_NODE *node)
     {
         if (node->right == NULL)
         {
-            errorAt(modgen, node, "Variable must has a type or initializer.");
+            ntErrorAtNode(&modgen->report, node, "Variable must has a type or initializer.");
             return;
         }
-        type = evalExprType(modgen, node->right);
+        type = ntEvalExprType(&modgen->report, modgen->scope, node->right);
     }
 
     if (node->right)
@@ -2397,7 +2333,7 @@ static void declareVariable(NT_MODGEN *modgen, const NT_NODE *node)
             emit(modgen, node, BC_ZERO_64);
             break;
         default:
-            errorAt(modgen, node, "CODEGEN invalid stackSize!");
+            ntErrorAtNode(&modgen->report, node, "CODEGEN invalid stackSize!");
             return;
         }
     }
@@ -2427,11 +2363,12 @@ static void endFunctionScope(NT_MODGEN *modgen, const NT_NODE *node, const NT_TY
     {
         if (node->left == NULL)
         {
-            errorAt(modgen, node, "Critical modgen error! The scope need a return value.");
+            ntErrorAtNode(&modgen->report, node,
+                          "Critical modgen error! The scope need a return value.");
         }
         assert(node->left);
 
-        const NT_TYPE *type = evalExprType(modgen, node->left);
+        const NT_TYPE *type = ntEvalExprType(&modgen->report, modgen->scope, node->left);
         if (modgen->scope->scopeReturnType == NULL)
             modgen->scope->scopeReturnType = type;
 
@@ -2510,7 +2447,7 @@ static void declareFunction(NT_MODGEN *modgen, const NT_NODE *node, const bool r
                 emit(modgen, node, BC_ZERO_64);
                 break;
             default:
-                errorAt(modgen, node, "CODEGEN invalid stackSize for return type!");
+                ntErrorAtNode(&modgen->report, node, "CODEGEN invalid stackSize for return type!");
                 return;
             }
         }
@@ -2559,8 +2496,8 @@ static void declareFunction(NT_MODGEN *modgen, const NT_NODE *node, const bool r
         if (!hasReturn)
         {
             char *lname = ntToCharFixed(name, nameLen);
-            errorAt(modgen, node, "Function '%s' doesn't  return a value on all code paths.",
-                    lname);
+            ntErrorAtNode(&modgen->report, node,
+                          "Function '%s' doesn't  return a value on all code paths.", lname);
             ntFree(lname);
 
             assert(modgen->scope->type != STT_METHOD);
@@ -2607,7 +2544,7 @@ static void declaration(NT_MODGEN *modgen, const NT_NODE *node)
     case NK_IMPORT:
         break;
     default:
-        errorAt(modgen, node, "Expect a declaration");
+        ntErrorAtNode(&modgen->report, node, "Expect a declaration");
         break;
     }
 }
@@ -2624,7 +2561,7 @@ static void statement(NT_MODGEN *modgen, const NT_NODE *node, const NT_TYPE **re
     *returnType = NULL;
     if (node->type.class != NC_STMT)
     {
-        errorAt(modgen, node, "Invalid node, the node must be a statment!");
+        ntErrorAtNode(&modgen->report, node, "Invalid node, the node must be a statment!");
         return;
     }
 
@@ -2653,7 +2590,8 @@ static void statement(NT_MODGEN *modgen, const NT_NODE *node, const NT_TYPE **re
         break;
     default: {
         const char *const label = ntGetKindLabel(node->type.kind);
-        errorAt(modgen, node, "Invalid statment. The statement with kind '%s' is invalid.", label);
+        ntErrorAtNode(&modgen->report, node,
+                      "Invalid statment. The statement with kind '%s' is invalid.", label);
         break;
     }
     }

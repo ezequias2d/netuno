@@ -2,6 +2,7 @@
 #define NETUNO_CODEGEN_H
 
 #include "parser.h"
+#include "report.h"
 #include "vstack.h"
 #include <netuno/array.h>
 #include <netuno/assembly.h>
@@ -17,13 +18,14 @@ typedef struct
 
 typedef struct
 {
+    NT_REPORT report;
+
     NT_CODEGEN *codegen;
     NT_MODULE *module;
     NT_SYMBOL_TABLE *scope;
     NT_SYMBOL_TABLE *functionScope;
     NT_VSTACK *stack;
     bool public;
-    bool had_error;
 } NT_MODGEN;
 
 NT_CODEGEN *ntCreateCodegen(NT_ASSEMBLY *assembly);

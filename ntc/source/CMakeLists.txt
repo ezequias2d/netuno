@@ -8,6 +8,7 @@ set(ROOT_SOURCES
     "vstack.c"
     "path.c"
     "resolver.c"
+    "report.c"
 )
 
 set(CMAKE_C_STANDARD 11)
