@@ -13,5 +13,6 @@ void ntListAdd(NT_LIST list, void *value);
 void *ntListGet(NT_LIST list, size_t index);
 void ntListPush(NT_LIST list, void *value);
 void *ntListPop(NT_LIST list);
+void *ntListPeek(NT_LIST list, size_t index);
 
 #endif

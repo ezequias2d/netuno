@@ -14,5 +14,6 @@ NT_VSTACK *ntCreateVStack(void);
 void ntFreeVStack(NT_VSTACK *stack);
 size_t ntVPush(NT_VSTACK *stack, const NT_TYPE *type);
 size_t ntVPop(NT_VSTACK *stack, const NT_TYPE **type);
+void ntVPeek(NT_VSTACK *stack, const NT_TYPE **ppType, size_t index);
 
 #endif

@@ -62,6 +62,14 @@ void *ntListPop(NT_LIST list)
     return result;
 }
 
+void *ntListPeek(NT_LIST list, size_t index)
+{
+    assert(list);
+    LIST *l = (LIST *)list;
+    const size_t last = l->count - 1;
+    return l->elements[last - index];
+}
+
 void *ntListGet(NT_LIST list, size_t index)
 {
     assert(list);

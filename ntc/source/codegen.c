@@ -304,6 +304,29 @@ static void vFixedPop(NT_MODGEN *modgen, const size_t popSize)
     }
 }
 
+static void emitPartialFixedPop(NT_MODGEN *modgen, const NT_NODE *node, const size_t popSize)
+{
+    if (popSize == 0)
+        return;
+
+    assert(popSize % sizeof(uint32_t) == 0);
+
+    int64_t rem = (int64_t)popSize;
+    size_t index = 0;
+    while (rem > 0)
+    {
+        const NT_TYPE *poppedType = NULL;
+        ntVPeek(modgen->stack, &poppedType, index++);
+        rem -= poppedType->stackSize;
+    }
+
+    // value partial popped if false
+    assert(rem == 0);
+
+    emit(modgen, node, BC_POP);
+    ntWriteModuleVarint(modgen->module, popSize / sizeof(uint32_t), node->token.line);
+}
+
 static size_t emitFixedPop(NT_MODGEN *modgen, const NT_NODE *node, const size_t popSize)
 {
     if (popSize == 0)
@@ -2219,15 +2242,16 @@ static void ifStatement(NT_MODGEN *modgen, const NT_NODE *node, const NT_TYPE **
     // emit else body if exist
     if (hasElse)
     {
-        // push in vstack for else branch
-        push(modgen, node, conditionType);
-
         // skip else body, when then body has taken
         const NT_STRING *skipElse = emitBranch(modgen, node, BC_BRANCH);
-        emitPop(modgen, node, conditionType);
 
         // elseBranch:
         addLabel(modgen, elseBranch);
+
+        // push in vstack for else branch
+        push(modgen, node, conditionType);
+        // each body pops the condition from stack
+        emitPop(modgen, node, conditionType);
 
         // emit else body
         statement(modgen, node->right, &elseReturnType);
@@ -2284,6 +2308,8 @@ static void blockStatment(NT_MODGEN *modgen, const NT_NODE *node, const NT_TYPE 
 static void conditionalLoopStatement(NT_MODGEN *modgen, const NT_NODE *node, bool isZero,
                                      const NT_TYPE **returnType)
 {
+    beginScope(modgen, STT_BREAKABLE);
+
     // loop:
     const NT_STRING *loopLabel = genLabel(modgen);
 
@@ -2308,6 +2334,8 @@ static void conditionalLoopStatement(NT_MODGEN *modgen, const NT_NODE *node, boo
 
     // free label
     ntFreeObject((NT_OBJECT *)loopLabel);
+
+    endScope(modgen, node, true);
 }
 
 static void untilStatment(NT_MODGEN *modgen, const NT_NODE *node)
@@ -2316,10 +2344,7 @@ static void untilStatment(NT_MODGEN *modgen, const NT_NODE *node)
     assert(node->type.kind == NK_UNTIL);
 
     const NT_TYPE *returnType = NULL;
-
-    beginScope(modgen, STT_BREAKABLE);
     conditionalLoopStatement(modgen, node, false, &returnType);
-    endScope(modgen, node, true);
 }
 
 static void whileStatment(NT_MODGEN *modgen, const NT_NODE *node)
@@ -2328,10 +2353,7 @@ static void whileStatment(NT_MODGEN *modgen, const NT_NODE *node)
     assert(node->type.kind == NK_WHILE);
 
     const NT_TYPE *returnType = NULL;
-
-    beginScope(modgen, STT_BREAKABLE);
     conditionalLoopStatement(modgen, node, true, &returnType);
-    endScope(modgen, node, true);
 }
 
 static void declareVariable(NT_MODGEN *modgen, const NT_NODE *node)
@@ -2419,16 +2441,20 @@ static void endFunctionScope(NT_MODGEN *modgen, const NT_NODE *node, const NT_TY
         emitAssign(modgen, node, type, returnVariable, ntStrLen(returnVariable),
                    "Critical modgen error! The variable for return must be declared.");
 
-        const size_t delta = modgen->stack->sp - ((size_t)modgen->scope->data + type->stackSize);
-        emitFixedPop(modgen, node, delta);
+        const size_t scopeSize = modgen->stack->sp - (size_t)functionScope->data;
+        assert(scopeSize >= type->stackSize);
+
+        const size_t delta = scopeSize - type->stackSize;
+        emitPartialFixedPop(modgen, node, delta);
 
         if (returnType && *returnType == NULL)
             *returnType = type;
     }
     else
     {
-        const size_t delta = modgen->stack->sp - (size_t)functionScope->data;
-        emitFixedPop(modgen, node, delta);
+        const size_t scopeSize = modgen->stack->sp - (size_t)functionScope->data;
+        assert(scopeSize >= 0);
+        emitPartialFixedPop(modgen, node, scopeSize);
     }
 
     if (isEndScope)

@@ -35,3 +35,12 @@ size_t ntVPop(NT_VSTACK *stack, const NT_TYPE **ppType)
     stack->sp -= pType->stackSize;
     return sp;
 }
+
+void ntVPeek(NT_VSTACK *stack, const NT_TYPE **ppType, size_t index)
+{
+    assert(ntListLen(stack->list) != 0);
+
+    const NT_TYPE *pType = (const NT_TYPE *)ntListPeek(stack->list, index);
+    if (ppType != NULL)
+        *ppType = pType;
+}
