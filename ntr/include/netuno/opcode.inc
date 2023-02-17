@@ -82,6 +82,8 @@ bytecode(IS_NOT_ZERO_F32)
 bytecode(IS_ZERO_F64)
 bytecode(IS_NOT_ZERO_F64)
 
+bytecode(CONCAT)
+
 bytecode(ADD_I32)
 bytecode(ADD_I64)
 bytecode(ADD_F32)

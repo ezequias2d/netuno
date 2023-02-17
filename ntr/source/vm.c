@@ -1255,7 +1255,27 @@ static NT_RESULT run(NT_VM *vm)
             assert(result);
             result = ntPush64(vm, *(double *)&t64_1 != 0.0);
             break;
+        case BC_CONCAT: {
+            const NT_TYPE *const objectType = ntObjectType();
 
+            NT_OBJECT *obj2 = NULL;
+            result = ntPopRef(vm, (NT_REF *)&obj2);
+            assert(result);
+            assert(obj2);
+            assert(IS_VALID_OBJECT(obj2));
+            assert(ntTypeIsAssignableFrom(objectType, obj2->type));
+
+            NT_OBJECT *obj1 = NULL;
+            result = ntPopRef(vm, (NT_REF *)&obj1);
+            assert(result);
+            assert(obj1);
+            assert(IS_VALID_OBJECT(obj1));
+            assert(ntTypeIsAssignableFrom(objectType, obj1->type));
+
+            const NT_STRING *const resultString = ntConcat(obj1, obj2);
+            ntPushRef(vm, (NT_REF)resultString);
+            break;
+        }
         case BC_ADD_I32:
             result = ntPop32(vm, &t32_2);
             assert(result);
