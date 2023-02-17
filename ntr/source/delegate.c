@@ -64,7 +64,7 @@ static const NT_STRING *typeToString(NT_OBJECT *object)
 
 static NT_TYPE TYPE = {
     .object =
-        (NT_OBJECT){
+        {
             .type = NULL,
             .refCount = 0,
         },

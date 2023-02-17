@@ -86,7 +86,7 @@ static const NT_STRING *moduleToString(NT_OBJECT *object)
 
 static NT_TYPE MODULE_TYPE = {
     .object =
-        (NT_OBJECT){
+        {
             .type = NULL,
             .refCount = 0,
         },

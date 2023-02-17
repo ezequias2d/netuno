@@ -80,7 +80,7 @@ static const NT_STRING *typeToString(NT_OBJECT *object)
 
 static NT_TYPE TYPE = {
     .object =
-        (NT_OBJECT){
+        {
             .type = NULL,
             .refCount = 0,
         },
@@ -160,7 +160,7 @@ static const NT_STRING *objectToString(NT_OBJECT *object)
 
 static NT_TYPE OBJECT_TYPE = {
     .object =
-        (NT_OBJECT){
+        {
             .type = NULL,
             .refCount = 0,
         },
@@ -320,7 +320,7 @@ static const NT_STRING *f64ToString(NT_OBJECT *object)
 
 static NT_TYPE I32_TYPE = {
     .object =
-        (NT_OBJECT){
+        {
             .type = NULL,
             .refCount = 0,
         },
@@ -352,7 +352,7 @@ const NT_TYPE *ntBoolType(void)
 
 static NT_TYPE I64_TYPE = {
     .object =
-        (NT_OBJECT){
+        {
             .type = NULL,
             .refCount = 0,
         },
@@ -379,7 +379,7 @@ const NT_TYPE *ntI64Type(void)
 
 static NT_TYPE U32_TYPE = {
     .object =
-        (NT_OBJECT){
+        {
             .type = NULL,
             .refCount = 0,
         },
@@ -406,7 +406,7 @@ const NT_TYPE *ntU32Type(void)
 
 static NT_TYPE U64_TYPE = {
     .object =
-        (NT_OBJECT){
+        {
             .type = NULL,
             .refCount = 0,
         },
@@ -433,7 +433,7 @@ const NT_TYPE *ntU64Type(void)
 
 static NT_TYPE F32_TYPE = {
     .object =
-        (NT_OBJECT){
+        {
             .type = NULL,
             .refCount = 0,
         },
@@ -460,7 +460,7 @@ const NT_TYPE *ntF32Type(void)
 
 static NT_TYPE F64_TYPE = {
     .object =
-        (NT_OBJECT){
+        {
             .type = NULL,
             .refCount = 0,
         },
@@ -494,7 +494,7 @@ static const NT_STRING *undefinedToString(NT_OBJECT *object)
 
 static NT_TYPE UNDEFINED_TYPE = {
     .object =
-        (NT_OBJECT){
+        {
             .type = NULL,
             .refCount = 0,
         },
@@ -528,7 +528,7 @@ static const NT_STRING *voidToString(NT_OBJECT *object)
 
 static NT_TYPE VOID_TYPE = {
     .object =
-        (NT_OBJECT){
+        {
             .type = NULL,
             .refCount = 0,
         },
@@ -562,7 +562,7 @@ static const NT_STRING *errorToString(NT_OBJECT *object)
 
 static NT_TYPE ERROR_TYPE = {
     .object =
-        (NT_OBJECT){
+        {
             .type = NULL,
             .refCount = 0,
         },

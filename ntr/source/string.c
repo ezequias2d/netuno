@@ -66,7 +66,7 @@ static bool stringEquals(NT_OBJECT *_str1, NT_OBJECT *_str2)
 
 static NT_TYPE STRING_TYPE = {
     .object =
-        (NT_OBJECT){
+        {
             .type = NULL,
             .refCount = 0,
         },

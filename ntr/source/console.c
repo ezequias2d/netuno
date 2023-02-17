@@ -33,7 +33,7 @@ SOFTWARE.
 
 static NT_MODULE CONSOLE = {
     .type.object =
-        (NT_OBJECT){
+        {
             .type = NULL,
         },
 };

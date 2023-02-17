@@ -70,7 +70,7 @@ static const NT_STRING *assemblyToString(NT_OBJECT *object)
 
 static NT_TYPE ASSEMBLY_TYPE = {
     .object =
-        (NT_OBJECT){
+        {
             .type = NULL,
             .refCount = 0,
         },
