@@ -326,7 +326,12 @@ static NT_NODE *primary(NT_PARSER *parser)
     }
 
     if (match(parser, TK_KEYWORD))
-        return makeVariable(parser->previous);
+    {
+        NT_TOKEN name = parser->previous;
+        name.type = TK_IDENT;
+        name.id = TK_ID_NONE;
+        return makeVariable(name);
+    }
 
     errorAt(parser->current, "Expect expression.");
     return makeNode(NC_NONE, NK_NONE, parser->current, NULL, NULL);
