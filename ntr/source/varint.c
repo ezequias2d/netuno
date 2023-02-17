@@ -45,7 +45,7 @@ size_t ntDecodeVarint(const void *src, const size_t srcSize, uint64_t *value)
     {
         assert(count < srcSize);
         const uint8_t readed = ((uint8_t *)src)[count];
-        result |= readed << bits;
+        result |= (readed & 0x7F) << bits;
         moreBytes = (readed & 0x80) != 0;
         bits += 7;
         count++;
