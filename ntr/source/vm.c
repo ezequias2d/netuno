@@ -189,7 +189,7 @@ bool ntCall(NT_VM *vm, const NT_DELEGATE *delegate)
     if (delegate->native)
     {
         const NT_DELEGATE_TYPE *delegateType = (const NT_DELEGATE_TYPE *)delegate->object.type;
-        uint8_t *finalStack = vm->stack;
+        uint8_t *finalStack = vm->stackTop;
 
         for (size_t i = 0; i < delegateType->paramCount; ++i)
         {
@@ -201,8 +201,15 @@ bool ntCall(NT_VM *vm, const NT_DELEGATE *delegate)
             finalStack += delegateType->returnType->stackSize;
 
         const bool result = delegate->func(vm, delegateType);
-        const size_t delta = vm->stack - finalStack;
-        ntPop(vm, NULL, delta);
+        const int64_t delta = (int64_t)vm->stackTop - (int64_t)finalStack;
+        if (delta < 0)
+            ntPop(vm, NULL, -delta);
+        else if (delta > 0)
+        {
+            printf("Something is wrong with the native delegate, it delivered a smaller stack than "
+                   "expected.\n");
+            return false;
+        }
 
         return result;
     }
