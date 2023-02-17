@@ -280,10 +280,12 @@ char_t *ntEscapeString(const char_t *str, size_t *length)
             str = escape + 1 + ntEscapeChar(escape + 1, &c);
             ntArrayAdd(&tmp, &c, sizeof(char_t));
         }
+        else
+            str = escape;
     } while (str < max);
 
     ntArrayAdd(&tmp, U"\0", sizeof(char_t));
 
-    *length = tmp.count / sizeof(char_t);
+    *length = (tmp.count / sizeof(char_t)) - 1;
     return ntRealloc(tmp.data, tmp.count);
 }
