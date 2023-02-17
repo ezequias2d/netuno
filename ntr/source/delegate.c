@@ -34,6 +34,7 @@ static const NT_STRING *typeToString(NT_OBJECT *object)
     NT_TYPE *type = (NT_TYPE *)object;
     assert(IS_VALID_TYPE(type));
 
+    ntRefObject((NT_OBJECT *)type->typeName);
     return type->typeName;
 }
 
@@ -81,6 +82,7 @@ static const NT_STRING *delegateToString(NT_OBJECT *object)
 {
     assert(object->type->objectType == NT_OBJECT_DELEGATE);
     const NT_DELEGATE *delegate = (const NT_DELEGATE *)object;
+    ntRefObject((NT_OBJECT *)delegate->name);
     return delegate->name;
 }
 
