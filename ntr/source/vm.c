@@ -922,7 +922,7 @@ static NT_RESULT run(NT_VM *vm)
 
             result = ntPeek(vm, &t64_1, sizeof(uint64_t), t64_1);
             assert(result);
-            result = ntPush32(vm, t64_1);
+            result = ntPush64(vm, t64_1);
             assert(result);
             break;
         case BC_STORE_SP_32:
