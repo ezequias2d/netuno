@@ -974,8 +974,13 @@ static NT_NODE *module(NT_PARSER *parser)
 NT_NODE *ntParse(NT_PARSER *parser)
 {
     advance(parser);
+    NT_NODE *const node = module(parser);
 
-    return module(parser);
+#ifdef DEBUG_TRACE_EXECUTION
+    ntPrintNode(0, node);
+#endif
+
+    return node;
 }
 
 static const char *const kinds[] = {
