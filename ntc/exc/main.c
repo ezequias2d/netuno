@@ -112,7 +112,12 @@ int main(int argc, char **argv)
     }
 
     NT_ASSEMBLY *assembly = ntCreateAssembly();
-    ntCompile(assembly, count, files);
+    if (ntCompile(assembly, count, files) != assembly)
+    {
+        printf("Something went wrong in compilation.\n");
+        ntFreeObject((NT_OBJECT *)assembly);
+        return -4321;
+    }
 
     NT_VM *vm = ntCreateVM();
 
