@@ -644,6 +644,8 @@ static const NT_TYPE *findType(NT_MODGEN *modgen, const NT_NODE *typeNode)
             return ntF32Type();
         case KW_F64:
             return ntF64Type();
+        case KW_STRING:
+            return ntStringType();
         default: {
             char *typeLex = ntToChar(ntGetKeywordLexeme(typeNode->token.id));
             ntErrorAtNode(&modgen->report, typeNode, "The keyword '%s' is not a type.", typeLex);
@@ -1369,6 +1371,21 @@ static void binary(NT_MODGEN *modgen, const NT_NODE *node)
             break;
         case NT_OBJECT_F64:
             emit(modgen, node, BC_NE_F64);
+            break;
+        case NT_OBJECT_STRING:
+            switch (sizeof(NT_REF))
+            {
+            case sizeof(uint32_t):
+                emit(modgen, node, BC_NE_32);
+                break;
+            case sizeof(uint64_t):
+                emit(modgen, node, BC_NE_64);
+                break;
+            default:
+                ntErrorAtNode(&modgen->report, node,
+                              "Sometime are wrong with NT_REF inside compiler");
+                break;
+            }
             break;
         default: {
             char *typeStr = ntToChar(type->typeName->chars);

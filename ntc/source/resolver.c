@@ -132,6 +132,8 @@ static const NT_TYPE *findType(RESOLVER *r, NT_NODE *typeNode)
             return ntF32Type();
         case KW_F64:
             return ntF64Type();
+        case KW_STRING:
+            return ntStringType();
         default: {
             char *typeLex = ntToChar(ntGetKeywordLexeme(typeNode->token.id));
             ntErrorAtNode(&r->report, typeNode, "The keyword '%s' is not a type.", typeLex);

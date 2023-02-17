@@ -568,7 +568,8 @@ static NT_NODE *typeAnnotation(NT_PARSER *parser)
 {
     if (!(matchId(parser, TK_KEYWORD, KW_I32) || matchId(parser, TK_KEYWORD, KW_I64) ||
           matchId(parser, TK_KEYWORD, KW_U32) || matchId(parser, TK_KEYWORD, KW_U64) ||
-          matchId(parser, TK_KEYWORD, KW_F32) || matchId(parser, TK_KEYWORD, KW_F64)))
+          matchId(parser, TK_KEYWORD, KW_F32) || matchId(parser, TK_KEYWORD, KW_F64) ||
+          matchId(parser, TK_KEYWORD, KW_STRING)))
         consume(parser, TK_IDENT, "Expect a identifier as a type.");
 
     const NT_TOKEN type = parser->previous;
