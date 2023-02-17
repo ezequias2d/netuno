@@ -1,5 +1,5 @@
-#ifndef NETUNO_CODEGEN_H
-#define NETUNO_CODEGEN_H
+#ifndef NT_CODEGEN_H
+#define NT_CODEGEN_H
 
 #include "parser.h"
 #include "report.h"

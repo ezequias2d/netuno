@@ -1,5 +1,5 @@
-#ifndef NETUNO_TABLE_H
-#define NETUNO_TABLE_H
+#ifndef NT_TABLE_H
+#define NT_TABLE_H
 
 #include <netuno/common.h>
 

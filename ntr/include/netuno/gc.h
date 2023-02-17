@@ -1,5 +1,5 @@
-#ifndef NETUNO_GC_H
-#define NETUNO_GC_H
+#ifndef NT_GC_H
+#define NT_GC_H
 
 #include "array.h"
 #include "object.h"

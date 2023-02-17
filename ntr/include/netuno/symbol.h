@@ -1,5 +1,5 @@
-#ifndef NETUNO_SYMBOL_H
-#define NETUNO_SYMBOL_H
+#ifndef NT_SYMBOL_H
+#define NT_SYMBOL_H
 
 #include <netuno/array.h>
 

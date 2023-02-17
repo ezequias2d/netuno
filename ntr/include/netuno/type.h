@@ -1,5 +1,5 @@
-#ifndef NETUNO_TYPE_H
-#define NETUNO_TYPE_H
+#ifndef NT_TYPE_H
+#define NT_TYPE_H
 
 #include "netuno/symbol.h"
 #include <netuno/common.h>

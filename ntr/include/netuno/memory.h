@@ -1,5 +1,5 @@
-#ifndef NETUNO_MEMORY_H
-#define NETUNO_MEMORY_H
+#ifndef NT_MEMORY_H
+#define NT_MEMORY_H
 
 #include <stddef.h>
 

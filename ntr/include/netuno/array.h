@@ -1,5 +1,5 @@
-#ifndef NETUNO_ARRAY_H
-#define NETUNO_ARRAY_H
+#ifndef NT_ARRAY_H
+#define NT_ARRAY_H
 
 #include "common.h"
 

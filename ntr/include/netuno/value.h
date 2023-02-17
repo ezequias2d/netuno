@@ -1,5 +1,5 @@
-#ifndef NETUNO_VALUE_H
-#define NETUNO_VALUE_H
+#ifndef NT_VALUE_H
+#define NT_VALUE_H
 
 #include "common.h"
 

@@ -1,5 +1,5 @@
-#ifndef NETUNO_VARINT_H
-#define NETUNO_VARINT_H
+#ifndef NT_VARINT_H
+#define NT_VARINT_H
 
 #include "common.h"
 

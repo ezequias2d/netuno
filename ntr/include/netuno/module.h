@@ -1,5 +1,5 @@
-#ifndef NETUNO_MODULE_H
-#define NETUNO_MODULE_H
+#ifndef NT_MODULE_H
+#define NT_MODULE_H
 
 #include <netuno/assembly.h>
 #include <netuno/delegate.h>

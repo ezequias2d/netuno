@@ -1,5 +1,5 @@
-#ifndef NETUNO_COMMON_H
-#define NETUNO_COMMON_H
+#ifndef NT_COMMON_H
+#define NT_COMMON_H
 
 #include <stdbool.h>
 #include <stddef.h>
