@@ -133,7 +133,14 @@ bool ntPop(NT_VM *vm, void *data, const size_t dataSize)
     if (data)
         ntMemcpy(data, vm->stackTop, dataSize);
 #ifdef DEBUG_TRACE_EXECUTION
-    vm->stackTypeTop--;
+    size_t rem = dataSize;
+    size_t count = 0;
+    for (size_t *i = vm->stackTypeTop - 1; i >= vm->stackType && rem > 0; --i)
+    {
+        rem -= *i;
+        count++;
+    }
+    vm->stackTypeTop -= count;
 #endif
     return true;
 }
