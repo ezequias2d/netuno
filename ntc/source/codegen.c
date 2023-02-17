@@ -1850,7 +1850,8 @@ static void assign(NT_MODGEN *modgen, const NT_NODE *node)
     assert(node->type.class == NC_EXPR && node->type.kind == NK_ASSIGN);
     assert(node->left->type.class == NC_EXPR && node->left->type.kind == NK_VARIABLE);
 
-    const NT_TYPE *rightType = ntEvalExprType(&modgen->report, modgen->scope, node->right);   ;
+    const NT_TYPE *rightType = ntEvalExprType(&modgen->report, modgen->scope, node->right);
+
     expression(modgen, node->right, true);
 
     const NT_NODE *identifier = node->left;
