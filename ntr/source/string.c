@@ -130,10 +130,7 @@ const NT_STRING *ntConcat(NT_OBJECT *object1, NT_OBJECT *object2)
     ntFreeObject((NT_OBJECT *)str1);
     ntFreeObject((NT_OBJECT *)str2);
 
-    NT_STRING *result = (NT_STRING *)ntCreateObject(&STRING_TYPE);
-    result->chars = chars;
-    result->length = length;
-    return result;
+    return ntTakeString(chars, length);
 }
 
 bool ntStrEquals(const char_t *str1, const char_t *str2)
