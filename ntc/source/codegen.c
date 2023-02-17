@@ -2047,8 +2047,46 @@ static void call(NT_MODGEN *modgen, const NT_NODE *node, const bool needValue)
     assert(modgen);
     assert(node);
 
-    const NT_DELEGATE_TYPE *delegateType =
-        (const NT_DELEGATE_TYPE *)ntEvalExprType(&modgen->report, modgen->scope, node->left);
+    const NT_TYPE *type = ntEvalExprType(&modgen->report, modgen->scope, node->left);
+
+    switch (type->objectType)
+    {
+    case NT_OBJECT_I32:
+    case NT_OBJECT_I64:
+    case NT_OBJECT_U32:
+    case NT_OBJECT_U64:
+    case NT_OBJECT_F32:
+    case NT_OBJECT_F64:
+    case NT_OBJECT_STRING: {
+        const size_t callArgsCount = ntListLen(node->data);
+        if (callArgsCount > 1)
+        {
+            ntErrorAtNode(&modgen->report, node, "Cast operator accepts only one argument");
+            return;
+        }
+        else if (callArgsCount == 0)
+        {
+            ntErrorAtNode(&modgen->report, node, "Cast operator needs one argument");
+            return;
+        }
+
+        const NT_NODE *arg = (const NT_NODE *)ntListGet(node->data, 0);
+        const NT_TYPE *fromType = ntEvalExprType(&modgen->report, modgen->scope, (NT_NODE *)arg);
+        expression(modgen, arg, true);
+
+        cast(modgen, node, fromType, type);
+        return;
+    }
+    case NT_OBJECT_DELEGATE:
+        break;
+    default:
+        ntErrorAtNode(&modgen->report, node,
+                      "Call only can be perform with a delegate or a type with cast support");
+        return;
+    }
+
+    assert(type->objectType == NT_OBJECT_DELEGATE);
+    const NT_DELEGATE_TYPE *delegateType = (const NT_DELEGATE_TYPE *)type;
     const bool hasReturn = delegateType->returnType != NULL;
 
     // if is subroutine and need a value as result, is a abstract tree error.
