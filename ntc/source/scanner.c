@@ -99,6 +99,7 @@ static void skipWhitespaces(NT_SCANNER *scanner)
         case ';':
             while (peek(scanner) != '\n' && !ntIsAtEnd(scanner))
                 advance(scanner);
+            break;
         default:
             return;
         }
