@@ -2715,7 +2715,7 @@ static void module(NT_CODEGEN *codegen, const NT_NODE *node)
         declaration(modgen, stmt);
     }
 
-    codegen->had_error |= modgen->had_error;
+    codegen->had_error |= modgen->report.had_error;
     ntFreeModgen(modgen);
     ntAddConstantObject(codegen->assembly, (NT_OBJECT *)module);
 }
