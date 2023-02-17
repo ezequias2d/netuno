@@ -13,7 +13,8 @@ else()
         $<$<CONFIG:DEBUG>:-Wall>
         $<$<CONFIG:DEBUG>:-Wextra>
         $<$<CONFIG:DEBUG>:-pedantic>
-        $<$<CONFIG:DEBUG>:-Werror>)
+        $<$<CONFIG:DEBUG>:-Werror>
+        $<$<CONFIG:DEBUG>:-Wno-implicit-fallthrough>)
 endif()
 
 set(NT_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
