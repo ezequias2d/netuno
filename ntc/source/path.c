@@ -28,7 +28,12 @@ SOFTWARE.
 
 char_t *ntPathFilename(const char_t *path, bool withExtension)
 {
-    const char_t *filenameStart = ntStrRChr(path, U'/') + 1;
+    const char_t *filenameStart = ntStrRChr(path, U'/');
+
+    if (filenameStart == NULL)
+        filenameStart = path;
+    else
+        filenameStart += 1;
 
     size_t length;
 
