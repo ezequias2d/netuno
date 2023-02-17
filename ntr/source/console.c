@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <netuno/console.h>
 #include <netuno/memory.h>
+#include <netuno/native.h>
 #include <netuno/str.h>
 #include <netuno/string.h>
 #include <netuno/vm.h>
@@ -13,11 +14,12 @@ static NT_MODULE CONSOLE = {
         },
 };
 
-static const NT_DELEGATE_TYPE *PrintType = NULL;
-static bool stdPrint(NT_VM *vm, const NT_DELEGATE_TYPE *delegateType)
+static const NT_DELEGATE_TYPE *ConsoleWriteType = NULL;
+static bool consoleWrite(NT_VM *vm, const NT_DELEGATE_TYPE *delegateType)
 {
     assert(vm);
     assert(delegateType);
+    assert(delegateType == ConsoleWriteType);
 
     NT_OBJECT *object;
     bool result = ntPopRef(vm, (NT_REF *)&object);
@@ -35,20 +37,75 @@ static bool stdPrint(NT_VM *vm, const NT_DELEGATE_TYPE *delegateType)
     return true;
 }
 
-static void addPrint(void)
+static void addWrite(void)
 {
     NT_PARAM param = {
         .type = ntObjectType(),
         .name = ntCopyString(U"object", 6),
     };
 
-    char_t *delegateTypeNameCstr = ntDelegateTypeName(NULL, 1, &param);
-    const NT_STRING *delegateTypeName =
-        ntTakeString(delegateTypeNameCstr, ntStrLen(delegateTypeNameCstr));
+    ConsoleWriteType =
+        ntCreateNativeFunction(&CONSOLE, U"write", NULL, 1, &param, consoleWrite, true);
+}
 
-    PrintType = ntCreateDelegateType(delegateTypeName, NULL, 1, &param);
-    const NT_STRING *printName = ntCopyString(U"write", 5);
-    ntAddNativeModuleFunction(&CONSOLE, printName, PrintType, stdPrint, true);
+static const NT_DELEGATE_TYPE *ConsoleReadLineType = NULL;
+static bool consoleReadline(NT_VM *vm, const NT_DELEGATE_TYPE *delegateType)
+{
+    assert(vm);
+    assert(delegateType);
+    assert(delegateType == ConsoleReadLineType);
+
+    size_t lenmax = 256, len = lenmax;
+    char *line = ntMalloc(lenmax), *linep = line;
+    int c;
+
+    if (line == NULL)
+        return false;
+
+    for (;;)
+    {
+        c = fgetc(stdin);
+        if (c == EOF)
+            break;
+
+        if (--len == 0)
+        {
+            len = lenmax;
+            char *linen = ntRealloc(linep, lenmax *= 2);
+
+            if (linen == NULL)
+            {
+                ntFree(linep);
+                return false;
+            }
+            line = linen + (line - linep);
+            linep = linen;
+        }
+
+        if (c == '\n')
+            break;
+
+        *line++ = c;
+    }
+    *line = '\0';
+
+    char_t *utf32 = ntToCharT(linep);
+    ntFree(linep);
+
+    const NT_STRING *str = ntTakeString(utf32, ntStrLen(utf32));
+    if (!ntPushRef(vm, (NT_REF)str))
+    {
+        ntFreeObject((NT_OBJECT *)str);
+        return false;
+    }
+
+    return true;
+}
+
+static void addReadline(void)
+{
+    ConsoleReadLineType = ntCreateNativeFunction(&CONSOLE, U"readline", ntStringType(), 0, NULL,
+                                                 consoleReadline, true);
 }
 
 const NT_MODULE *ntConsoleModule(void)
@@ -62,7 +119,8 @@ const NT_MODULE *ntConsoleModule(void)
         ntInitSymbolTable(&CONSOLE.type.fields, (NT_SYMBOL_TABLE *)&ntType()->fields, STT_TYPE,
                           NULL);
 
-        addPrint();
+        addWrite();
+        addReadline();
     }
 
     return &CONSOLE;
