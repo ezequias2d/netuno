@@ -244,6 +244,7 @@ static NT_NODE *makeVar(NT_TOKEN name, NT_NODE *type, NT_NODE *initializer)
 
 static NT_NODE *makeVariable(NT_TOKEN name)
 {
+    assert(name.type == TK_IDENT);
     return makeNode(NC_EXPR, NK_VARIABLE, name, NULL, NULL);
 }
 
