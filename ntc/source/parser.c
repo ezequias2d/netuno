@@ -838,6 +838,18 @@ static NT_NODE *forStatement(NT_PARSER *parser, const bool returnValue)
     NT_NODE *step = NULL;
     if (matchId(parser, TK_KEYWORD, KW_STEP))
         step = expression(parser);
+    else
+    {
+        static const char_t stepValueOne[] = U"1";
+        const NT_TOKEN stepToken = {
+            .type = TK_I32,
+            .line = name.line,
+            .id = TK_ID_NONE,
+            .lexeme = stepValueOne,
+            .lexemeLength = 1,
+        };
+        step = makeLiteral(stepToken, LT_I32);
+    }
 
     NT_NODE *mainBody = block(parser, KW_NEXT, returnValue);
     NT_NODE *body = mainBody;
