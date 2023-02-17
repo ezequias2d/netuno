@@ -51,8 +51,8 @@ static NT_TYPE STRING_TYPE = {
     .free = freeString,
     .string = stringToString,
     .equals = stringEquals,
-    sizeof(uint32_t),
-    sizeof(NT_STRING),
+    .stackSize = sizeof(NT_REF),
+    .instanceSize = sizeof(NT_STRING),
 };
 
 const NT_TYPE *ntStringType(void)
