@@ -175,6 +175,17 @@ bool ntCall(NT_VM *vm, const NT_DELEGATE *delegate)
     assert(delegate->object.type);
     assert(delegate->object.type->objectType == NT_OBJECT_DELEGATE);
 
+#ifdef DEBUG_TRACE_EXECUTION
+    {
+        const NT_STRING *str = ntToString((NT_OBJECT *)delegate);
+        char *name = ntToCharFixed(str->chars, str->length);
+        ntFreeObject((NT_OBJECT *)str);
+
+        printf("%s:\n", name);
+        ntFree(name);
+    }
+#endif
+
     if (delegate->native)
     {
         const NT_DELEGATE_TYPE *delegateType = (const NT_DELEGATE_TYPE *)delegate->object.type;
