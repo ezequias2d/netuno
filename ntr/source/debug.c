@@ -91,7 +91,7 @@ size_t ntDisassembleInstruction(const NT_ASSEMBLY *assembly, const NT_MODULE *mo
     int64_t line = ntGetLine(module, offset, &atStart);
 
     if (atStart)
-        printf("%4ld ", line);
+        printf("%4ld ", line + 1);
     else
         printf("   | ");
 
