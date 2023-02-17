@@ -1277,6 +1277,13 @@ static void cast(NT_MODGEN *modgen, const NT_NODE *node, const NT_TYPE *from, co
             goto error;
         }
         break;
+    case NT_OBJECT_TYPE_TYPE:
+    case NT_OBJECT_ASSEMBLY:
+    case NT_OBJECT_MODULE:
+    case NT_OBJECT_OBJECT:
+    case NT_OBJECT_DELEGATE:
+    case NT_OBJECT_CUSTOM:
+        // TODO
     default:
         goto error;
     }
@@ -1304,12 +1311,18 @@ static void binary(NT_MODGEN *modgen, const NT_NODE *node)
     const NT_TYPE *leftType = ntEvalExprType(&modgen->report, modgen->scope, node->left);
     const NT_TYPE *rightType = ntEvalExprType(&modgen->report, modgen->scope, node->right);
     const NT_TYPE *type = leftType->objectType < rightType->objectType ? leftType : rightType;
+    const bool isConcat = type == ntStringType();
 
     expression(modgen, node->left, true);
-    cast(modgen, node->left, leftType, type);
+
+    // only cast if is not concat operation, because CONCAT instruction handles any object type
+    if (!isConcat || !ntTypeIsAssignableFrom(ntObjectType(), leftType))
+        cast(modgen, node->left, leftType, type);
 
     expression(modgen, node->right, true);
-    cast(modgen, node->right, leftType, type);
+    // only cast if is not concat operation, because CONCAT instruction handles any object type
+    if (!isConcat || !ntTypeIsAssignableFrom(ntObjectType(), rightType))
+        cast(modgen, node->right, rightType, type);
 
     pop(modgen, node, type);
     pop(modgen, node, type);
