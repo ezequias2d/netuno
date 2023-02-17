@@ -2515,7 +2515,6 @@ static void endFunctionScope(NT_MODGEN *modgen, const NT_NODE *node, const NT_TY
     else
     {
         const size_t scopeSize = modgen->stack->sp - (size_t)functionScope->data;
-        assert(scopeSize >= 0);
         emitPartialFixedPop(modgen, node, scopeSize);
     }
 
