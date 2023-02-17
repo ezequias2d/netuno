@@ -1,9 +1,0 @@
-def main(): int
-  var x: int
-  var px: ref int = ref x
-
-  x = 4
-  px = 0
-
-  return px + x
-end
