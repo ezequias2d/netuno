@@ -55,6 +55,15 @@ static size_t constant64Instruction(const char *name, const NT_MODULE *module, c
     return readed + 1;
 }
 
+static size_t popInstruction(const char *name, const NT_MODULE *module, const size_t offset)
+{
+    uint64_t size;
+    const size_t readed = ntReadVariant(module, offset + 1, &size);
+    printf("%-16s '%ld\n", name, size * sizeof(uint32_t));
+
+    return readed + 1;
+}
+
 static size_t constantObjectInstruction(const char *name, const NT_ASSEMBLY *assembly,
                                         const NT_MODULE *module, const size_t offset)
 {
@@ -101,6 +110,8 @@ size_t ntDisassembleInstruction(const NT_ASSEMBLY *assembly, const NT_MODULE *mo
             return constant64Instruction(label, module, offset);
         case BC_CONST_OBJECT:
             return constantObjectInstruction(label, assembly, module, offset);
+        case BC_POP:
+            return popInstruction(label, module, offset);
         default:
             return simpleInstruction(label, offset);
         }
