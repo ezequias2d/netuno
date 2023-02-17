@@ -7,12 +7,12 @@ set(ROOT_SOURCES
     "object.c"
     "string.c"
     "str.c"
-    "gc.c"
     "table.c"
     "memory.c"
     "delegate.c"
     "assembly.c"
     "module.c"
+    "native.c"
     "console.c"
 )
 
