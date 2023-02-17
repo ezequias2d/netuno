@@ -1995,6 +1995,7 @@ static void get(NT_MODGEN *modgen, const NT_NODE *node)
     NT_OBJECT *constantObject = NULL;
 
     NT_SYMBOL_ENTRY entry;
+    entry.type = SYMBOL_TYPE_NONE;
     do
     {
         const bool result = ntLookupSymbol(modgen->scope, current->token.lexeme,
@@ -2009,6 +2010,12 @@ static void get(NT_MODGEN *modgen, const NT_NODE *node)
         else
             break;
     } while (current);
+
+    if (entry.type == SYMBOL_TYPE_NONE)
+    {
+        ntErrorAtNode(&modgen->report, node->left, "Undeclared symbol");
+        return;
+    }
 
     if (constantObject->type->objectType == NT_OBJECT_TYPE_TYPE)
     {
