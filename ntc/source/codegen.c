@@ -1372,6 +1372,21 @@ static void binary(NT_MODGEN *modgen, const NT_NODE *node)
         case NT_OBJECT_F64:
             emit(modgen, node, BC_EQ_F64);
             break;
+        case NT_OBJECT_STRING:
+            switch (sizeof(NT_REF))
+            {
+            case sizeof(uint32_t):
+                emit(modgen, node, BC_EQ_32);
+                break;
+            case sizeof(uint64_t):
+                emit(modgen, node, BC_EQ_64);
+                break;
+            default:
+                ntErrorAtNode(&modgen->report, node,
+                              "Sometime are wrong with NT_REF inside compiler");
+                break;
+            }
+            break;
         default: {
             char *typeStr = ntToChar(type->typeName->chars);
             ntErrorAtNode(&modgen->report, node, "Invalid == operation for type '%s'.", typeStr);
@@ -1518,6 +1533,16 @@ static void binary(NT_MODGEN *modgen, const NT_NODE *node)
             break;
         case NT_OBJECT_F64:
             emit(modgen, node, BC_ADD_F64);
+            break;
+        case NT_OBJECT_TYPE_TYPE:
+        case NT_OBJECT_STRING:
+        case NT_OBJECT_MODULE:
+        case NT_OBJECT_ASSEMBLY:
+        case NT_OBJECT_DELEGATE:
+        case NT_OBJECT_OBJECT:
+        case NT_OBJECT_CUSTOM:
+            // TODO: operator overloading
+            emit(modgen, node, BC_CONCAT);
             break;
         default: {
             char *typeStr = ntToChar(type->typeName->chars);
