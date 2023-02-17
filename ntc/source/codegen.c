@@ -413,11 +413,11 @@ static void resolveLabelAndBranchSymbols(NT_MODGEN *modgen, const NT_NODE *node)
             assert((label.type & SYMBOL_TYPE_LABEL) == SYMBOL_TYPE_LABEL);
 
             const uint64_t boffset = label.data2 - ((size_t)current.data + offset);
-            offset += current.data2;
             const uint64_t z = ZigZagEncoding(boffset);
             assert(current.data2 == ntVarintEncodedSize(z));
 
-            ntInsertModuleVarint(modgen->module, offset + (size_t)current.data, boffset);
+            ntInsertModuleVarint(modgen->module, offset + 1 + (size_t)current.data, boffset);
+            offset += current.data2;
         }
         break;
         default:
