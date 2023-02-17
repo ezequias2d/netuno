@@ -2513,7 +2513,7 @@ static void declareFunction(NT_MODGEN *modgen, const NT_NODE *node, const bool r
         if (node->left)
             returnType = findType(modgen, node->left);
         else
-            returnType = evalBlockReturnType(modgen, node->right);
+            returnType = ntEvalBlockReturnType(&modgen->report, modgen->scope, node->right);
 
         push(modgen, node, returnType);
         addParam(modgen, ntCopyString(returnVariable, ntStrLen(returnVariable)), returnType);
@@ -2536,6 +2536,8 @@ static void declareFunction(NT_MODGEN *modgen, const NT_NODE *node, const bool r
             }
         }
     }
+    else
+        returnType = ntVoidType();
 
     for (size_t i = 0; i < paramCount; ++i)
     {
@@ -2555,6 +2557,12 @@ static void declareFunction(NT_MODGEN *modgen, const NT_NODE *node, const bool r
         ntArrayAdd(&paramsArray, &param, sizeof(NT_PARAM));
     }
 
+    const NT_DELEGATE_TYPE *delegateType = ntTakeDelegateType(
+        modgen->codegen->assembly, returnType, paramCount, (NT_PARAM *)paramsArray.data);
+    const NT_STRING *funcName = ntCopyString(name, nameLen);
+
+    addFunction(modgen, funcName, symbolType, delegateType, startPc, modgen->public);
+
     for (size_t i = 0; i < ntListLen(node->right->data) && !hasReturn; ++i)
     {
         const NT_NODE *stmt = (NT_NODE *)ntListGet(node->right->data, i);
@@ -2564,16 +2572,10 @@ static void declareFunction(NT_MODGEN *modgen, const NT_NODE *node, const bool r
             hasReturn |= true;
     }
 
-    const NT_DELEGATE_TYPE *delegateType = ntTakeDelegateType(
-        modgen->codegen->assembly, returnType, paramCount, (NT_PARAM *)paramsArray.data);
-    const NT_STRING *funcName = ntCopyString(name, nameLen);
-
     ntDeinitArray(&paramsArray);
 
     // resolve branchs and labels
     resolveLabelAndBranchSymbols(modgen, node);
-
-    addFunction(modgen, funcName, symbolType, delegateType, startPc, modgen->public);
 
     if (returnValue)
     {
