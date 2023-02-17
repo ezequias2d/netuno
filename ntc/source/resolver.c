@@ -461,7 +461,8 @@ const NT_TYPE *ntEvalBlockReturnType(NT_REPORT *report, NT_SYMBOL_TABLE *table, 
                     break;
                 }
 
-                if (elseTmp != NULL && tmp != NULL && elseTmp != tmp)
+                if (elseTmp->objectType != NT_OBJECT_UNDEFINED &&
+                    tmp->objectType != NT_OBJECT_UNDEFINED && elseTmp != tmp)
                 {
                     char *expectTypeName =
                         ntToCharFixed(tmp->typeName->chars, tmp->typeName->length);
@@ -476,7 +477,8 @@ const NT_TYPE *ntEvalBlockReturnType(NT_REPORT *report, NT_SYMBOL_TABLE *table, 
                     ntFree(expectTypeName);
                     ntFree(currentTypeName);
                 }
-                else if (elseTmp != NULL && tmp == NULL)
+                else if (elseTmp->objectType != NT_OBJECT_UNDEFINED &&
+                         tmp->objectType != NT_OBJECT_UNDEFINED)
                     tmp = elseTmp;
             }
         }

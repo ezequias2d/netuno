@@ -42,6 +42,8 @@ const NT_TYPE *ntU64Type(void);
 const NT_TYPE *ntF32Type(void);
 const NT_TYPE *ntF64Type(void);
 
+const NT_TYPE *ntUndefinedType(void);
+const NT_TYPE *ntVoidType(void);
 const NT_TYPE *ntErrorType(void);
 
 #endif

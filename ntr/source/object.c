@@ -461,6 +461,74 @@ const NT_TYPE *ntF64Type(void)
     return &F64_TYPE;
 }
 
+static const NT_STRING *undefinedToString(NT_OBJECT *object)
+{
+    assert(object);
+    const char_t str[] = U"{UNDEFINED TYPE}";
+    return ntCopyString(str, sizeof(str) / sizeof(char_t));
+}
+
+static NT_TYPE UNDEFINED_TYPE = {
+    .object =
+        (NT_OBJECT){
+            .type = NULL,
+            .refCount = 0,
+        },
+    .objectType = NT_OBJECT_UNDEFINED,
+    .typeName = NULL,
+    .free = freeNone,
+    .string = undefinedToString,
+    .equals = NULL,
+    .stackSize = 0,
+    .instanceSize = 0,
+    .baseType = NULL,
+};
+
+const NT_TYPE *ntUndefinedType(void)
+{
+    if (UNDEFINED_TYPE.object.type == NULL)
+    {
+        UNDEFINED_TYPE.object.type = ntType();
+        UNDEFINED_TYPE.typeName = ntCopyString(U"undefined", 4);
+        ntInitSymbolTable(&UNDEFINED_TYPE.fields, NULL, STT_TYPE, 0);
+    }
+    return &UNDEFINED_TYPE;
+}
+
+static const NT_STRING *voidToString(NT_OBJECT *object)
+{
+    assert(object);
+    const char_t str[] = U"{VOID TYPE}";
+    return ntCopyString(str, sizeof(str) / sizeof(char_t));
+}
+
+static NT_TYPE VOID_TYPE = {
+    .object =
+        (NT_OBJECT){
+            .type = NULL,
+            .refCount = 0,
+        },
+    .objectType = NT_OBJECT_VOID,
+    .typeName = NULL,
+    .free = freeNone,
+    .string = voidToString,
+    .equals = NULL,
+    .stackSize = 0,
+    .instanceSize = 0,
+    .baseType = NULL,
+};
+
+const NT_TYPE *ntVoidType(void)
+{
+    if (VOID_TYPE.object.type == NULL)
+    {
+        VOID_TYPE.object.type = ntType();
+        VOID_TYPE.typeName = ntCopyString(U"void", 4);
+        ntInitSymbolTable(&VOID_TYPE.fields, NULL, STT_TYPE, 0);
+    }
+    return &VOID_TYPE;
+}
+
 static const NT_STRING *errorToString(NT_OBJECT *object)
 {
     assert(object);
