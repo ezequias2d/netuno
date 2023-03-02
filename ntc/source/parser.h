@@ -26,8 +26,9 @@ SOFTWARE.
 #define PARSER_H
 
 #include "list.h"
+#include "report.h"
+#include "scanner.h"
 #include <netuno/type.h>
-#include <scanner.h>
 #include <stdbool.h>
 
 #define strinfy(a, b) a##b
@@ -83,9 +84,9 @@ typedef struct _NT_NODE
 typedef struct _NT_PARSER
 {
     NT_SCANNER *scanner;
-    bool hadError;
     NT_TOKEN current;
     NT_TOKEN previous;
+    NT_REPORT report;
 } NT_PARSER;
 
 NT_PARSER *ntParserCreate(NT_SCANNER *scanner);

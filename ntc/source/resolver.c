@@ -427,10 +427,7 @@ const NT_TYPE *ntEvalBlockReturnType(NT_REPORT *report, NT_SYMBOL_TABLE *table, 
     if (node->expressionType)
         return node->expressionType;
 
-    if (!table)
-    {
-        ntWarningAtNode(node, "Eval block type only if has table symbol");
-    }
+    assert(table);
 
     const NT_TYPE *blockReturnType = ntUndefinedType();
 

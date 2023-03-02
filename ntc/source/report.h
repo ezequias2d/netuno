@@ -25,14 +25,20 @@ SOFTWARE.
 #ifndef NT_REPORT_H
 #define NT_REPORT_H
 
-#include "parser.h"
+#include <netuno/common.h>
 #include <stdarg.h>
 
-typedef struct
+typedef struct _NT_NODE NT_NODE;
+typedef struct _NT_TOKEN NT_TOKEN;
+typedef struct _NT_REPORT
 {
     bool had_error;
 } NT_REPORT;
 
+void ntVErrorAtToken(NT_TOKEN token, const char *message, va_list args);
+void ntErrorAtToken(NT_TOKEN token, const char *message, ...);
+void ntVWarningAtToken(NT_TOKEN token, const char *message, va_list args);
+void ntWarningAtToken(NT_TOKEN token, const char *message, ...);
 void ntVErrorAtNode(NT_REPORT *modgen, const NT_NODE *node, const char *message, va_list args);
 void ntVWarningAtNode(const NT_NODE *node, const char *message, va_list args);
 void ntErrorAtNode(NT_REPORT *modgen, const NT_NODE *node, const char *message, ...);

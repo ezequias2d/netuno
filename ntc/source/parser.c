@@ -24,6 +24,7 @@ SOFTWARE.
 */
 #include "parser.h"
 #include "list.h"
+#include "report.h"
 #include <assert.h>
 #include <netuno/memory.h>
 #include <netuno/module.h>
@@ -43,7 +44,6 @@ NT_PARSER *ntParserCreate(NT_SCANNER *scanner)
     parser->scanner = scanner;
     parser->current = parser->previous =
         (NT_TOKEN){.type = TK_NONE, .lexeme = NULL, .lexemeLength = 0, .line = -1};
-    parser->hadError = false;
 
     return parser;
 }
@@ -53,38 +53,9 @@ void ntParserDestroy(NT_PARSER *parser)
     ntFree(parser);
 }
 
-static void vErrorAt(NT_TOKEN token, const char *message, va_list args)
-{
-
-    const char *atEnd = (token.type == TK_EOF) ? " at end" : " at ";
-    char *lexeme = "";
-    bool freeLexeme = false;
-    if (token.type != TK_EOF)
-    {
-        lexeme = ntToCharFixed(token.lexeme, token.lexemeLength);
-        freeLexeme = true;
-    }
-
-    printf("[line %d] Error%s%s: ", token.line, atEnd, lexeme);
-    vprintf(message, args);
-    printf("\n");
-
-    if (freeLexeme)
-        ntFree(lexeme);
-    assert(false);
-}
-
-static void errorAt(NT_TOKEN token, const char *message, ...)
-{
-    va_list vl;
-    va_start(vl, message);
-    vErrorAt(token, message, vl);
-    va_end(vl);
-}
-
 static void vErrorAtCurret(NT_PARSER *parser, const char *message, va_list args)
 {
-    vErrorAt(parser->current, message, args);
+    ntVErrorAtToken(parser->current, message, args);
 }
 
 static void errorAtCurret(NT_PARSER *parser, const char *message, ...)
@@ -358,7 +329,7 @@ static NT_NODE *primary(NT_PARSER *parser)
         return makeVariable(name);
     }
 
-    errorAt(parser->current, "Expect expression.");
+    ntErrorAtToken(parser->current, "Expect expression.");
     return makeNode(NC_NONE, NK_NONE, parser->current, NULL, NULL);
 }
 
@@ -553,7 +524,7 @@ static NT_NODE *assignment(NT_PARSER *parser)
         if (expr->type.kind == NK_VARIABLE)
             return makeAssign(equal, expr, right);
 
-        errorAt(equal, "Invalid assignment target.");
+        ntErrorAtToken(equal, "Invalid assignment target.");
     }
 
     return expr;
@@ -616,7 +587,7 @@ static NT_NODE *functionDeclaration(NT_PARSER *parser, const bool returnValue)
             ntListAdd(parameters, param);
         } while (matchId(parser, TK_KEYWORD, ','));
     }
-    consumeId(parser, TK_KEYWORD, ')', "Expect ')' after paramters.");
+    consumeId(parser, TK_KEYWORD, ')', "Expect ')' after parameters.");
 
     NT_NODE *returnType = NULL;
     if (!returnValue)
@@ -745,7 +716,7 @@ static NT_NODE *typeOrModuleDeclarationNamed(NT_PARSER *parser, const NT_NODE_KI
     }
     break;
     default:
-        errorAt(name, "Invalid node kind, expect type or module");
+        ntErrorAtToken(name, "Invalid node kind, expect type or module");
         break;
     }
 
@@ -997,7 +968,7 @@ static NT_NODE *module(NT_PARSER *parser)
 
         if (!ntStrEqualsFixed(name.lexeme, name.lexemeLength, parser->scanner->sourceName,
                               ntStrLen(parser->scanner->sourceName)))
-            errorAt(name, "Expect the toplevel module has same name as file");
+            ntErrorAtToken(name, "Expect the toplevel module has same name as file");
     }
     // filename as module name
     else
