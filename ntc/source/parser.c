@@ -990,7 +990,7 @@ NT_NODE *ntParse(NT_PARSER *parser)
     advance(parser);
     NT_NODE *const node = module(parser);
 
-#ifdef DEBUG_TRACE_EXECUTION
+#ifndef NDEBUG
     ntPrintNode(0, node);
 #endif
 
