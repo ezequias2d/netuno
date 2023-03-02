@@ -53,16 +53,16 @@ void ntParserDestroy(NT_PARSER *parser)
     ntFree(parser);
 }
 
-static void vErrorAtCurret(NT_PARSER *parser, const char *message, va_list args)
+static void vErrorAtCurrent(NT_PARSER *parser, const char *message, va_list args)
 {
     ntVErrorAtToken(parser->current, message, args);
 }
 
-static void errorAtCurret(NT_PARSER *parser, const char *message, ...)
+static void errorAtCurrent(NT_PARSER *parser, const char *message, ...)
 {
     va_list vl;
     va_start(vl, message);
-    vErrorAtCurret(parser, message, vl);
+    vErrorAtCurrent(parser, message, vl);
     va_end(vl);
 }
 
@@ -78,7 +78,7 @@ static void advance(NT_PARSER *parser)
             break;
 
         char *lexeme = ntToCharFixed(parser->current.lexeme, parser->current.lexemeLength);
-        errorAtCurret(parser, lexeme);
+        errorAtCurrent(parser, lexeme);
         ntFree(lexeme);
     }
 }
@@ -103,7 +103,7 @@ static void consume(NT_PARSER *parser, NT_TK_TYPE type, const char *message, ...
 
     va_list vl;
     va_start(vl, message);
-    vErrorAtCurret(parser, message, vl);
+    vErrorAtCurrent(parser, message, vl);
     va_end(vl);
 }
 
@@ -116,7 +116,7 @@ static void consumeId(NT_PARSER *parser, NT_TK_TYPE type, NT_TK_ID id, const cha
     }
     va_list vl;
     va_start(vl, message);
-    vErrorAtCurret(parser, message, vl);
+    vErrorAtCurrent(parser, message, vl);
     va_end(vl);
 }
 
@@ -131,7 +131,7 @@ static void consumeId2(NT_PARSER *parser, NT_TK_TYPE type1, NT_TK_ID id1, NT_TK_
     }
     va_list vl;
     va_start(vl, message);
-    vErrorAtCurret(parser, message, vl);
+    vErrorAtCurrent(parser, message, vl);
     va_end(vl);
 }
 
@@ -342,7 +342,7 @@ static NT_NODE *finishCall(NT_PARSER *parser, NT_NODE *callee)
         do
         {
             if (ntListLen(arguments) >= 255)
-                errorAtCurret(parser, "Can't have more than 255 arguments.");
+                errorAtCurrent(parser, "Can't have more than 255 arguments.");
 
             ntListAdd(arguments, expression(parser));
         } while (matchId(parser, TK_KEYWORD, ','));
@@ -581,7 +581,7 @@ static NT_NODE *functionDeclaration(NT_PARSER *parser, const bool returnValue)
         do
         {
             if (ntListLen(parameters) >= 255)
-                errorAtCurret(parser, "Can't have more than 255 parameters.");
+                errorAtCurrent(parser, "Can't have more than 255 parameters.");
 
             NT_NODE *param = parameter(parser);
             ntListAdd(parameters, param);
@@ -593,7 +593,7 @@ static NT_NODE *functionDeclaration(NT_PARSER *parser, const bool returnValue)
     if (!returnValue)
     {
         if (matchId(parser, TK_KEYWORD, ':'))
-            errorAtCurret(parser, "Expect a subroutine to have no return type.");
+            errorAtCurrent(parser, "Expect a subroutine to have no return type.");
     }
     else
     {
@@ -631,7 +631,7 @@ static NT_NODE *variableDeclaration(NT_PARSER *parser)
 
     if (type == NULL && initializer == NULL)
     {
-        errorAtCurret(parser, "The variable must has a type or initialize.");
+        errorAtCurrent(parser, "The variable must has a type or initialize.");
         return NULL;
     }
 
