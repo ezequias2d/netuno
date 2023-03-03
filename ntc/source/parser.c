@@ -853,7 +853,12 @@ static NT_NODE *forStatement(NT_PARSER *parser, const bool returnValue)
         step = makeLiteral(stepToken, LT_I32);
     }
 
-    NT_NODE *mainBody = block(parser, KW_NEXT, returnValue);
+    NT_NODE *mainBody;
+    if (matchId(parser, TK_KEYWORD, KW_ARROW))
+        mainBody = makeSingleStatementBlock(statement(parser, returnValue));
+    else
+        mainBody = block(parser, KW_NEXT, returnValue);
+
     NT_NODE *body = mainBody;
 
     // create increment block
