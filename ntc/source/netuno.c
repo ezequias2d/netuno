@@ -144,12 +144,13 @@ NT_ASSEMBLY *ntCompile(NT_ASSEMBLY *assembly, size_t fileCount, const NT_FILE *f
         ntParserDestroy(parser);
         ntScannerDestroy(scanner);
 
-        assert(nodes[i]->userdata);
-        assert(IS_VALID_OBJECT(nodes[i]->userdata));
-        assert(((NT_OBJECT *)nodes[i]->userdata)->type->objectType == NT_OBJECT_TYPE_TYPE);
-        assert(((NT_TYPE *)nodes[i]->userdata)->objectType == NT_OBJECT_MODULE);
+        NT_MODULE *const module = (NT_MODULE *)nodes[i]->userdata;
+        assert(module);
+        assert(IS_VALID_OBJECT(module));
+        assert(IS_TYPE(module, ntModuleType()));
 
-        insertModuleSymbol(globalTable, (NT_MODULE *)nodes[i]->userdata);
+        insertModuleSymbol(globalTable, module);
+
         ntFree(filename);
     }
 
