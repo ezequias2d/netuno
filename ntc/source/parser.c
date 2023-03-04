@@ -1083,6 +1083,12 @@ static void printNode(uint32_t depth, NT_NODE *node)
             printf("%s[%s]", str, literals[node->type.literalType]);
             ntFree(str);
         }
+        else if (node->type.class == NC_TYPE)
+        {
+            char *str = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
+            printf(": %s", str);
+            ntFree(str);
+        }
         else
         {
             printf("%s ", kinds[node->type.kind]);
