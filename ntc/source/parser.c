@@ -303,13 +303,7 @@ static NT_NODE *primary(NT_PARSER *parser)
         return makeLiteral(parser->previous, LT_F64);
 
     if (match(parser, TK_STRING))
-    {
-        NT_TOKEN token = parser->previous;
-        // remove quotes
-        // token.lexeme++;
-        // token.lexemeLength -= 2;
-        return makeLiteral(token, LT_STRING);
-    }
+        return makeLiteral(parser->previous, LT_STRING);
 
     if (match(parser, TK_IDENT))
         return makeVariable(parser->previous);
