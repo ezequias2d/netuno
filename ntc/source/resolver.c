@@ -358,7 +358,7 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
         NT_SYMBOL_ENTRY entry;
         if (!ntLookupSymbol(table, node->token.lexeme, node->token.lexemeLength, NULL, &entry))
         {
-            ntErrorAtNode(report, node, "The variable must be declared.");
+            ntErrorAtNode(report, node, "The symbol must be declared.");
             break;
         }
 
@@ -652,7 +652,8 @@ static void varStatement(RESOLVER *r, const NT_NODE *node)
     {
         if (node->right == NULL)
         {
-            ntErrorAtNode(&r->report, node, "Variable must has a type or initializer.");
+            ntErrorAtNode(&r->report, node,
+                          "Variable declarations must has a type or initializer.");
             return;
         }
         type = ntEvalExprType(&r->report, r->scope, node->right);

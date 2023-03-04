@@ -1779,7 +1779,7 @@ static void variable(NT_MODGEN *modgen, const NT_NODE *node)
     NT_SYMBOL_ENTRY entry;
     if (!findSymbol(modgen, node->token.lexeme, node->token.lexemeLength, &entry))
     {
-        ntErrorAtNode(&modgen->report, node, "The variable must be declared.");
+        ntErrorAtNode(&modgen->report, node, "The symbol must be declared.");
         return;
     }
     if (((entry.type & SYMBOL_TYPE_FUNCTION) == SYMBOL_TYPE_FUNCTION) ||
@@ -1804,7 +1804,7 @@ static void variable(NT_MODGEN *modgen, const NT_NODE *node)
         break;
     default:
         ntErrorAtNode(&modgen->report, node,
-                      "The variable has a stack size incompatible with BC_LOAD_SP operation.");
+                      "The symbol value has a stack size incompatible with BC_LOAD_SP operation.");
         return;
     }
     ntWriteModuleVarint(modgen->module, delta, node->token.line);
@@ -1901,7 +1901,7 @@ static void assign(NT_MODGEN *modgen, const NT_NODE *node)
     NT_SYMBOL_ENTRY entry;
     if (!findSymbol(modgen, identifier->token.lexeme, identifier->token.lexemeLength, &entry))
     {
-        ntErrorAtNode(&modgen->report, node, "The variable must be declared.");
+        ntErrorAtNode(&modgen->report, node, "The symbol must be declared.");
         return;
     }
 
@@ -1918,7 +1918,7 @@ static void assign(NT_MODGEN *modgen, const NT_NODE *node)
     }
 
     emitAssign(modgen, node, rightType, node->left->token.lexeme, node->left->token.lexemeLength,
-               "The variable must be declared.");
+               "The symbol must be declared.");
 }
 
 static void typeToBool(NT_MODGEN *modgen, const NT_NODE *node, const NT_TYPE *type)
@@ -2437,7 +2437,8 @@ static void declareVariable(NT_MODGEN *modgen, const NT_NODE *node)
     {
         if (node->right == NULL)
         {
-            ntErrorAtNode(&modgen->report, node, "Variable must has a type or initializer.");
+            ntErrorAtNode(&modgen->report, node,
+                          "Variable declarations must has a type or initializer.");
             return;
         }
         type = ntEvalExprType(&modgen->report, modgen->scope, node->right);

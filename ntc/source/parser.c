@@ -625,7 +625,7 @@ static NT_NODE *variableDeclaration(NT_PARSER *parser)
 
     if (type == NULL && initializer == NULL)
     {
-        errorAtCurrent(parser, "The variable must has a type or initialize.");
+        errorAtCurrent(parser, "The variable declarations must has a type or initialize.");
         return NULL;
     }
 
