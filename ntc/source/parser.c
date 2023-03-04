@@ -928,6 +928,16 @@ static NT_NODE *untilStatement(NT_PARSER *parser, const bool returnValue)
     return makeUntil(token, condition, body);
 }
 
+static NT_NODE *breakStatement(NT_PARSER *parser)
+{
+    return makeNode(NC_STMT, NK_BREAK, parser->previous, NULL, NULL);
+}
+
+static NT_NODE *continueStatement(NT_PARSER *parser)
+{
+    return makeNode(NC_STMT, NK_CONTINUE, parser->previous, NULL, NULL);
+}
+
 static NT_NODE *expressionStatement(NT_PARSER *parser)
 {
     NT_NODE *expr = expression(parser);
@@ -938,6 +948,10 @@ static NT_NODE *statement(NT_PARSER *parser, const bool returnValue)
 {
     if (matchId(parser, TK_KEYWORD, KW_FOR))
         return forStatement(parser, returnValue);
+    if (matchId(parser, TK_KEYWORD, KW_BREAK))
+        return breakStatement(parser);
+    if (matchId(parser, TK_KEYWORD, KW_CONTINUE))
+        return continueStatement(parser);
     if (matchId(parser, TK_KEYWORD, KW_IF))
         return ifStatement(parser, returnValue);
     if (matchId(parser, TK_KEYWORD, KW_RETURN))
