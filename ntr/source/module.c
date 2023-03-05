@@ -144,7 +144,7 @@ void ntInitModule(NT_MODULE *module)
     ntInitArray(&module->constants);
 }
 
-static void addLine(NT_MODULE *module, const size_t offset, const size_t line)
+static void addLine(NT_MODULE *module, const size_t length, const size_t line)
 {
     bool addLine = false;
     if (module->lines.count < sizeof(NT_LINE))
@@ -154,56 +154,86 @@ static void addLine(NT_MODULE *module, const size_t offset, const size_t line)
     else
     {
         NT_LINE l;
-        ntArrayGet(&module->lines, module->lines.count - sizeof(NT_LINE), &l, sizeof(NT_LINE));
+        const size_t offset = module->lines.count - sizeof(NT_LINE);
+        ntArrayGet(&module->lines, offset, &l, sizeof(NT_LINE));
         if (l.line != line)
             addLine = true;
+        else
+        {
+            l.length += length;
+            ntArraySet(&module->lines, offset, &l, sizeof(NT_LINE));
+        }
     }
 
     if (addLine)
     {
         NT_LINE l;
-        l.start = offset;
+        l.length = length;
         l.line = line;
         ntArrayAdd(&module->lines, &l, sizeof(NT_LINE));
     }
 }
 
+static void insertLine(NT_MODULE *module, const size_t offset, const size_t length)
+{
+    const size_t count = module->lines.size / sizeof(NT_LINE);
+    assert(count);
+
+    size_t i = 0;
+    NT_LINE line;
+    ntArrayGet(&module->lines, 0, &line, sizeof(NT_LINE));
+    size_t current = line.length;
+    while (i + 1 < count && current < offset)
+    {
+        i++;
+        ntArrayGet(&module->lines, i * sizeof(NT_LINE), &line, sizeof(NT_LINE));
+        current += line.length;
+    }
+
+    line.length += length;
+    ntArraySet(&module->lines, i * sizeof(NT_LINE), &line, sizeof(NT_LINE));
+}
+
 int64_t ntGetLine(const NT_MODULE *module, const size_t offset, bool *atStart)
 {
-    NT_LINE result = {.start = 0, .line = -1};
+    NT_LINE line = {.length = 0, .line = -1};
+    size_t current = 0;
     for (size_t i = 0; i < module->lines.count; i += sizeof(NT_LINE))
     {
-        NT_LINE current;
-        ntArrayGet(&module->lines, i, &current, sizeof(NT_LINE));
-        if (current.start > offset)
+        ntArrayGet(&module->lines, i, &line, sizeof(NT_LINE));
+        current += line.length;
+        if (offset < current)
             break;
-        result = current;
     }
-    *atStart = (result.start == offset);
-    return result.line;
+    *atStart = (current - line.length == offset);
+    return line.line;
 }
 
 size_t ntWriteModule(NT_MODULE *module, const uint8_t value, const int64_t line)
 {
     size_t offset = ntArrayAdd(&module->code, &value, sizeof(uint8_t));
-    addLine(module, offset, line);
+    addLine(module, sizeof(value), line);
     return offset;
 }
 
 void ntInsertModule(NT_MODULE *module, const size_t offset, const void *data, const size_t length)
 {
     ntArrayInsert(&module->code, offset, data, length);
+    insertLine(module, offset, length);
 }
 
 void ntInsertModuleVarint(NT_MODULE *module, const size_t offset, const uint64_t value)
 {
-    ntArrayInsertVarint(&module->code, offset, value);
+    const size_t length = ntArrayInsertVarint(&module->code, offset, value);
+    insertLine(module, offset, length);
 }
 
 size_t ntWriteModuleVarint(NT_MODULE *module, const uint64_t value, const int64_t line)
 {
-    size_t offset = ntArrayAddVarint(&module->code, value);
-    addLine(module, offset, line);
+    size_t length = 0;
+    const size_t offset = ntArrayAddVarint(&module->code, value, &length);
+    assert(length);
+    addLine(module, length, line);
     return offset;
 }
 

@@ -47,10 +47,10 @@ size_t ntArrayAddI32(NT_ARRAY *array, const int32_t value);
 size_t ntArrayAddU32(NT_ARRAY *array, const uint32_t value);
 size_t ntArrayAddI64(NT_ARRAY *array, const int64_t value);
 size_t ntArrayAddU64(NT_ARRAY *array, const uint64_t value);
-size_t ntArrayAddVarint(NT_ARRAY *array, const uint64_t value);
+size_t ntArrayAddVarint(NT_ARRAY *array, const uint64_t value, size_t *size);
 
 void ntArrayInsert(NT_ARRAY *array, size_t offset, const void *data, size_t dataSize);
-void ntArrayInsertVarint(NT_ARRAY *array, size_t offset, const uint64_t value);
+size_t ntArrayInsertVarint(NT_ARRAY *array, size_t offset, const uint64_t value);
 
 size_t ntArrayGet(const NT_ARRAY *array, const size_t offset, void *data, size_t dataSize);
 void ntArrayGetString(const NT_ARRAY *array, size_t offset, char_t *data, size_t *dataSize);

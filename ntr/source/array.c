@@ -93,11 +93,12 @@ void ntArrayInsert(NT_ARRAY *array, size_t offset, const void *data, size_t data
     array->count += dataSize;
 }
 
-void ntArrayInsertVarint(NT_ARRAY *array, size_t offset, const uint64_t value)
+size_t ntArrayInsertVarint(NT_ARRAY *array, size_t offset, const uint64_t value)
 {
     uint8_t tmp[10];
     const size_t size = ntEncodeVarint(tmp, sizeof(uint8_t) * 10, ZigZagEncoding(value));
     ntArrayInsert(array, offset, tmp, size);
+    return size;
 }
 
 size_t ntArrayAdd(NT_ARRAY *array, const void *data, size_t dataSize)
@@ -117,7 +118,7 @@ size_t ntArrayAdd(NT_ARRAY *array, const void *data, size_t dataSize)
     return offset;
 }
 
-size_t ntArrayAddVarint(NT_ARRAY *array, const uint64_t value)
+size_t ntArrayAddVarint(NT_ARRAY *array, const uint64_t value, size_t *size)
 {
     uint8_t *dst = array->data + array->count;
     size_t write = ntEncodeVarint(dst, array->size - array->count, ZigZagEncoding(value));
@@ -131,6 +132,8 @@ size_t ntArrayAddVarint(NT_ARRAY *array, const uint64_t value)
     }
     const size_t offset = array->count;
     array->count += write;
+    if (size)
+        *size = write;
     return offset;
 }
 

@@ -32,7 +32,7 @@ SOFTWARE.
 
 typedef struct _NT_LINE
 {
-    size_t start;
+    size_t length;
     size_t line;
 } NT_LINE;
 
