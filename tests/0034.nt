@@ -1,0 +1,23 @@
+def main()
+  var x = 0
+
+  while true => break
+
+  until false
+    break
+  next
+
+  until false
+    if x == 5 => break
+    x = x + 1
+  next
+
+  while true
+    if x == 10
+      break
+    next
+    x = x + 1
+  next
+
+  return x - 10
+end
