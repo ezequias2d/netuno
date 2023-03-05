@@ -2472,6 +2472,7 @@ static void declareVariable(NT_MODGEN *modgen, const NT_NODE *node)
             ntErrorAtNode(&modgen->report, node, "CODEGEN invalid stackSize!");
             return;
         }
+        push(modgen, node, type);
     }
 
     const NT_STRING *varName = ntCopyString(node->token.lexeme, node->token.lexemeLength);
