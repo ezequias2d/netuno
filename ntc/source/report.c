@@ -109,10 +109,10 @@ void ntWarningAtToken(NT_TOKEN token, const char *message, ...)
     va_end(vl);
 }
 
-void ntVErrorAtNode(NT_REPORT *modgen, const NT_NODE *node, const char *message, va_list args)
+void ntVErrorAtNode(NT_REPORT *report, const NT_NODE *node, const char *message, va_list args)
 {
     ntVErrorAtToken(node->token, message, args);
-    modgen->had_error = true;
+    report->had_error = true;
 }
 
 void ntVWarningAtNode(const NT_NODE *node, const char *message, va_list args)
@@ -120,11 +120,11 @@ void ntVWarningAtNode(const NT_NODE *node, const char *message, va_list args)
     ntWarningAtToken(node->token, message, args);
 }
 
-void ntErrorAtNode(NT_REPORT *modgen, const NT_NODE *node, const char *message, ...)
+void ntErrorAtNode(NT_REPORT *report, const NT_NODE *node, const char *message, ...)
 {
     va_list vl;
     va_start(vl, message);
-    ntVErrorAtNode(modgen, node, message, vl);
+    ntVErrorAtNode(report, node, message, vl);
     va_end(vl);
 }
 

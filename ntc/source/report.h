@@ -39,9 +39,9 @@ void ntVErrorAtToken(NT_TOKEN token, const char *message, va_list args);
 void ntErrorAtToken(NT_TOKEN token, const char *message, ...);
 void ntVWarningAtToken(NT_TOKEN token, const char *message, va_list args);
 void ntWarningAtToken(NT_TOKEN token, const char *message, ...);
-void ntVErrorAtNode(NT_REPORT *modgen, const NT_NODE *node, const char *message, va_list args);
+void ntVErrorAtNode(NT_REPORT *report, const NT_NODE *node, const char *message, va_list args);
 void ntVWarningAtNode(const NT_NODE *node, const char *message, va_list args);
-void ntErrorAtNode(NT_REPORT *modgen, const NT_NODE *node, const char *message, ...);
+void ntErrorAtNode(NT_REPORT *report, const NT_NODE *node, const char *message, ...);
 void ntWarningAtNode(const NT_NODE *node, const char *message, ...);
 
 #endif
