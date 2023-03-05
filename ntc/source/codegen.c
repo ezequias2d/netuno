@@ -2376,6 +2376,10 @@ static void conditionalLoopStatement(NT_MODGEN *modgen, const NT_NODE *node, boo
 
     // loop:
     const NT_STRING *loopLabel = genLabel(modgen);
+    modgen->scope->loopLabel = loopLabel;
+
+    const NT_STRING *breakLabel = genString(modgen, U"$");
+    modgen->scope->breakLabel = breakLabel;
 
     // check condition
     const NT_TYPE *conditionType;
@@ -2396,8 +2400,11 @@ static void conditionalLoopStatement(NT_MODGEN *modgen, const NT_NODE *node, boo
     push(modgen, node, conditionType);
     emitPop(modgen, node, conditionType);
 
+    // break:
+    addLabel(modgen, breakLabel);
+
     // free label
-    ntFreeObject((NT_OBJECT *)loopLabel);
+    ntFreeObject((NT_OBJECT *)exitLabel);
 
     endScope(modgen, node, true);
 }
@@ -2686,6 +2693,58 @@ static void returnStatement(NT_MODGEN *modgen, const NT_NODE *node, const NT_TYP
     emit(modgen, node, BC_RETURN);
 }
 
+static void breakStatement(NT_MODGEN *modgen, const NT_NODE *node)
+{
+    ensureStmt(node, NK_BREAK);
+
+    const NT_SYMBOL_TABLE *breakScope = modgen->scope;
+    while (breakScope && !(breakScope->type & STT_BREAKABLE))
+    {
+        breakScope = breakScope->parent;
+    }
+
+    if (!breakScope)
+    {
+        ntErrorAtNode(&modgen->report, node,
+                      "Invalid break statement, break is not in a breakable scope!");
+        return;
+    }
+
+    assert(breakScope->breakLabel);
+
+    modgen->scope->breaked = true;
+    const size_t scopeSize = modgen->stack->sp - (size_t)breakScope->data;
+    emitPartialFixedPop(modgen, node, scopeSize);
+
+    emitBranchLabel(modgen, node, BC_BRANCH, breakScope->breakLabel);
+}
+
+static void continueStatement(NT_MODGEN *modgen, const NT_NODE *node)
+{
+    ensureStmt(node, NK_CONTINUE);
+
+    const NT_SYMBOL_TABLE *continueScope = modgen->scope;
+    while (continueScope && !(continueScope->type & STT_BREAKABLE))
+    {
+        continueScope = continueScope->parent;
+    }
+
+    if (!continueScope)
+    {
+        ntErrorAtNode(&modgen->report, node,
+                      "Invalid break statement, break is not in a breakable scope!");
+        return;
+    }
+
+    assert(continueScope->loopLabel);
+
+    modgen->scope->continued = true;
+    const size_t scopeSize = modgen->stack->sp - (size_t)continueScope->data;
+    emitPartialFixedPop(modgen, node, scopeSize);
+
+    emitBranchLabel(modgen, node, BC_BRANCH, continueScope->loopLabel);
+}
+
 static void statement(NT_MODGEN *modgen, const NT_NODE *node, const NT_TYPE **returnType)
 {
     *returnType = NULL;
@@ -2717,6 +2776,12 @@ static void statement(NT_MODGEN *modgen, const NT_NODE *node, const NT_TYPE **re
         break;
     case NK_RETURN:
         returnStatement(modgen, node, returnType);
+        break;
+    case NK_BREAK:
+        breakStatement(modgen, node);
+        break;
+    case NK_CONTINUE:
+        continueStatement(modgen, node);
         break;
     default: {
         const char *const label = ntGetKindLabel(node->type.kind);

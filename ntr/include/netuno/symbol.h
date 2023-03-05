@@ -43,11 +43,16 @@ typedef struct _NT_SYMBOL_TABLE NT_SYMBOL_TABLE;
 struct _NT_SYMBOL_TABLE
 {
     NT_SYMBOL_TABLE *parent;
-    void *data;
+    void *data; // frame top
+    bool breaked;
+    bool continued;
     uint32_t count;
     const NT_TYPE *scopeReturnType;
     NT_SYMBOL_TABLE_TYPE type;
     NT_ARRAY *table;
+
+    const NT_STRING *breakLabel;
+    const NT_STRING *loopLabel;
 };
 
 typedef enum

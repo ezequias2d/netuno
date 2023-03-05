@@ -43,12 +43,22 @@ void ntInitSymbolTable(NT_SYMBOL_TABLE *symbolTable, NT_SYMBOL_TABLE *parent,
     symbolTable->type = type;
     symbolTable->table = ntCreateArray();
     symbolTable->scopeReturnType = NULL;
+    symbolTable->breaked = false;
+    symbolTable->continued = false;
+    symbolTable->breakLabel = NULL;
+    symbolTable->loopLabel = NULL;
 }
 
 void ntDeinitSymbolTable(NT_SYMBOL_TABLE *symbolTable)
 {
     assert(symbolTable);
     ntFreeArray(symbolTable->table);
+
+    if (symbolTable->loopLabel)
+        ntFreeObject((NT_OBJECT *)symbolTable->loopLabel);
+
+    if (symbolTable->breakLabel)
+        ntFreeObject((NT_OBJECT *)symbolTable->breakLabel);
 }
 
 void ntFreeSymbolTable(NT_SYMBOL_TABLE *symbolTable)
