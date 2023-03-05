@@ -2244,12 +2244,15 @@ static void expression(NT_MODGEN *modgen, const NT_NODE *node, const bool needVa
 
 static void expressionStatement(NT_MODGEN *modgen, const NT_NODE *node)
 {
+    assert(node);
     assert(node->type.class == NC_STMT);
     assert(node->type.kind == NK_EXPR);
+    assert(node->left);
+    assert(node->left->type.class == NC_EXPR);
 
     expression(modgen, node->left, false);
-    if (node->expressionType)
-        emitPop(modgen, node, node->expressionType);
+    if (node->left->expressionType)
+        emitPop(modgen, node, node->left->expressionType);
 }
 
 static void statement(NT_MODGEN *modgen, const NT_NODE *node, const NT_TYPE **returnType);
