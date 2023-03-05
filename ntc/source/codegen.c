@@ -2578,10 +2578,10 @@ static void declareFunction(NT_MODGEN *modgen, const NT_NODE *node, const bool r
             switch (returnType->stackSize)
             {
             case sizeof(uint32_t):
-                emit(modgen, node, BC_ZERO_32);
+                emit(modgen, node, BC_ONE_32);
                 break;
             case sizeof(uint64_t):
-                emit(modgen, node, BC_ZERO_64);
+                emit(modgen, node, BC_ONE_64);
                 break;
             default:
                 ntErrorAtNode(&modgen->report, node, "CODEGEN invalid stackSize for return type!");
