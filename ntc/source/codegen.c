@@ -323,7 +323,7 @@ static void beginScope(NT_MODGEN *modgen, NT_SYMBOL_TABLE_TYPE type)
 {
     modgen->scope = ntCreateSymbolTable(modgen->scope, type, (void *)modgen->stack->sp);
 
-    if (type == STT_FUNCTION || type == STT_METHOD)
+    if (type & (STT_FUNCTION | STT_METHOD))
         modgen->functionScope = modgen->scope;
 }
 
@@ -471,11 +471,11 @@ static void endScope(NT_MODGEN *modgen, const NT_NODE *node, bool emitPop)
     NT_SYMBOL_TABLE *const oldScope = modgen->scope;
     modgen->scope = oldScope->parent;
 
-    if (oldScope->type == STT_FUNCTION || oldScope->type == STT_METHOD)
+    if (oldScope->type & (STT_FUNCTION | STT_METHOD))
     {
         modgen->functionScope = oldScope->parent;
-        while (modgen->functionScope != NULL && modgen->functionScope->type != STT_FUNCTION &&
-               modgen->functionScope->type != STT_METHOD)
+        while (modgen->functionScope != NULL &&
+               !(modgen->functionScope->type & (STT_FUNCTION | STT_METHOD)))
         {
             modgen->functionScope = modgen->functionScope->parent;
         }
@@ -1824,7 +1824,7 @@ static void emitAssign32(NT_MODGEN *modgen, const NT_NODE *node, const char_t *v
         va_end(vl);
     }
 
-    if (table->type == STT_TYPE)
+    if (table->type & STT_TYPE)
     {
         NT_MODULE *module = (NT_MODULE *)table->data;
 
@@ -2490,12 +2490,12 @@ static void endFunctionScope(NT_MODGEN *modgen, const NT_NODE *node, const NT_TY
                              bool isEndScope)
 {
     const NT_SYMBOL_TABLE *functionScope = modgen->scope;
-    while (functionScope->type != STT_FUNCTION && functionScope->type != STT_METHOD)
+    while (!(functionScope->type & (STT_FUNCTION | STT_METHOD)))
     {
         functionScope = functionScope->parent;
     }
 
-    if (functionScope->type == STT_FUNCTION)
+    if (functionScope->type & STT_FUNCTION)
     {
         if (node->left == NULL)
         {
@@ -2505,7 +2505,8 @@ static void endFunctionScope(NT_MODGEN *modgen, const NT_NODE *node, const NT_TY
         assert(node->left);
 
         const NT_TYPE *type = ntEvalExprType(&modgen->report, modgen->scope, node->left);
-        if (modgen->scope->scopeReturnType == NULL)
+        if (modgen->scope->scopeReturnType == NULL ||
+            modgen->scope->scopeReturnType == ntUndefinedType())
             modgen->scope->scopeReturnType = type;
 
         assert(modgen->scope->scopeReturnType == type);
@@ -2531,7 +2532,7 @@ static void endFunctionScope(NT_MODGEN *modgen, const NT_NODE *node, const NT_TY
 
     if (isEndScope)
     {
-        while (modgen->scope->type != STT_FUNCTION && modgen->scope->type != STT_METHOD)
+        while (!(modgen->scope->type & (STT_FUNCTION | STT_METHOD)))
         {
             NT_SYMBOL_TABLE *oldScope = modgen->scope;
             modgen->scope = oldScope->parent;
