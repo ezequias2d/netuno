@@ -80,6 +80,7 @@ NT_CODEGEN *ntCreateCodegen(NT_ASSEMBLY *assembly)
 {
     NT_CODEGEN *codegen = (NT_CODEGEN *)ntMalloc(sizeof(NT_CODEGEN));
     codegen->assembly = assembly;
+    codegen->had_error = false;
     return codegen;
 }
 
