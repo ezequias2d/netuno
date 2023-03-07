@@ -89,6 +89,27 @@ int main(int argc, char **argv)
         return 2;
     }
 
+    if (argc == 2 && (strcmp(argv[1], "-v") || strcmp(argv[1], "--version")))
+    {
+        const char *logo =
+            "     ╗m@@@@@%╗µ                                                                 \n"
+            "  ≥@ÑÑÑÑÑÑÑÑÑÑÑÑN                                                               \n"
+            " åÑÑÑÑÑÑ╜²\"   ª╜%Ñµ                                                             \n"
+            "åÑÑÑÑ╨            ²⌂    ▄▄▄   ▄▄⌂ ▄▄▄▄▄▄▄¡▄▄▄▄▄▄▄¿▄▄⌂   ▄▄  ▄▄▄   ▄▄   ,▄▄▄▄▄,  \n"
+            "ÑÑÑÑ               █▄   ███▌  ██H ██▀▀▀▀\"▀▀▀██▀▀▀\"██∞   ██ j███▄  ██  ▄█▀▀▀▀▀██▄\n"
+            "jÑM                ██▄  ██▐██ ██H ██▄▄▄▄    ▐█▌   ██∞   ██ j██▀█▄ ██ ██▀     '██\n"
+            " %H              .████  ██ ▐████H ██\"\"\"     ▐█▌   ██    ██ j██ ▐█▌██ ▀█▌     ,██\n"
+            "  »,           .▄████▌  ██  \"███H ██▄▄▄▄▄   ▐█▌   ▐██▄▄██▀ j██  ▐███  ▀██▄▄▄██▀ \n"
+            "   ▀█▄▄▄;  µ▄▄███████.  ²²   :²². ²²²²²²²   ²²      ²?▀╙.   ²²   ²²²     \"▀▀    \n"
+            "    ▀██████████████▀                                                            \n"
+            "      ²▀████████▀▀                                                              \n";
+        printf(
+            "%s\nNatch (ntc, Netuno Compiler) 0.1.0-alpha\nCopyright (C) 2023 Ezequias Moises dos "
+            "Santos Silva\n",
+            logo);
+        return 0;
+    }
+
     const size_t count = argc - 1;
     NT_FILE *files = (NT_FILE *)ntMalloc(sizeof(NT_FILE) * count);
 
