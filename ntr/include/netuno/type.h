@@ -29,10 +29,10 @@ SOFTWARE.
 #include <netuno/common.h>
 #include <netuno/object.h>
 
-#define IS_TYPE(obj, type) (((NT_OBJECT *)(obj))->type == (type))
-#define IS_VALID_TYPE(type)                                                                        \
-    ((type) && ((NT_TYPE *)(type))->objectType >= NT_OBJECT_ERROR &&                               \
-     ((NT_TYPE *)(type))->objectType <= NT_OBJECT_TYPE_MAX)
+#define IS_TYPE(obj, ptype) (((NT_OBJECT *)(obj))->type == (ptype))
+#define IS_VALID_TYPE(ptype)                                                                       \
+    ((ptype) && ((NT_TYPE *)(ptype))->objectType >= NT_OBJECT_ERROR &&                             \
+     ((NT_TYPE *)(ptype))->objectType <= NT_OBJECT_TYPE_MAX)
 
 typedef enum
 {
