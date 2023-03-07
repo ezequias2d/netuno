@@ -1,0 +1,19 @@
+def main()
+    var maxI32: int   =  2147483647i
+    var minI32: int   = -2147483648i
+    var onei = minI32 + maxI32         ; -1
+
+    var maxU32: uint  = 4294967295u
+    var minU32: uint  = 0u
+    var zerou = minU32 + maxU32 + 1u   ;  0
+
+    var maxI64: long  =  9223372036854775807l
+    var minI64: long  = -9223372036854775808l
+    var onel = minI64 + maxI64         ; -1
+
+    var maxU64: ulong = 18446744073709551615ul
+    var minU64: ulong = 0ul
+    var zeroul = minU64 + maxU64 + 1ul ;  0
+
+    return int(onei) - int(onel) + int(zerou) + int(zeroul) ; 0
+  end
