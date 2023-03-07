@@ -311,6 +311,7 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
             ntErrorAtNode(report, node, "Invalid logical operation. %d", node->token.id);
             return NULL;
         }
+        break;
     case NK_GET: {
         const NT_TYPE *type = ntEvalExprType(report, table, node->left);
         assert(type);
@@ -375,7 +376,6 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
         node->expressionType = entry.exprType;
         break;
     }
-    break;
     case NK_ASSIGN: {
         if (left != right)
         {
@@ -392,7 +392,6 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
         node->expressionType = left;
         break;
     }
-    break;
     default:
         ntErrorAtNode(report, node, "AST invalid format, node kind cannot be %s!",
                       ntGetKindLabel(node->type.kind));
