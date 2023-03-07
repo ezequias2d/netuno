@@ -630,8 +630,7 @@ static const NT_TYPE *findType(NT_MODGEN *modgen, const NT_NODE *typeNode)
         // primitive
         switch (name->id)
         {
-        case KW_TRUE:
-        case KW_FALSE:
+        case KW_BOOL:
             return ntBoolType();
         case KW_I32:
             return ntI32Type();

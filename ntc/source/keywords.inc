@@ -79,6 +79,7 @@ keyword(KW_TRUE, U"true")
 keyword(KW_FALSE, U"false")
 keyword(KW_NONE, U"none")
 
+keyword(KW_BOOL, U"bool")
 keyword(KW_I32, U"int")
 keyword(KW_U32, U"uint")
 keyword(KW_I64, U"long")

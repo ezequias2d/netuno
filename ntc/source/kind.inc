@@ -55,6 +55,7 @@ kind(MODULE)
 kind(IMPORT)
 
 // type
+kind(BOOL)
 kind(U32)
 kind(U64)
 kind(I32)
