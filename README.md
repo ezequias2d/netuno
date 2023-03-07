@@ -47,8 +47,8 @@ Progress
 - [x] Notable Bytecode Codegen
   - [x] Conditional
   - [x] Loops
-  - [ ] Break
-  - [ ] Continue
+  - [x] Break
+  - [x] Continue
   - [x] Import
   - [x] Variable
   - [x] Module
