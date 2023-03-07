@@ -138,7 +138,7 @@ char_t *ntDelegateTypeName(const NT_TYPE *returnType, size_t paramCount, const N
     ntInitArray(&array);
 
     const char_t *const delegate = U"delegate(";
-    ntArrayAdd(&array, delegate, ntStrLen(delegate));
+    ntArrayAdd(&array, delegate, sizeof(char_t) * ntStrLen(delegate));
     for (size_t i_param = 0; i_param < paramCount; ++i_param)
     {
         const NT_PARAM *param = &params[i_param];
@@ -146,13 +146,14 @@ char_t *ntDelegateTypeName(const NT_TYPE *returnType, size_t paramCount, const N
         const NT_STRING *typeName = param->type->typeName;
         ntArrayAdd(&array, typeName->chars, typeName->length * sizeof(char_t));
     }
-    ntArrayAdd(&array, L")", sizeof(char_t));
+    ntArrayAdd(&array, U")", sizeof(char_t));
 
     if (returnType)
     {
         assert(returnType->typeName);
-        ntArrayAdd(&array, L":", sizeof(char_t));
-        ntArrayAdd(&array, returnType->typeName->chars, returnType->typeName->length);
+        ntArrayAdd(&array, U":", sizeof(char_t));
+        ntArrayAdd(&array, returnType->typeName->chars,
+                   sizeof(char_t) * returnType->typeName->length);
     }
 
     const char_t term = '\0';
