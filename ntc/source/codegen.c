@@ -1134,6 +1134,7 @@ static void cast(NT_MODGEN *modgen, const NT_NODE *node, const NT_TYPE *from, co
         switch (to->objectType)
         {
         case NT_OBJECT_I32:
+        case NT_OBJECT_U32:
             break;
         case NT_OBJECT_I64:
         case NT_OBJECT_U64:
@@ -1155,6 +1156,7 @@ static void cast(NT_MODGEN *modgen, const NT_NODE *node, const NT_TYPE *from, co
     case NT_OBJECT_U32:
         switch (to->objectType)
         {
+        case NT_OBJECT_I32:
         case NT_OBJECT_U32:
             break;
         case NT_OBJECT_I64:
@@ -1178,6 +1180,7 @@ static void cast(NT_MODGEN *modgen, const NT_NODE *node, const NT_TYPE *from, co
         switch (to->objectType)
         {
         case NT_OBJECT_I64:
+        case NT_OBJECT_U64:
             break;
         case NT_OBJECT_I32:
         case NT_OBJECT_U32:
@@ -1199,6 +1202,7 @@ static void cast(NT_MODGEN *modgen, const NT_NODE *node, const NT_TYPE *from, co
     case NT_OBJECT_U64:
         switch (to->objectType)
         {
+        case NT_OBJECT_I64:
         case NT_OBJECT_U64:
             break;
         case NT_OBJECT_I32:
