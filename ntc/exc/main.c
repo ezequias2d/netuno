@@ -32,6 +32,7 @@ SOFTWARE.
 #include <netuno/vm.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 static char *readFile(const char *filepath, size_t *length)
 {
@@ -89,20 +90,25 @@ int main(int argc, char **argv)
     }
 
     const size_t count = argc - 1;
-    NT_FILE *files = (NT_FILE *)ntMalloc(sizeof(NT_FILE *) * count);
+    NT_FILE *files = (NT_FILE *)ntMalloc(sizeof(NT_FILE) * count);
 
     for (size_t i = 0; i < count; ++i)
     {
-        char_t *filepath = ntToCharT(argv[1]);
+        char_t *filepath = ntToCharT(argv[i + 1]);
         size_t length;
-        char *code = readFile(argv[1], &length);
+        char *code = readFile(argv[i + 1], &length);
         if (code == NULL)
         {
-            printf("Error: could not open file %s\n", argv[1]);
+            printf("Error: could not open file %s\n", argv[i + 1]);
             return 1;
         }
 
         char_t *codet = ntToCharTFixed(code, length);
+        if (!codet)
+        {
+            printf("Fail to covert file %s to UTF-32.\n", argv[i + 1]);
+            return 2;
+        }
         ntFree(code);
 
         files[i] = (NT_FILE){
@@ -127,7 +133,23 @@ int main(int argc, char **argv)
         printf("Error: No entry point main!\n");
         return -1234;
     }
-    ntRun(vm, assembly, entryPoint);
+    NT_RESULT vmResult = ntRun(vm, assembly, entryPoint);
+    if (vmResult != NT_OK)
+    {
+        switch (vmResult)
+        {
+        case NT_STACK_OVERFLOW:
+            printf("Stack Overflow!\n");
+            break;
+        case NT_RUNTIME_ERROR:
+            printf("Runtime Error!\n");
+            break;
+        default:
+            printf("Unknow Error Code %d\n", vmResult);
+            break;
+        }
+        return INT32_MAX;
+    }
 
     uint32_t result = INT32_MAX;
     if (!ntPop32(vm, &result))
