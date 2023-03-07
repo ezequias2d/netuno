@@ -1,0 +1,10 @@
+def main()
+    var x = 1
+    if !x
+        return 1
+    else if true
+        return 0
+    else
+        return 2
+    next
+end

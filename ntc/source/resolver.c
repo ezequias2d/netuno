@@ -417,6 +417,71 @@ static void endScope(RESOLVER *r)
     r->scope = oldScope->parent;
 }
 
+static const NT_TYPE *evalIfReturnType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE *node)
+{
+    NT_NODE *const thenBranch = node->left;
+    assert(thenBranch->type.class == NC_STMT);
+
+    const NT_TYPE *type = ntUndefinedType();
+
+    switch (thenBranch->type.kind)
+    {
+    case NK_BLOCK:
+        type = ntEvalBlockReturnType(report, NULL, thenBranch);
+        break;
+    case NK_RETURN:
+        assert(thenBranch->left);
+        assert(thenBranch->left->type.class == NC_EXPR);
+        type = ntEvalExprType(report, table, thenBranch->left);
+        break;
+    default:
+        break;
+    }
+
+    NT_NODE *const elseBranch = node->right;
+
+    if (elseBranch)
+    {
+        const NT_TYPE *elseType = NULL;
+        switch (elseBranch->type.kind)
+        {
+        case NK_IF:
+            elseType = evalIfReturnType(report, table, elseBranch);
+            break;
+        case NK_BLOCK:
+            elseType = ntEvalBlockReturnType(report, NULL, elseBranch);
+            break;
+        case NK_RETURN:
+            assert(elseBranch->left);
+            assert(elseBranch->left->type.class == NC_EXPR);
+            elseType = ntEvalExprType(report, table, elseBranch->left);
+            break;
+        default:
+            break;
+        }
+
+        if (elseType->objectType != NT_OBJECT_UNDEFINED &&
+            type->objectType != NT_OBJECT_UNDEFINED && elseType != type)
+        {
+            char *expectTypeName = ntToCharFixed(type->typeName->chars, type->typeName->length);
+            char *currentTypeName =
+                ntToCharFixed(elseType->typeName->chars, elseType->typeName->length);
+            // more than one type as return
+            ntErrorAtNode(report, node,
+                          "The same type must be used in all return statements of if branches, "
+                          "expect type is %s, not %s",
+                          expectTypeName, currentTypeName);
+            ntFree(expectTypeName);
+            ntFree(currentTypeName);
+        }
+        else if (elseType->objectType != NT_OBJECT_UNDEFINED &&
+                 type->objectType != NT_OBJECT_UNDEFINED)
+            type = elseType;
+    }
+
+    return type;
+}
+
 const NT_TYPE *ntEvalBlockReturnType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE *node)
 {
     assert(node->type.class == NC_STMT);
@@ -435,12 +500,6 @@ const NT_TYPE *ntEvalBlockReturnType(NT_REPORT *report, NT_SYMBOL_TABLE *table, 
         const NT_TYPE *tmp = ntUndefinedType();
         assert(stmt->type.class == NC_STMT);
 
-        if (i == 2)
-        {
-            int a = 1;
-            assert(a);
-        }
-
         switch (stmt->type.kind)
         {
         case NK_RETURN:
@@ -449,61 +508,9 @@ const NT_TYPE *ntEvalBlockReturnType(NT_REPORT *report, NT_SYMBOL_TABLE *table, 
         case NK_BLOCK:
             tmp = ntEvalBlockReturnType(report, NULL, stmt);
             break;
-        case NK_IF: {
-            assert(stmt->left->type.class == NC_STMT);
-            switch (stmt->left->type.kind)
-            {
-            case NK_BLOCK:
-                tmp = ntEvalBlockReturnType(report, NULL, stmt->left);
-                break;
-            case NK_RETURN:
-                assert(stmt->left->left);
-                assert(stmt->left->left->type.class == NC_EXPR);
-                tmp = ntEvalExprType(report, table, stmt->left->left);
-                break;
-            default:
-                break;
-            }
-
-            if (stmt->right) // else branch
-            {
-                const NT_TYPE *elseTmp = NULL;
-                switch (stmt->right->type.kind)
-                {
-                case NK_BLOCK:
-                    elseTmp = ntEvalBlockReturnType(report, NULL, stmt->right);
-                    break;
-                case NK_RETURN:
-                    assert(stmt->right->left);
-                    assert(stmt->right->left->type.class == NC_EXPR);
-                    elseTmp = ntEvalExprType(report, table, stmt->right->left);
-                    break;
-                default:
-                    break;
-                }
-
-                if (elseTmp->objectType != NT_OBJECT_UNDEFINED &&
-                    tmp->objectType != NT_OBJECT_UNDEFINED && elseTmp != tmp)
-                {
-                    char *expectTypeName =
-                        ntToCharFixed(tmp->typeName->chars, tmp->typeName->length);
-                    char *currentTypeName =
-                        ntToCharFixed(elseTmp->typeName->chars, elseTmp->typeName->length);
-                    // more than one type as return
-                    ntErrorAtNode(
-                        report, stmt,
-                        "The same type must be used in all return statements of if branches, "
-                        "expect type is %s, not %s",
-                        expectTypeName, currentTypeName);
-                    ntFree(expectTypeName);
-                    ntFree(currentTypeName);
-                }
-                else if (elseTmp->objectType != NT_OBJECT_UNDEFINED &&
-                         tmp->objectType != NT_OBJECT_UNDEFINED)
-                    tmp = elseTmp;
-            }
-        }
-        break;
+        case NK_IF:
+            tmp = evalIfReturnType(report, table, stmt);
+            break;
         case NK_WHILE:
         case NK_UNTIL:
             assert(stmt->left->type.class == NC_STMT);
