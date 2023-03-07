@@ -692,8 +692,6 @@ static void number(NT_MODGEN *modgen, const NT_NODE *node)
     switch (node->token.type)
     {
     case TK_I32:
-        sscanf(str, "%i", (int32_t *)&u32);
-        break;
     case TK_U32:
         sscanf(str, "%u", &u32);
         break;
@@ -701,8 +699,6 @@ static void number(NT_MODGEN *modgen, const NT_NODE *node)
         sscanf(str, "%f", (float *)&u32);
         break;
     case TK_I64:
-        sscanf(str, "%li", (int64_t *)&u64);
-        break;
     case TK_U64:
         sscanf(str, "%lu", &u64);
         break;
