@@ -89,7 +89,7 @@ int main(int argc, char **argv)
         return 2;
     }
 
-    if (argc == 2 && (strcmp(argv[1], "-v") || strcmp(argv[1], "--version")))
+    if (argc == 2 && (strcmp(argv[1], "-v") == 0 || strcmp(argv[1], "--version") == 0))
     {
         const char *logo =
             "     ╗m@@@@@%╗µ                                                                 \n"
