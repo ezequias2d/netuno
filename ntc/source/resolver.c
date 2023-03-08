@@ -706,13 +706,16 @@ static void returnStatement(RESOLVER *r, const NT_NODE *node, const NT_TYPE **re
 {
     assert(node->type.class == NC_STMT && node->type.kind == NK_RETURN);
 
-    const NT_TYPE *const type = ntEvalExprType(&r->report, r->scope, node->left);
-    assert(type);
-    assert(IS_VALID_TYPE(type));
-    assert(type->objectType != NT_OBJECT_VOID);
-    assert(type->objectType != NT_OBJECT_UNDEFINED);
+    if (node->left)
+    {
+        const NT_TYPE *const type = ntEvalExprType(&r->report, r->scope, node->left);
+        assert(type);
+        assert(IS_VALID_TYPE(type));
+        assert(type->objectType != NT_OBJECT_VOID);
+        assert(type->objectType != NT_OBJECT_UNDEFINED);
 
-    *returnType = type;
+        *returnType = type;
+    }
 
     endFunctionScope(r, node, returnType, false);
 }
