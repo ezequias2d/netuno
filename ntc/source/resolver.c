@@ -26,7 +26,6 @@ SOFTWARE.
 #include "netuno/object.h"
 #include "netuno/symbol.h"
 #include "netuno/type.h"
-#include "report.h"
 #include <assert.h>
 #include <netuno/memory.h>
 #include <netuno/str.h>
@@ -150,7 +149,7 @@ static const NT_TYPE *findType(RESOLVER *r, NT_NODE *typeNode)
             char *lexeme = ntToCharFixed(name->lexeme, name->lexemeLength);
             ntErrorAtNode(&r->report, typeNode, "The type '%s' don't exist.", lexeme);
             ntFree(lexeme);
-            return NULL;
+            return ntErrorType();
         }
 
         if (entry.type != SYMBOL_TYPE_TYPE)
@@ -158,7 +157,7 @@ static const NT_TYPE *findType(RESOLVER *r, NT_NODE *typeNode)
             char *lexeme = ntToCharFixed(name->lexeme, name->lexemeLength);
             ntErrorAtNode(&r->report, typeNode, "The identifier '%s' is not a type.", lexeme);
             ntFree(lexeme);
-            return NULL;
+            return ntErrorType();
         }
         return entry.exprType;
     }
@@ -228,7 +227,8 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
             break;
         default:
             ntErrorAtNode(report, node, "Invalid literal type! '%d'", node->type.literalType);
-            return NULL;
+            node->expressionType = ntErrorType();
+            break;
         }
         break;
     case NK_UNARY:
@@ -253,12 +253,14 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
                 ntErrorAtNode(
                     report, node,
                     "Invalid type for '~' operation! Must be a integer(i32, i64, u32 or u64).");
-                return NULL;
+                node->expressionType = ntErrorType();
+                break;
             }
             break;
         default:
             ntErrorAtNode(report, node, "Invalid unary operator!");
-            return NULL;
+            node->expressionType = ntErrorType();
+            break;
         }
         break;
     case NK_BINARY:
@@ -287,7 +289,8 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
             {
                 // TODO: add operators support to objects.
                 ntErrorAtNode(report, node, "Invalid math operation with custom object.");
-                return NULL;
+                node->expressionType = ntErrorType();
+                break;
             }
 
             if (left->objectType < right->objectType)
@@ -297,7 +300,8 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
             break;
         default:
             ntErrorAtNode(report, node, "Invalid binary operation. %d", node->token.id);
-            return NULL;
+            node->expressionType = ntErrorType();
+            break;
         }
         break;
     case NK_LOGICAL:
@@ -309,7 +313,8 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
             break;
         default:
             ntErrorAtNode(report, node, "Invalid logical operation. %d", node->token.id);
-            return NULL;
+            node->expressionType = ntErrorType();
+            break;
         }
         break;
     case NK_GET: {
@@ -349,7 +354,8 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
             char *str = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
             ntErrorAtNode(report, node, "The function or method '%s' must be declareed.", str);
             ntFree(str);
-            return NULL;
+            node->expressionType = ntErrorType();
+            break;
         }
         }
         break;
@@ -359,6 +365,7 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
         if (!ntLookupSymbol(table, node->token.lexeme, node->token.lexemeLength, NULL, &entry))
         {
             ntErrorAtNode(report, node, "The symbol must be declared.");
+            node->expressionType = ntErrorType();
             break;
         }
 
@@ -371,6 +378,7 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
                 report, node,
                 "The symbol '%s' is not a constant, parameter, variable, method or function!", str);
             ntFree(str);
+            node->expressionType = ntErrorType();
             break;
         }
         node->expressionType = entry.exprType;
@@ -388,6 +396,8 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
                 leftName, rightName);
             ntFree(leftName);
             ntFree(rightName);
+            node->expressionType = ntErrorType();
+            break;
         }
         node->expressionType = left;
         break;
@@ -395,7 +405,8 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
     default:
         ntErrorAtNode(report, node, "AST invalid format, node kind cannot be %s!",
                       ntGetKindLabel(node->type.kind));
-        return NULL;
+        node->expressionType = ntErrorType();
+        break;
     }
 
     return node->expressionType;
@@ -473,6 +484,7 @@ static const NT_TYPE *evalIfReturnType(NT_REPORT *report, NT_SYMBOL_TABLE *table
                           expectTypeName, currentTypeName);
             ntFree(expectTypeName);
             ntFree(currentTypeName);
+            type = ntErrorType();
         }
         else if (elseType->objectType != NT_OBJECT_UNDEFINED &&
                  type->objectType != NT_OBJECT_UNDEFINED)
@@ -548,6 +560,7 @@ const NT_TYPE *ntEvalBlockReturnType(NT_REPORT *report, NT_SYMBOL_TABLE *table, 
                           expectTypeName, currentTypeName);
             ntFree(expectTypeName);
             ntFree(currentTypeName);
+            blockReturnType = ntErrorType();
         }
     }
 
@@ -588,6 +601,7 @@ static void ifStatement(RESOLVER *r, const NT_NODE *node, const NT_TYPE **return
                           current);
             ntFree(expect);
             ntFree(current);
+            elseReturnType = thenReturnType = ntErrorType();
         }
     }
 
@@ -729,7 +743,6 @@ static void expressionStatement(RESOLVER *r, NT_NODE *node)
 
 static void statement(RESOLVER *r, NT_NODE *node, const NT_TYPE **returnType)
 {
-    *returnType = ntUndefinedType();
     if (node->type.class != NC_STMT)
     {
         ntErrorAtNode(&r->report, node, "Invalid node, the node must be a statment!");
@@ -855,10 +868,10 @@ static void declareWeakFunction(RESOLVER *r, NT_NODE *node, const bool returnVal
         addWeakFunction(r, funcName, symbolType, delegateType, r->public);
     }
 
-    for (size_t i = 0; i < ntListLen(node->right->data) && !hasReturn; ++i)
+    const NT_TYPE *statmentReturn = ntUndefinedType();
+    for (size_t i = 0; i < ntListLen(node->right->data); ++i)
     {
         NT_NODE *stmt = (NT_NODE *)ntListGet(node->right->data, i);
-        const NT_TYPE *statmentReturn = ntUndefinedType();
         statement(r, stmt, &statmentReturn);
         if (statmentReturn->objectType != NT_OBJECT_UNDEFINED)
             hasReturn |= true;
@@ -979,7 +992,6 @@ static void declaration(RESOLVER *r, NT_NODE *node)
         importStatement(r, node);
         break;
     default:
-        ntErrorAtNode(&r->report, node, "Expect a declaration");
         break;
     }
 }
