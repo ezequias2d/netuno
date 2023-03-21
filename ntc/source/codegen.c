@@ -2250,6 +2250,30 @@ static void expressionStatement(NT_MODGEN *modgen, const NT_NODE *node)
     assert(node->left);
     assert(node->left->type.class == NC_EXPR);
 
+    switch (node->left->type.kind)
+    {
+    case NK_LITERAL:
+    case NK_BINARY:
+    case NK_CONSTANT:
+    case NK_VARIABLE:
+    case NK_LOGICAL:
+    warning:
+        ntWarningAtNode(node, "Expression result unused.");
+        break;
+    case NK_UNARY:
+        switch (node->left->token.id)
+        {
+        case OP_INC:
+        case OP_DEC:
+            goto warning;
+        default:
+            break;
+        }
+        break;
+    default:
+        break;
+    }
+
     expression(modgen, node->left, false);
     if (node->left->expressionType)
         emitPop(modgen, node, node->left->expressionType);
