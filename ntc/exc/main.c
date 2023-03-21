@@ -152,7 +152,7 @@ int main(int argc, char **argv)
     const NT_DELEGATE *entryPoint = findEntryPoint(assembly, U"main");
     if (entryPoint == NULL)
     {
-        printf("Error: No entry point main!\n");
+        printf("undefined reference to \"main\"\n");
         return -1234;
     }
     NT_RESULT vmResult = ntRun(vm, assembly, entryPoint);
