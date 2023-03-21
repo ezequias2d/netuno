@@ -28,6 +28,7 @@ SOFTWARE.
 #include <netuno/delegate.h>
 #include <netuno/memory.h>
 #include <netuno/ntc.h>
+#include <netuno/path.h>
 #include <netuno/str.h>
 #include <netuno/vm.h>
 #include <stdint.h>
@@ -135,6 +136,7 @@ int main(int argc, char **argv)
         files[i] = (NT_FILE){
             .code = codet,
             .source = filepath,
+            .filename = ntPathFilename(filepath, false),
         };
     }
 

@@ -24,7 +24,6 @@ SOFTWARE.
 */
 #include "codegen.h"
 #include "parser.h"
-#include "path.h"
 #include "resolver.h"
 #include "scanner.h"
 #include <assert.h>
@@ -70,9 +69,7 @@ NT_ASSEMBLY *ntCompile(NT_ASSEMBLY *assembly, size_t fileCount, const NT_FILE *f
     {
         const NT_FILE *const current = &files[i];
 
-        char_t *filename = ntPathFilename(current->source, false);
-
-        NT_SCANNER *scanner = ntScannerCreate(current->code, filename);
+        NT_SCANNER *scanner = ntScannerCreate(current->code, current->filename);
         NT_PARSER *parser = ntParserCreate(scanner);
         nodes[i] = ntParse(parser);
 
@@ -85,8 +82,6 @@ NT_ASSEMBLY *ntCompile(NT_ASSEMBLY *assembly, size_t fileCount, const NT_FILE *f
         assert(IS_TYPE(module, ntModuleType()));
 
         insertModuleSymbol(globalTable, module);
-
-        ntFree(filename);
     }
 
     const bool resolveResult = ntResolve(assembly, globalTable, fileCount, nodes);

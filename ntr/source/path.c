@@ -22,8 +22,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-#include "path.h"
 #include <netuno/memory.h>
+#include <netuno/path.h>
 #include <netuno/str.h>
 
 char_t *ntPathFilename(const char_t *path, bool withExtension)

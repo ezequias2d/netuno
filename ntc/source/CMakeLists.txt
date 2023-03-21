@@ -6,7 +6,6 @@ set(ROOT_SOURCES
     "list.c"
     "codegen.c"
     "vstack.c"
-    "path.c"
     "resolver.c"
     "report.c"
 )

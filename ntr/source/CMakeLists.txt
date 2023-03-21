@@ -14,6 +14,7 @@ set(ROOT_SOURCES
     "module.c"
     "native.c"
     "console.c"
+    "path.c"
 )
 
 set(CMAKE_C_STANDARD 11)
