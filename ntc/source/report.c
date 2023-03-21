@@ -53,9 +53,33 @@ SOFTWARE.
 // Reset
 #define reset "\x1B[0m"
 
-void ntVErrorAtToken(NT_TOKEN token, const char *message, va_list args)
+static size_t get_column(const char_t *line, const char_t *token)
 {
-    const char *atEnd = (token.type == TK_EOF) ? " at end" : " at ";
+    if (line == NULL || token == NULL)
+        return 0;
+    return token - line;
+}
+
+static void print_line_indicator(const char_t *line, const char_t *token)
+{
+    assert(line);
+
+    size_t length;
+    for (length = 0; line[length] != U'\0' && line[length] != U'\n'; ++length)
+        ;
+
+    char *temp = ntToCharFixed(line, length);
+    printf("%s", temp);
+    ntFree(temp);
+
+    const size_t delta = get_column(line, token);
+    printf("\n%*c" GRN "^" reset, (int)delta, ' ');
+    printf("\n");
+}
+
+static void vmessageAtToken(NT_TOKEN token, const char *message, va_list args, bool error)
+{
+    const char *atEnd = (token.type == TK_EOF) ? " at end" : "";
     char *lexeme = "";
     bool freeLexeme = false;
     if (token.type != TK_EOF)
@@ -64,13 +88,31 @@ void ntVErrorAtToken(NT_TOKEN token, const char *message, va_list args)
         freeLexeme = true;
     }
 
-    printf(RED "[line %d] Error%s%s: ", token.line, atEnd, lexeme);
+    const size_t column = get_column(token.pLine, token.lexeme);
+
+    char *sourcename = ntToChar(token.sourceName);
+    printf("%s:%d:%zu", sourcename, token.line + 1, column + 1);
+    ntFree(sourcename);
+
+    if (error)
+        printf(RED " error%s: " reset, atEnd);
+    else
+        printf(MAG " warning%s: " reset, atEnd);
+
     vprintf(message, args);
-    printf(reset "\n");
+    printf("\n");
+
+    print_line_indicator(token.pLine, token.lexeme);
 
     if (freeLexeme)
         ntFree(lexeme);
-    assert(false);
+
+    // assert(!error);
+}
+
+void ntVErrorAtToken(NT_TOKEN token, const char *message, va_list args)
+{
+    vmessageAtToken(token, message, args, true);
 }
 
 void ntErrorAtToken(NT_TOKEN token, const char *message, ...)
@@ -83,22 +125,7 @@ void ntErrorAtToken(NT_TOKEN token, const char *message, ...)
 
 void ntVWarningAtToken(NT_TOKEN token, const char *message, va_list args)
 {
-    const char *atEnd = (token.type == TK_EOF) ? " at end" : " at ";
-    char *lexeme = "";
-    bool freeLexeme = false;
-    if (token.type != TK_EOF)
-    {
-        lexeme = ntToCharFixed(token.lexeme, token.lexemeLength);
-        freeLexeme = true;
-    }
-
-    printf(YEL "[line %d] Error%s%s: ", token.line, atEnd, lexeme);
-    vprintf(message, args);
-    printf(reset "\n");
-
-    if (freeLexeme)
-        ntFree(lexeme);
-    assert(false);
+    vmessageAtToken(token, message, args, false);
 }
 
 void ntWarningAtToken(NT_TOKEN token, const char *message, ...)

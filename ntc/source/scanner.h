@@ -74,6 +74,9 @@ typedef struct _NT_TOKEN
 {
     NT_TK_TYPE type;
     int32_t line;
+    const char_t *pLine;
+    const char_t *sourceName;
+
     // TK_KEYWORD
     NT_TK_ID id;
     // Others
@@ -91,6 +94,7 @@ typedef struct _NT_SCANNER
     const char_t *sourceName;
     uint32_t current;
     int32_t line;
+    const char_t *pLine;
 } NT_SCANNER;
 
 NT_SCANNER *ntScannerCreate(const char_t *source, const char_t *sourceName);

@@ -45,7 +45,8 @@ NT_SCANNER *ntScannerCreate(const char_t *source, const char_t *sourceName)
                             .source = source,
                             .sourceName = sourceName,
                             .current = 0,
-                            .line = 0};
+                            .line = 0,
+                            .pLine = source};
 
     return scanner;
 }
@@ -114,6 +115,7 @@ static void skipWhitespaces(NT_SCANNER *scanner)
         case '\n':
             scanner->line++;
             advance(scanner);
+            scanner->pLine = &scanner->source[scanner->current];
             break;
         case ' ':
         case '\r':
@@ -135,17 +137,19 @@ static void errorToken(const NT_SCANNER *scanner, const char_t *message, NT_TOKE
     *result = (NT_TOKEN){.type = TK_ERROR,
                          .lexeme = message,
                          .lexemeLength = ntStrLen(message),
-                         .line = scanner->line};
+                         .line = scanner->line,
+                         .pLine = scanner->pLine,
+                         .sourceName = scanner->sourceName};
 }
 
 static void makeToken(const NT_SCANNER *scanner, NT_TK_TYPE type, NT_TOKEN *result)
 {
-    *result = (NT_TOKEN){
-        .type = type,
-        .lexeme = scanner->source,
-        .lexemeLength = scanner->current,
-        .line = scanner->line,
-    };
+    *result = (NT_TOKEN){.type = type,
+                         .lexeme = scanner->source,
+                         .lexemeLength = scanner->current,
+                         .line = scanner->line,
+                         .pLine = scanner->pLine,
+                         .sourceName = scanner->sourceName};
 }
 
 static void makeKeyword(const NT_SCANNER *scanner, NT_TK_ID id, NT_TOKEN *result)
@@ -154,7 +158,9 @@ static void makeKeyword(const NT_SCANNER *scanner, NT_TK_ID id, NT_TOKEN *result
                          .lexeme = scanner->source,
                          .lexemeLength = scanner->current,
                          .id = id,
-                         .line = scanner->line};
+                         .line = scanner->line,
+                         .pLine = scanner->pLine,
+                         .sourceName = scanner->sourceName};
 }
 
 static bool isAlpha(char_t c)
@@ -248,7 +254,10 @@ static void string(NT_SCANNER *scanner, NT_TOKEN *result)
     while (peek(scanner) != '"' && !ntIsAtEnd(scanner))
     {
         if (peek(scanner) == '\n')
+        {
             scanner->line++;
+            scanner->pLine = &scanner->source[scanner->current + 1];
+        }
         advance(scanner);
     }
 
