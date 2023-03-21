@@ -2616,10 +2616,10 @@ static void declareFunction(NT_MODGEN *modgen, const NT_NODE *node, const bool r
 
     addFunction(modgen, funcName, symbolType, delegateType, startPc, modgen->public);
 
-    for (size_t i = 0; i < ntListLen(node->right->data) && !hasReturn; ++i)
+    const NT_TYPE *statmentReturn = NULL;
+    for (size_t i = 0; i < ntListLen(node->right->data); ++i)
     {
         const NT_NODE *stmt = (NT_NODE *)ntListGet(node->right->data, i);
-        const NT_TYPE *statmentReturn = NULL;
         statement(modgen, stmt, &statmentReturn);
         if (statmentReturn != NULL)
             hasReturn |= true;
@@ -2749,12 +2749,16 @@ static void continueStatement(NT_MODGEN *modgen, const NT_NODE *node)
 
 static void statement(NT_MODGEN *modgen, const NT_NODE *node, const NT_TYPE **returnType)
 {
-    *returnType = NULL;
     if (node->type.class != NC_STMT)
     {
         ntErrorAtNode(&modgen->report, node, "Invalid node, the node must be a statment!");
         return;
     }
+
+    assert(returnType);
+
+    if (*returnType)
+        ntWarningAtNode(node, "Unreachable code!");
 
     switch (node->type.kind)
     {
