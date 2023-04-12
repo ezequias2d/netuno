@@ -76,26 +76,43 @@ void ntListPush(NT_LIST list, void *value)
     ntListAdd(list, value);
 }
 
-void *ntListPop(NT_LIST list)
+bool ntListPop(NT_LIST list, void **pValue)
 {
     assert(list);
     LIST *l = (LIST *)list;
+    if (l->count == 0)
+        return false;
+
     const size_t last = --(l->count);
     void *result = l->elements[last];
     l->elements[last] = NULL;
-    return result;
+    if (pValue)
+        *pValue = result;
+    return true;
 }
 
-void *ntListPeek(NT_LIST list, size_t index)
+bool ntListPeek(NT_LIST list, size_t index, void **pValue)
 {
     assert(list);
     LIST *l = (LIST *)list;
+    if (l->count == 0)
+        return false;
+
     const size_t last = l->count - 1;
-    return l->elements[last - index];
+    if (pValue)
+        *pValue = l->elements[last - index];
+    return true;
 }
 
-void *ntListGet(NT_LIST list, size_t index)
+bool ntListGet(NT_LIST list, size_t index, void **pValue)
 {
     assert(list);
-    return ((LIST *)list)->elements[index];
+    LIST *l = (LIST *)list;
+    if (index >= l->count)
+        return false;
+
+    if (pValue)
+        *pValue = ((LIST *)list)->elements[index];
+
+    return true;
 }

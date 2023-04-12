@@ -22,49 +22,41 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-#include "vstack.h"
-#include <assert.h>
-#include <netuno/memory.h>
+#ifndef NT_TABLE_H
+#define NT_TABLE_H
 
-NT_VSTACK *ntCreateVStack(void)
+#include <netuno/common.h>
+
+typedef struct _NT_STRING NT_STRING;
+typedef struct _NT_ENTRY NT_ENTRY;
+typedef struct _NT_TABLE NT_TABLE;
+
+struct _NT_ENTRY
 {
-    NT_VSTACK *stack = (NT_VSTACK *)ntMalloc(sizeof(NT_VSTACK));
-    stack->list = ntCreateList();
-    stack->sp = 0;
-    return stack;
-}
+    NT_STRING *key;
+    void *value;
+};
 
-void ntFreeVStack(NT_VSTACK *stack)
+struct _NT_TABLE
 {
-    ntFreeList(stack->list);
-    ntFree(stack);
-}
+    size_t count;
+    size_t size;
+    NT_ENTRY *pEntries;
+};
 
-size_t ntVPush(NT_VSTACK *stack, const NT_TYPE *type)
-{
-    ntListPush(stack->list, (void *)type);
-    stack->sp += type->stackSize;
-    return stack->sp;
-}
+typedef void (*tableCallback)(NT_STRING *key, void *value, void *userdata);
 
-size_t ntVPop(NT_VSTACK *stack, const NT_TYPE **ppType)
-{
-    assert(ntListLen(stack->list) != 0);
+NT_TABLE *ntCreateTable(void);
+void ntInitTable(NT_TABLE *table);
+void ntDeinitTable(NT_TABLE *table);
+void ntFreeTable(NT_TABLE *table);
+void ntTableForAll(const NT_TABLE *table, tableCallback callback,
+                   void *userdata);
+bool ntTableSet(NT_TABLE *table, NT_STRING *key, void *value);
+void ntTableAddAll(const NT_TABLE *from, NT_TABLE *to);
+bool ntTableGet(const NT_TABLE *table, const NT_STRING *key, void **value);
+bool ntTableDelete(NT_TABLE *table, NT_STRING *key, void **value);
+NT_STRING *ntTableFindString(const NT_TABLE *table, const char_t *chars,
+                             size_t length, uint32_t hash);
 
-    const NT_TYPE *pType = (const NT_TYPE *)ntListPop(stack->list);
-    if (ppType != NULL)
-        *ppType = pType;
-
-    const size_t sp = stack->sp;
-    stack->sp -= pType->stackSize;
-    return sp;
-}
-
-void ntVPeek(NT_VSTACK *stack, const NT_TYPE **ppType, size_t index)
-{
-    assert(ntListLen(stack->list) != 0);
-
-    const NT_TYPE *pType = (const NT_TYPE *)ntListPeek(stack->list, index);
-    if (ppType != NULL)
-        *ppType = pType;
-}
+#endif

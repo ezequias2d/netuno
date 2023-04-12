@@ -23,9 +23,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 #include "resolver.h"
-#include "netuno/object.h"
-#include "netuno/symbol.h"
-#include "netuno/type.h"
+#include "modules/numbers.h"
+#include "netuno/nir/context.h"
+#include "report.h"
+#include "scope.h"
+#include "type.h"
 #include <assert.h>
 #include <netuno/memory.h>
 #include <netuno/str.h>
@@ -37,49 +39,46 @@ SOFTWARE.
 typedef struct
 {
     NT_REPORT report;
+    NIR_CONTEXT *context;
 
-    NT_ASSEMBLY *assembly;
-    NT_MODULE *globalModule;
-    NT_MODULE *module;
-    NT_SYMBOL_TABLE *global;
-    NT_SYMBOL_TABLE *scope;
-    NT_SYMBOL_TABLE *functionScope;
+    NT_TYPE *globalModule;
+    NT_TYPE *module;
+    NT_SCOPE *global;
+    NT_SCOPE *scope;
+    NT_SCOPE *functionScope;
     bool public;
 } RESOLVER;
 
-static void addWeakSymbol(RESOLVER *r, const NT_STRING *name, NT_SYMBOL_TYPE symbolType,
-                          const NT_TYPE *type, void *data)
+// static void addWeakSymbol(RESOLVER *r, NT_STRING *name, NT_SYMBOL_TYPE symbolType,
+//                           const NT_TYPE *type, void *data)
+// {
+//     assert(r);
+//     assert(name);
+//     assert(!type || (IS_VALID_TYPE(type) && type->objectType != NT_TYPE_UNDEFINED));
+
+//     const NT_SYMBOL entry = {
+//         .symbol_name = name,
+//         .type = symbolType,
+//         .data = data,
+//         .exprType = type,
+//         .weak = true,
+//     };
+//     const bool result = ntInsertSymbol(r->scope, &entry);
+//     assert(result);
+// }
+
+static void addWeakLocal(RESOLVER *r, NT_STRING *name, const NT_TYPE *type)
 {
     assert(r);
     assert(name);
-    assert(IS_VALID_OBJECT(name));
-    assert(!type || (IS_VALID_TYPE(type) && type->objectType != NT_OBJECT_UNDEFINED));
-
-    const NT_SYMBOL_ENTRY entry = {
-        .symbol_name = name,
-        .type = symbolType,
-        .data = data,
-        .exprType = type,
-        .weak = true,
-    };
-    const bool result = ntInsertSymbol(r->scope, &entry);
-    assert(result);
-}
-
-static void addWeakLocal(RESOLVER *r, const NT_STRING *name, const NT_TYPE *type)
-{
-    assert(r);
-    assert(name);
-    assert(IS_VALID_OBJECT(name));
     assert(type);
-    assert(type->objectType != NT_OBJECT_UNDEFINED);
-    assert(type->objectType != NT_OBJECT_VOID);
+    assert(type->objectType != NT_TYPE_UNDEFINED);
+    assert(type->objectType != NT_TYPE_VOID);
 
     // TODO: check type in vstack
-    const NT_SYMBOL_ENTRY entry = {
+    const NT_SYMBOL entry = {
         .symbol_name = name,
         .type = SYMBOL_TYPE_VARIABLE,
-        .data = 0,
         .exprType = type,
         .weak = true,
     };
@@ -87,19 +86,17 @@ static void addWeakLocal(RESOLVER *r, const NT_STRING *name, const NT_TYPE *type
     assert(result);
 }
 
-static void addWeakParam(RESOLVER *r, const NT_STRING *name, const NT_TYPE *type)
+static void addWeakParam(RESOLVER *r, NT_STRING *name, const NT_TYPE *type)
 {
     assert(r);
     assert(name);
-    assert(IS_VALID_OBJECT(name));
     assert(type);
-    assert(type->objectType != NT_OBJECT_UNDEFINED);
-    assert(type->objectType != NT_OBJECT_VOID);
+    assert(type->objectType != NT_TYPE_UNDEFINED);
+    assert(type->objectType != NT_TYPE_VOID);
 
-    const NT_SYMBOL_ENTRY entry = {
+    const NT_SYMBOL entry = {
         .symbol_name = name,
         .type = SYMBOL_TYPE_PARAM,
-        .data = 0,
         .exprType = type,
         .weak = true,
     };
@@ -117,21 +114,21 @@ static const NT_TYPE *findType(RESOLVER *r, NT_NODE *typeNode)
         switch (name->id)
         {
         case KW_BOOL:
-            return ntBoolType();
+            return ntBoolType(r->context);
         case KW_I32:
-            return ntI32Type();
+            return ntI32Type(r->context);
         case KW_I64:
-            return ntI64Type();
+            return ntI64Type(r->context);
         case KW_U32:
-            return ntU32Type();
+            return ntU32Type(r->context);
         case KW_U64:
-            return ntU64Type();
+            return ntU64Type(r->context);
         case KW_F32:
-            return ntF32Type();
+            return ntF32Type(r->context);
         case KW_F64:
-            return ntF64Type();
+            return ntF64Type(r->context);
         case KW_STRING:
-            return ntStringType();
+            return ntStringType(r->context);
         default: {
             char *typeLex = ntToChar(ntGetKeywordLexeme(typeNode->token.id));
             ntErrorAtNode(&r->report, typeNode, "The keyword '%s' is not a type.", typeLex);
@@ -143,8 +140,8 @@ static const NT_TYPE *findType(RESOLVER *r, NT_NODE *typeNode)
     else
     {
         // object
-        NT_SYMBOL_ENTRY entry;
-        if (!ntLookupSymbol(r->scope, name->lexeme, name->lexemeLength, NULL, &entry))
+        NT_SYMBOL entry;
+        if (!ntLookupSymbol2(r->scope, name->lexeme, name->lexemeLength, NULL, &entry))
         {
             char *lexeme = ntToCharFixed(name->lexeme, name->lexemeLength);
             ntErrorAtNode(&r->report, typeNode, "The type '%s' don't exist.", lexeme);
@@ -163,7 +160,8 @@ static const NT_TYPE *findType(RESOLVER *r, NT_NODE *typeNode)
     }
 }
 
-const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE *node)
+const NT_TYPE *ntEvalExprType(NIR_CONTEXT *context, NT_REPORT *report, NT_SCOPE *table,
+                              NT_NODE *node)
 {
     assert(report);
     assert(node);
@@ -178,17 +176,17 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
 
     if (node->left != NULL)
     {
-        left = ntEvalExprType(report, table, node->left);
+        left = ntEvalExprType(context, report, table, node->left);
         if (!left)
-            left = ntEvalExprType(report, table, node->left);
+            left = ntEvalExprType(context, report, table, node->left);
         assert(left);
     }
 
     if (node->right != NULL)
     {
-        right = ntEvalExprType(report, table, node->right);
+        right = ntEvalExprType(context, report, table, node->right);
         if (!right)
-            right = ntEvalExprType(report, table, node->right);
+            right = ntEvalExprType(context, report, table, node->right);
         assert(right);
     }
 
@@ -199,31 +197,31 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
         {
         case LT_BOOL:
             assert(node->token.type == TK_KEYWORD);
-            node->expressionType = ntBoolType();
+            node->expressionType = ntBoolType(context);
             break;
         case LT_NONE:
-            node->expressionType = ntI32Type();
+            node->expressionType = ntObjectType();
             break;
         case LT_STRING:
-            node->expressionType = ntStringType();
+            node->expressionType = ntStringType(context);
             break;
         case LT_I32:
-            node->expressionType = ntI32Type();
+            node->expressionType = ntI32Type(context);
             break;
         case LT_I64:
-            node->expressionType = ntI64Type();
+            node->expressionType = ntI64Type(context);
             break;
         case LT_U32:
-            node->expressionType = ntU32Type();
+            node->expressionType = ntU32Type(context);
             break;
         case LT_U64:
-            node->expressionType = ntU64Type();
+            node->expressionType = ntU64Type(context);
             break;
         case LT_F32:
-            node->expressionType = ntF32Type();
+            node->expressionType = ntF32Type(context);
             break;
         case LT_F64:
-            node->expressionType = ntF64Type();
+            node->expressionType = ntF64Type(context);
             break;
         default:
             ntErrorAtNode(report, node, "Invalid literal type! '%d'", node->type.literalType);
@@ -237,16 +235,16 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
         case '-':
         case OP_DEC:
         case OP_INC:
-            node->expressionType = left->objectType == NT_OBJECT_UNDEFINED ? right : left;
+            node->expressionType = left->objectType == NT_TYPE_UNDEFINED ? right : left;
             assert(node->expressionType);
-            assert(node->expressionType->objectType != NT_OBJECT_UNDEFINED);
+            assert(node->expressionType->objectType != NT_TYPE_UNDEFINED);
             break;
         case '!':
-            node->expressionType = ntBoolType();
+            node->expressionType = ntBoolType(context);
             break;
         case '~':
-            if (right->objectType == NT_OBJECT_I32 || right->objectType == NT_OBJECT_I64 ||
-                right->objectType == NT_OBJECT_U32 || right->objectType == NT_OBJECT_U64)
+            if (right->objectType == NT_TYPE_I32 || right->objectType == NT_TYPE_I64 ||
+                right->objectType == NT_TYPE_U32 || right->objectType == NT_TYPE_U64)
                 node->expressionType = right;
             else
             {
@@ -272,7 +270,7 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
         case OP_GE:
         case '<':
         case OP_LE:
-            node->expressionType = ntBoolType();
+            node->expressionType = ntBoolType(context);
             break;
         case '+':
         case '-':
@@ -282,10 +280,7 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
         case '|':
         case '&':
         case '^':
-            left = ntEvalExprType(report, table, node->left);
-            right = ntEvalExprType(report, table, node->right);
-
-            if (left->objectType == NT_OBJECT_CUSTOM || right->objectType == NT_OBJECT_CUSTOM)
+            if (left->objectType == NT_TYPE_CUSTOM || right->objectType == NT_TYPE_CUSTOM)
             {
                 // TODO: add operators support to objects.
                 ntErrorAtNode(report, node, "Invalid math operation with custom object.");
@@ -309,7 +304,7 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
         {
         case OP_LOGOR:
         case OP_LOGAND:
-            node->expressionType = ntBoolType();
+            node->expressionType = ntBoolType(context);
             break;
         default:
             ntErrorAtNode(report, node, "Invalid logical operation. %d", node->token.id);
@@ -318,42 +313,49 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
         }
         break;
     case NK_GET: {
-        const NT_TYPE *type = ntEvalExprType(report, table, node->left);
+        const NT_TYPE *type = ntEvalExprType(context, report, table, node->left);
         assert(type);
         assert(IS_VALID_TYPE(type));
 
-        NT_SYMBOL_ENTRY entry;
-        const bool result = ntLookupSymbol(&type->fields, node->token.lexeme,
-                                           node->token.lexemeLength, NULL, &entry);
-        assert(result);
-        node->expressionType = entry.exprType;
-
+        if (type->objectType != NT_TYPE_ERROR)
+        {
+            NT_SYMBOL entry;
+            const bool result = ntLookupSymbol2(&type->fields, node->token.lexeme,
+                                                node->token.lexemeLength, NULL, &entry);
+            assert(result);
+            node->expressionType = entry.exprType;
+        }
+        else
+            node->expressionType = type;
         break;
     }
     case NK_CALL: {
         switch (left->objectType)
         {
-        case NT_OBJECT_I32:
-        case NT_OBJECT_U32:
-        case NT_OBJECT_F32:
-        case NT_OBJECT_I64:
-        case NT_OBJECT_U64:
-        case NT_OBJECT_F64:
-        case NT_OBJECT_STRING:
+        case NT_TYPE_I32:
+        case NT_TYPE_U32:
+        case NT_TYPE_F32:
+        case NT_TYPE_I64:
+        case NT_TYPE_U64:
+        case NT_TYPE_F64:
+        case NT_TYPE_STRING:
             node->expressionType = left;
             break;
-        case NT_OBJECT_DELEGATE:
+        case NT_TYPE_DELEGATE:
             for (size_t i = 0; i < ntListLen(node->data); ++i)
             {
-                NT_NODE *arg = (NT_NODE *)ntListGet(node->data, i);
-                ntEvalExprType(report, table, arg);
+                NT_NODE *arg;
+                const bool result = ntListGet(node->data, i, (void **)&arg);
+                assert(result);
+                ntEvalExprType(context, report, table, arg);
             }
-            node->expressionType = ((const NT_DELEGATE_TYPE *)left)->returnType;
+            node->expressionType = left->delegate.returnType;
             break;
         default: {
-            char *str = ntToCharFixed(node->token.lexeme, node->token.lexemeLength);
-            ntErrorAtNode(report, node, "The function or method '%s' must be declareed.", str);
-            ntFree(str);
+            // char *str = ntToCharFixed(node->left->token.lexeme, node->left->token.lexemeLength);
+            // ntErrorAtNode(report, node->left, "The function or method '%s' must be declareed.",
+            //               str);
+            // ntFree(str);
             node->expressionType = ntErrorType();
             break;
         }
@@ -361,8 +363,8 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
         break;
     }
     case NK_VARIABLE: {
-        NT_SYMBOL_ENTRY entry;
-        if (!ntLookupSymbol(table, node->token.lexeme, node->token.lexemeLength, NULL, &entry))
+        NT_SYMBOL entry;
+        if (!ntLookupSymbol2(table, node->token.lexeme, node->token.lexemeLength, NULL, &entry))
         {
             ntErrorAtNode(report, node, "The symbol must be declared.");
             node->expressionType = ntErrorType();
@@ -387,8 +389,8 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
     case NK_ASSIGN: {
         if (left != right)
         {
-            char *leftName = ntToCharFixed(left->typeName->chars, left->typeName->length);
-            char *rightName = ntToCharFixed(right->typeName->chars, right->typeName->length);
+            char *leftName = ntStringToChar(left->typeName);
+            char *rightName = ntStringToChar(right->typeName);
             ntErrorAtNode(
                 report, node,
                 "Invalid type, variable is of type %s, but the value expression to assign is "
@@ -412,7 +414,7 @@ const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE
     return node->expressionType;
 }
 
-static NT_SYMBOL_TABLE *beginScope(RESOLVER *r, NT_SYMBOL_TABLE_TYPE type)
+static NT_SCOPE *beginScope(RESOLVER *r, NT_SCOPE_TYPE type)
 {
     r->scope = ntCreateSymbolTable(r->scope, type, NULL);
 
@@ -424,11 +426,12 @@ static NT_SYMBOL_TABLE *beginScope(RESOLVER *r, NT_SYMBOL_TABLE_TYPE type)
 
 static void endScope(RESOLVER *r)
 {
-    NT_SYMBOL_TABLE *const oldScope = r->scope;
-    r->scope = oldScope->parent;
+    NT_SCOPE *const oldScope = r->scope;
+    r->scope = (NT_SCOPE *)oldScope->parent;
 }
 
-static const NT_TYPE *evalIfReturnType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE *node)
+static const NT_TYPE *evalIfReturnType(NIR_CONTEXT *context, NT_REPORT *report, NT_SCOPE *table,
+                                       NT_NODE *node)
 {
     NT_NODE *const thenBranch = node->left;
     assert(thenBranch->type.class == NC_STMT);
@@ -438,12 +441,12 @@ static const NT_TYPE *evalIfReturnType(NT_REPORT *report, NT_SYMBOL_TABLE *table
     switch (thenBranch->type.kind)
     {
     case NK_BLOCK:
-        type = ntEvalBlockReturnType(report, NULL, thenBranch);
+        type = ntEvalBlockReturnType(context, report, NULL, thenBranch);
         break;
     case NK_RETURN:
         assert(thenBranch->left);
         assert(thenBranch->left->type.class == NC_EXPR);
-        type = ntEvalExprType(report, table, thenBranch->left);
+        type = ntEvalExprType(context, report, table, thenBranch->left);
         break;
     default:
         break;
@@ -457,26 +460,25 @@ static const NT_TYPE *evalIfReturnType(NT_REPORT *report, NT_SYMBOL_TABLE *table
         switch (elseBranch->type.kind)
         {
         case NK_IF:
-            elseType = evalIfReturnType(report, table, elseBranch);
+            elseType = evalIfReturnType(context, report, table, elseBranch);
             break;
         case NK_BLOCK:
-            elseType = ntEvalBlockReturnType(report, NULL, elseBranch);
+            elseType = ntEvalBlockReturnType(context, report, NULL, elseBranch);
             break;
         case NK_RETURN:
             assert(elseBranch->left);
             assert(elseBranch->left->type.class == NC_EXPR);
-            elseType = ntEvalExprType(report, table, elseBranch->left);
+            elseType = ntEvalExprType(context, report, table, elseBranch->left);
             break;
         default:
             break;
         }
 
-        if (elseType->objectType != NT_OBJECT_UNDEFINED &&
-            type->objectType != NT_OBJECT_UNDEFINED && elseType != type)
+        if (elseType->objectType != NT_TYPE_UNDEFINED && type->objectType != NT_TYPE_UNDEFINED &&
+            elseType != type)
         {
-            char *expectTypeName = ntToCharFixed(type->typeName->chars, type->typeName->length);
-            char *currentTypeName =
-                ntToCharFixed(elseType->typeName->chars, elseType->typeName->length);
+            char *expectTypeName = ntStringToChar(type->typeName);
+            char *currentTypeName = ntStringToChar(elseType->typeName);
             // more than one type as return
             ntErrorAtNode(report, node,
                           "The same type must be used in all return statements of if branches, "
@@ -486,15 +488,15 @@ static const NT_TYPE *evalIfReturnType(NT_REPORT *report, NT_SYMBOL_TABLE *table
             ntFree(currentTypeName);
             type = ntErrorType();
         }
-        else if (elseType->objectType != NT_OBJECT_UNDEFINED &&
-                 type->objectType != NT_OBJECT_UNDEFINED)
+        else if (elseType->objectType != NT_TYPE_UNDEFINED && type->objectType != NT_TYPE_UNDEFINED)
             type = elseType;
     }
 
     return type;
 }
 
-const NT_TYPE *ntEvalBlockReturnType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE *node)
+const NT_TYPE *ntEvalBlockReturnType(NIR_CONTEXT *context, NT_REPORT *report, NT_SCOPE *table,
+                                     NT_NODE *node)
 {
     assert(node->type.class == NC_STMT);
     assert(node->type.kind == NK_BLOCK);
@@ -508,20 +510,23 @@ const NT_TYPE *ntEvalBlockReturnType(NT_REPORT *report, NT_SYMBOL_TABLE *table, 
 
     for (size_t i = 0; i < ntListLen(node->data); ++i)
     {
-        NT_NODE *stmt = (NT_NODE *)ntListGet(node->data, i);
+        NT_NODE *stmt;
+        const bool result = ntListGet(node->data, i, (void **)&stmt);
+        assert(result);
+
         const NT_TYPE *tmp = ntUndefinedType();
         assert(stmt->type.class == NC_STMT);
 
         switch (stmt->type.kind)
         {
         case NK_RETURN:
-            tmp = ntEvalExprType(report, table, stmt->left);
+            tmp = ntEvalExprType(context, report, table, stmt->left);
             break;
         case NK_BLOCK:
-            tmp = ntEvalBlockReturnType(report, NULL, stmt);
+            tmp = ntEvalBlockReturnType(context, report, NULL, stmt);
             break;
         case NK_IF:
-            tmp = evalIfReturnType(report, table, stmt);
+            tmp = evalIfReturnType(context, report, table, stmt);
             break;
         case NK_WHILE:
         case NK_UNTIL:
@@ -529,12 +534,12 @@ const NT_TYPE *ntEvalBlockReturnType(NT_REPORT *report, NT_SYMBOL_TABLE *table, 
             switch (stmt->left->type.kind)
             {
             case NK_BLOCK:
-                tmp = ntEvalBlockReturnType(report, NULL, stmt->left);
+                tmp = ntEvalBlockReturnType(context, report, NULL, stmt->left);
                 break;
             case NK_RETURN:
                 assert(stmt->left->left);
                 assert(stmt->left->left->type.class == NC_EXPR);
-                tmp = ntEvalExprType(report, table, stmt->left->left);
+                tmp = ntEvalExprType(context, report, table, stmt->left->left);
                 break;
             default:
                 break;
@@ -544,15 +549,14 @@ const NT_TYPE *ntEvalBlockReturnType(NT_REPORT *report, NT_SYMBOL_TABLE *table, 
             break;
         }
 
-        if (blockReturnType->objectType == NT_OBJECT_UNDEFINED &&
-            tmp->objectType != NT_OBJECT_UNDEFINED)
+        if (blockReturnType->objectType == NT_TYPE_UNDEFINED &&
+            tmp->objectType != NT_TYPE_UNDEFINED)
             blockReturnType = tmp;
-        else if (blockReturnType->objectType != NT_OBJECT_UNDEFINED &&
-                 tmp->objectType != NT_OBJECT_UNDEFINED && tmp != blockReturnType)
+        else if (blockReturnType->objectType != NT_TYPE_UNDEFINED &&
+                 tmp->objectType != NT_TYPE_UNDEFINED && tmp != blockReturnType)
         {
-            char *expectTypeName =
-                ntToCharFixed(blockReturnType->typeName->chars, blockReturnType->typeName->length);
-            char *currentTypeName = ntToCharFixed(tmp->typeName->chars, tmp->typeName->length);
+            char *expectTypeName = ntStringToChar(blockReturnType->typeName);
+            char *currentTypeName = ntStringToChar(tmp->typeName);
             // more than one type as return
             ntErrorAtNode(report, stmt,
                           "The same type must be used in all return statements, expect type is %s, "
@@ -578,7 +582,7 @@ static void ifStatement(RESOLVER *r, const NT_NODE *node, const NT_TYPE **return
     const NT_TYPE *elseReturnType = ntUndefinedType();
 
     // condition
-    ntEvalExprType(&r->report, r->scope, node->condition);
+    ntEvalExprType(r->context, &r->report, r->scope, node->condition);
 
     // then body
     statement(r, node->left, &thenReturnType);
@@ -588,14 +592,12 @@ static void ifStatement(RESOLVER *r, const NT_NODE *node, const NT_TYPE **return
     {
         // else body
         statement(r, node->right, &elseReturnType);
-        if ((*returnType)->objectType == NT_OBJECT_UNDEFINED)
+        if ((*returnType)->objectType == NT_TYPE_UNDEFINED)
             *returnType = elseReturnType;
-        else if (elseReturnType->objectType != NT_OBJECT_UNDEFINED && elseReturnType != *returnType)
+        else if (elseReturnType->objectType != NT_TYPE_UNDEFINED && elseReturnType != *returnType)
         {
-            char *expect =
-                ntToCharFixed((*returnType)->typeName->chars, (*returnType)->typeName->length);
-            char *current =
-                ntToCharFixed(elseReturnType->typeName->chars, elseReturnType->typeName->length);
+            char *expect = ntStringToChar((*returnType)->typeName);
+            char *current = ntStringToChar(elseReturnType->typeName);
             ntErrorAtNode(&r->report, node,
                           "The else branch expect '%s' type as return, but is '%s'.", expect,
                           current);
@@ -605,9 +607,9 @@ static void ifStatement(RESOLVER *r, const NT_NODE *node, const NT_TYPE **return
         }
     }
 
-    if (thenReturnType->objectType != NT_OBJECT_UNDEFINED &&
-        elseReturnType->objectType != NT_OBJECT_UNDEFINED &&
-        (*returnType)->objectType != NT_OBJECT_UNDEFINED)
+    if (thenReturnType->objectType != NT_TYPE_UNDEFINED &&
+        elseReturnType->objectType != NT_TYPE_UNDEFINED &&
+        (*returnType)->objectType != NT_TYPE_UNDEFINED)
         *returnType = thenReturnType;
 }
 
@@ -618,17 +620,20 @@ static void blockStatment(RESOLVER *r, NT_NODE *node, const NT_TYPE **returnType
 
     const NT_TYPE *blockReturnType = ntUndefinedType();
 
-    NT_SYMBOL_TABLE *const scope = beginScope(r, STT_NONE);
+    NT_SCOPE *const scope = beginScope(r, STT_NONE);
     node->userdata = scope;
     for (size_t i = 0; i < ntListLen(node->data); ++i)
     {
-        NT_NODE *stmt = ntListGet(node->data, i);
+        NT_NODE *stmt;
+        const bool result = ntListGet(node->data, i, (void **)&stmt);
+        assert(result);
+
         statement(r, stmt, &blockReturnType);
     }
-    if ((*returnType)->objectType == NT_OBJECT_UNDEFINED)
+    if ((*returnType)->objectType == NT_TYPE_UNDEFINED)
         *returnType = blockReturnType;
 
-    ntEvalBlockReturnType(&r->report, r->scope, node);
+    ntEvalBlockReturnType(r->context, &r->report, r->scope, node);
 
     endScope(r);
 }
@@ -643,10 +648,10 @@ static void loopStatment(RESOLVER *r, const NT_NODE *node)
     beginScope(r, STT_BREAKABLE);
     // body
     statement(r, node->left, &returnType);
-    ntEvalBlockReturnType(&r->report, r->scope, node->left);
+    ntEvalBlockReturnType(r->context, &r->report, r->scope, node->left);
     endScope(r);
 
-    ntEvalExprType(&r->report, r->scope, node->condition);
+    ntEvalExprType(r->context, &r->report, r->scope, node->condition);
 }
 
 static void varStatement(RESOLVER *r, const NT_NODE *node)
@@ -659,7 +664,7 @@ static void varStatement(RESOLVER *r, const NT_NODE *node)
         type = findType(r, node->left);
         if (node->right)
         {
-            const NT_TYPE *initType = ntEvalExprType(&r->report, r->scope, node->right);
+            const NT_TYPE *initType = ntEvalExprType(r->context, &r->report, r->scope, node->right);
             if (type != initType)
             {
                 ntErrorAtNode(&r->report, node, "Invalid initalizer type. Incompatible type!");
@@ -675,17 +680,16 @@ static void varStatement(RESOLVER *r, const NT_NODE *node)
                           "Variable declarations must has a type or initializer.");
             return;
         }
-        type = ntEvalExprType(&r->report, r->scope, node->right);
+        type = ntEvalExprType(r->context, &r->report, r->scope, node->right);
     }
 
-    const NT_STRING *varName = ntCopyString(node->token.lexeme, node->token.lexemeLength);
-    addWeakLocal(r, varName, type);
+    addWeakLocal(r, ntCopyString(node->token.lexeme, node->token.lexemeLength), type);
 }
 
 static void endFunctionScope(RESOLVER *r, const NT_NODE *node, const NT_TYPE **returnType,
                              bool isEndScope)
 {
-    const NT_SYMBOL_TABLE *functionScope = r->scope;
+    const NT_SCOPE *functionScope = r->scope;
     while (functionScope->type != STT_FUNCTION && functionScope->type != STT_METHOD)
     {
         functionScope = functionScope->parent;
@@ -700,7 +704,7 @@ static void endFunctionScope(RESOLVER *r, const NT_NODE *node, const NT_TYPE **r
         }
         assert(node->left);
 
-        const NT_TYPE *type = ntEvalExprType(&r->report, r->scope, node->left);
+        const NT_TYPE *type = ntEvalExprType(r->context, &r->report, r->scope, node->left);
         if (r->scope->scopeReturnType == NULL)
             r->scope->scopeReturnType = type;
 
@@ -712,7 +716,7 @@ static void endFunctionScope(RESOLVER *r, const NT_NODE *node, const NT_TYPE **r
 
     if (isEndScope)
     {
-        r->scope = functionScope->parent;
+        r->scope = (NT_SCOPE *)functionScope->parent;
     }
 }
 
@@ -722,11 +726,15 @@ static void returnStatement(RESOLVER *r, const NT_NODE *node, const NT_TYPE **re
 
     if (node->left)
     {
-        const NT_TYPE *const type = ntEvalExprType(&r->report, r->scope, node->left);
+        const NT_TYPE *const type = ntEvalExprType(r->context, &r->report, r->scope, node->left);
         assert(type);
         assert(IS_VALID_TYPE(type));
-        assert(type->objectType != NT_OBJECT_VOID);
-        assert(type->objectType != NT_OBJECT_UNDEFINED);
+
+        if (type->objectType == NT_TYPE_UNDEFINED)
+            ntErrorAtNode(&r->report, node, "Return statement cannot has undefined type value.");
+
+        if (type->objectType == NT_TYPE_VOID)
+            ntErrorAtNode(&r->report, node, "Return statement need a expresion with value.");
 
         *returnType = type;
     }
@@ -738,7 +746,7 @@ static void expressionStatement(RESOLVER *r, NT_NODE *node)
 {
     assert(node->type.class == NC_STMT);
     assert(node->type.kind == NK_EXPR);
-    ntEvalExprType(&r->report, r->scope, node->left);
+    ntEvalExprType(r->context, &r->report, r->scope, node->left);
 }
 
 static void statement(RESOLVER *r, NT_NODE *node, const NT_TYPE **returnType)
@@ -782,27 +790,31 @@ static void statement(RESOLVER *r, NT_NODE *node, const NT_TYPE **returnType)
     }
 }
 
-static void addWeakFunction(RESOLVER *r, const NT_STRING *name, NT_SYMBOL_TYPE symbolType,
-                            const NT_DELEGATE_TYPE *delegateType, bool public)
+static void addWeakFunction(NT_SCOPE *scope, NT_STRING *name, const NT_TYPE *delegateType,
+                            bool public)
 {
-    assert(r);
-    assert(r->module);
+    assert(scope);
     assert(name);
-    assert(IS_VALID_OBJECT(name));
     assert(delegateType);
+    assert(delegateType->objectType == NT_TYPE_DELEGATE);
     assert(IS_VALID_TYPE(delegateType));
-    assert(((symbolType & SYMBOL_TYPE_FUNCTION) == SYMBOL_TYPE_FUNCTION) ||
-           ((symbolType & SYMBOL_TYPE_SUBROUTINE) == SYMBOL_TYPE_SUBROUTINE));
 
-    if (r->functionScope->parent == &r->module->type.fields)
-    {
-        ntAddModuleWeakFunction(r->module, name, delegateType, public);
-        return;
-    }
+    const NT_SYMBOL_TYPE symbolType = ((delegateType->delegate.returnType != ntUndefinedType() &&
+                                        delegateType->delegate.returnType != ntVoidType())
+                                           ? SYMBOL_TYPE_FUNCTION
+                                           : SYMBOL_TYPE_SUBROUTINE) |
+                                      (public ? SYMBOL_TYPE_PUBLIC : SYMBOL_TYPE_PRIVATE);
 
-    assert(public == false);
-    ntAddModuleWeakFunction(r->module, name, delegateType, public);
-    addWeakSymbol(r, name, symbolType, (const NT_TYPE *)delegateType, NULL);
+    const NT_SYMBOL entry = {
+        .symbol_name = name,
+        .type = symbolType,
+        .exprType = delegateType,
+        .weak = true,
+    };
+    bool result = ntInsertSymbol(scope, &entry);
+    if (!result)
+        result = ntUpdateSymbol(scope, &entry);
+    assert(result);
 }
 
 static void declareWeakFunction(RESOLVER *r, NT_NODE *node, const bool returnValue)
@@ -812,10 +824,9 @@ static void declareWeakFunction(RESOLVER *r, NT_NODE *node, const bool returnVal
     const char_t *name = node->token.lexeme;
     const size_t nameLen = node->token.lexemeLength;
 
-    const NT_SYMBOL_TYPE symbolType = returnValue ? SYMBOL_TYPE_FUNCTION : SYMBOL_TYPE_SUBROUTINE;
     bool hasReturn = false;
 
-    NT_SYMBOL_TABLE *const scope = beginScope(r, returnValue ? STT_FUNCTION : STT_METHOD);
+    NT_SCOPE *const scope = beginScope(r, returnValue ? STT_FUNCTION : STT_METHOD);
     node->userdata = scope;
 
     const NT_LIST params = node->data;
@@ -826,16 +837,18 @@ static void declareWeakFunction(RESOLVER *r, NT_NODE *node, const bool returnVal
 
     for (size_t i = 0; i < paramCount; ++i)
     {
-        const NT_NODE *paramNode = ntListGet(params, i);
+        NT_NODE *paramNode;
+        const bool result = ntListGet(params, i, (void **)&paramNode);
+        assert(result);
+
         NT_NODE *typeNode = paramNode->left;
         const NT_TYPE *type = findType(r, typeNode);
-        const NT_STRING *paramName =
-            ntCopyString(paramNode->token.lexeme, paramNode->token.lexemeLength);
 
+        NT_STRING *paramName = ntCopyString(paramNode->token.lexeme, paramNode->token.lexemeLength);
         addWeakParam(r, paramName, type);
 
         const NT_PARAM param = {
-            .name = paramName,
+            .name = ntRefString(paramName),
             .type = type,
         };
         ntArrayAdd(&paramsArray, &param, sizeof(NT_PARAM));
@@ -851,40 +864,43 @@ static void declareWeakFunction(RESOLVER *r, NT_NODE *node, const bool returnVal
             returnType = findType(r, node->left);
 
             // add function before statements (recursive functions is compatible)
-            const NT_DELEGATE_TYPE *delegateType = ntTakeDelegateType(
-                r->assembly, returnType, paramCount, (NT_PARAM *)paramsArray.data);
-            const NT_STRING *funcName = ntCopyString(name, nameLen);
-            addWeakFunction(r, funcName, symbolType, delegateType, r->public);
+            const NT_TYPE *delegateType =
+                ntTakeDelegateType(returnType, paramCount, (NT_PARAM *)paramsArray.data);
+            NT_STRING *funcName = ntCopyString(name, nameLen);
+            addWeakFunction((NT_SCOPE *)r->scope->parent, funcName, delegateType, r->public);
         }
     }
     else
     {
-        returnType = ntUndefinedType();
+        returnType = ntVoidType();
 
         // add sub procedure (recursive sub procedure is compatible)
-        const NT_DELEGATE_TYPE *delegateType =
-            ntTakeDelegateType(r->assembly, returnType, paramCount, (NT_PARAM *)paramsArray.data);
-        const NT_STRING *funcName = ntCopyString(name, nameLen);
-        addWeakFunction(r, funcName, symbolType, delegateType, r->public);
+        const NT_TYPE *delegateType =
+            ntTakeDelegateType(returnType, paramCount, (NT_PARAM *)paramsArray.data);
+        NT_STRING *funcName = ntCopyString(name, nameLen);
+        addWeakFunction((NT_SCOPE *)r->scope->parent, funcName, delegateType, r->public);
     }
 
     const NT_TYPE *statmentReturn = ntUndefinedType();
     for (size_t i = 0; i < ntListLen(node->right->data); ++i)
     {
-        NT_NODE *stmt = (NT_NODE *)ntListGet(node->right->data, i);
+        NT_NODE *stmt;
+        const bool result = (NT_NODE *)ntListGet(node->right->data, i, (void **)&stmt);
+        assert(result);
+
         statement(r, stmt, &statmentReturn);
-        if (statmentReturn->objectType != NT_OBJECT_UNDEFINED)
+        if (statmentReturn->objectType != NT_TYPE_UNDEFINED)
             hasReturn |= true;
     }
 
-    if (returnValue && !node->left)
+    if (returnValue)
     {
-        returnType = ntEvalBlockReturnType(&r->report, r->scope, node->right);
+        returnType = ntEvalBlockReturnType(r->context, &r->report, r->scope, node->right);
         // add function after statements (recursive functions is not compatible)
-        const NT_DELEGATE_TYPE *delegateType =
-            ntTakeDelegateType(r->assembly, returnType, paramCount, (NT_PARAM *)paramsArray.data);
-        const NT_STRING *funcName = ntCopyString(name, nameLen);
-        addWeakFunction(r, funcName, symbolType, delegateType, r->public);
+        const NT_TYPE *delegateType =
+            ntTakeDelegateType(returnType, paramCount, (NT_PARAM *)paramsArray.data);
+        NT_STRING *funcName = ntCopyString(name, nameLen);
+        addWeakFunction((NT_SCOPE *)r->scope->parent, funcName, delegateType, r->public);
     }
 
     ntDeinitArray(&paramsArray);
@@ -929,18 +945,17 @@ static void importStatement(RESOLVER *r, NT_NODE *node)
     assert(current);
     assert(current->type.class == NC_EXPR && current->type.kind == NK_GET);
 
-    NT_SYMBOL_TABLE *table = r->global;
-    NT_MODULE *importedModule = NULL;
+    const NT_SCOPE *table = r->global;
+    const NT_TYPE *importedModule = NULL;
     assert(table);
 
-    NT_SYMBOL_ENTRY entry;
+    NT_SYMBOL entry;
 
     bool result = false;
     do
     {
-        result = ntLookupSymbolCurrent(table, current->token.lexeme, current->token.lexemeLength,
-                                       &entry);
-        assert(result);
+        result = ntLookupSymbolCurrent2(table, current->token.lexeme, current->token.lexemeLength,
+                                        &entry);
 
         if (!result)
         {
@@ -954,22 +969,19 @@ static void importStatement(RESOLVER *r, NT_NODE *node)
             break;
         }
 
-        importedModule = (NT_MODULE *)entry.data;
-
+        importedModule = entry.exprType;
         assert(importedModule);
-        assert(IS_VALID_OBJECT(importedModule));
-        assert(((NT_OBJECT *)importedModule)->type->objectType == NT_OBJECT_TYPE_TYPE);
-        assert(((NT_TYPE *)importedModule)->objectType == NT_OBJECT_MODULE);
+        assert(importedModule->objectType == NT_TYPE_MODULE);
 
-        table = &importedModule->type.fields;
+        table = &importedModule->fields;
         current = current->right;
     } while (current != NULL);
 
     if (result)
-        ntInsertSymbol(&r->module->type.fields, &entry);
+        ntInsertSymbol(&r->module->fields, &entry);
 
-    if (r->module != r->globalModule)
-        ntWarningAtNode(node, "Consider only use imports on file module");
+    // if (r->module != r->globalModule)
+    //     ntWarningAtNode(node, "Consider only use imports on file module");
 }
 
 static void declaration(RESOLVER *r, NT_NODE *node)
@@ -998,10 +1010,9 @@ static void declaration(RESOLVER *r, NT_NODE *node)
 
 static void addType(RESOLVER *r, const NT_TYPE *type)
 {
-    NT_SYMBOL_ENTRY entry = {
+    NT_SYMBOL entry = {
         .symbol_name = type->typeName,
         .type = SYMBOL_TYPE_TYPE,
-        .data = 0,
         .exprType = type,
         .weak = false,
     };
@@ -1014,29 +1025,31 @@ static void module(RESOLVER *r, NT_NODE *node)
     assert(node);
     assert(node->type.class == NC_STMT && node->type.kind == NK_MODULE);
 
-    NT_MODULE *const module = (NT_MODULE *)node->userdata;
+    NT_TYPE *const module = ntTakeType(
+        NT_TYPE_MODULE, ntCopyString(node->token.lexeme, node->token.lexemeLength), ntObjectType());
     assert(module);
-    assert(IS_VALID_OBJECT(module));
-    assert(module->type.objectType == NT_OBJECT_MODULE);
+    assert(module->objectType == NT_TYPE_MODULE);
+    node->expressionType = module;
 
     const bool savePublic = r->public;
-    NT_MODULE *const saveModule = r->module;
+    NT_TYPE *const saveModule = r->module;
 
     r->module = module;
 
-    addType(r, ntI32Type());
-    addType(r, ntI64Type());
-    addType(r, ntU32Type());
-    addType(r, ntU64Type());
-    addType(r, ntF32Type());
-    addType(r, ntF64Type());
-    addType(r, ntStringType());
+    addType(r, ntI32Type(r->context));
+    addType(r, ntI64Type(r->context));
+    addType(r, ntU32Type(r->context));
+    addType(r, ntU64Type(r->context));
+    addType(r, ntF32Type(r->context));
+    addType(r, ntF64Type(r->context));
+    addType(r, ntStringType(NULL));
 
     const size_t count = ntListLen(node->data);
     for (size_t i = 0; i < count; ++i)
     {
-        NT_NODE *stmt = (NT_NODE *)ntListGet(node->data, i);
-
+        NT_NODE *stmt;
+        const bool result = ntListGet(node->data, i, (void **)&stmt);
+        assert(result);
         assert(stmt->type.class == NC_STMT);
 
         switch (stmt->type.kind)
@@ -1057,15 +1070,13 @@ static void module(RESOLVER *r, NT_NODE *node)
     r->public = savePublic;
 }
 
-bool ntResolve(NT_ASSEMBLY *assembly, NT_SYMBOL_TABLE *globalTable, size_t moduleNodeCount,
+bool ntResolve(NIR_CONTEXT *context, NT_SCOPE *globalTable, size_t moduleNodeCount,
                NT_NODE **moduleNodes)
 {
-    assert(assembly != NULL);
     assert(moduleNodeCount > 0);
     assert(moduleNodes != NULL);
 
     RESOLVER resolver = {
-        .assembly = assembly,
         .module = NULL,
         .globalModule = NULL,
         .global = globalTable,
@@ -1073,12 +1084,13 @@ bool ntResolve(NT_ASSEMBLY *assembly, NT_SYMBOL_TABLE *globalTable, size_t modul
         .functionScope = NULL,
         .public = false,
         .report.had_error = false,
+        .context = context,
     };
 
     for (size_t i = 0; i < moduleNodeCount; ++i)
     {
         NT_NODE *const current = moduleNodes[i];
-        resolver.globalModule = (NT_MODULE *)current->userdata;
+        resolver.globalModule = (NT_TYPE *)current->userdata;
 
         module(&resolver, current);
     }

@@ -33,4 +33,6 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${OUTPUT_DIRECTORY}")
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 add_subdirectory(ntc)
-add_subdirectory(ntr)
+
+# add_subdirectory(ntr)
+add_subdirectory(nir)

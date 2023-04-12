@@ -25,7 +25,7 @@ SOFTWARE.
 #ifndef TRIE_H
 #define TRIE_H
 
-#include <netuno/common.h>
+#include <netuno/ntc.h>
 
 typedef struct _NT_TRIE_NODE
 {

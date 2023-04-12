@@ -44,8 +44,6 @@ struct _NT_SYMBOL_TABLE
 {
     NT_SYMBOL_TABLE *parent;
     void *data; // frame top
-    bool breaked;
-    bool continued;
     uint32_t count;
     const NT_TYPE *scopeReturnType;
     NT_SYMBOL_TABLE_TYPE type;

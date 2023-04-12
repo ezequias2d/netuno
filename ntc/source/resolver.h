@@ -25,15 +25,17 @@ SOFTWARE.
 #ifndef NT_RESOLVER_H
 #define NT_RESOLVER_H
 
-#include "netuno/symbol.h"
 #include "parser.h"
 #include "report.h"
+#include "scope.h"
+#include "type.h"
 #include <netuno/array.h>
-#include <netuno/module.h>
 
-const NT_TYPE *ntEvalBlockReturnType(NT_REPORT *report, NT_SYMBOL_TABLE *blockTable, NT_NODE *node);
-const NT_TYPE *ntEvalExprType(NT_REPORT *report, NT_SYMBOL_TABLE *table, NT_NODE *node);
-bool ntResolve(NT_ASSEMBLY *assembly, NT_SYMBOL_TABLE *globalTable, size_t moduleNodeCount,
+const NT_TYPE *ntEvalBlockReturnType(NIR_CONTEXT *context, NT_REPORT *report, NT_SCOPE *blockTable,
+                                     NT_NODE *node);
+const NT_TYPE *ntEvalExprType(NIR_CONTEXT *context, NT_REPORT *report, NT_SCOPE *table,
+                              NT_NODE *node);
+bool ntResolve(NIR_CONTEXT *context, NT_SCOPE *globalTable, size_t moduleNodeCount,
                NT_NODE **moduleNodes);
 
 #endif

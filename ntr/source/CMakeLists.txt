@@ -1,6 +1,4 @@
 set(ROOT_SOURCES
-    "array.c"
-    "varint.c"
     "vm.c"
     "debug.c"
     "symbol.c"

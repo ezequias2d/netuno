@@ -4,10 +4,14 @@ set(ROOT_SOURCES
     "scanner.c"
     "trie.c"
     "list.c"
-    "codegen.c"
-    "vstack.c"
+    "nir_codegen.c"
     "resolver.c"
     "report.c"
+    "type.c"
+    "scope.c"
+    "modules/console.c"
+    "modules/string.c"
+    "modules/numbers.c"
 )
 
 set(CMAKE_C_STANDARD 11)
@@ -30,7 +34,7 @@ target_include_directories(ntc PRIVATE
 target_include_directories(ntc PUBLIC
     ${NTC_ROOT_DIR}/include)
 
-target_link_libraries(ntc PRIVATE ntr)
+target_link_libraries(ntc PRIVATE nir)
 
 if(NOT WIN32)
     target_link_libraries(ntc

@@ -27,9 +27,7 @@ SOFTWARE.
 #include "report.h"
 #include <assert.h>
 #include <netuno/memory.h>
-#include <netuno/module.h>
 #include <netuno/str.h>
-#include <netuno/string.h>
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -181,7 +179,11 @@ void ntDestroyNode(NT_NODE *node)
     if (node->data)
     {
         for (size_t i = 0; i < ntListLen(node->data); ++i)
-            ntDestroyNode((NT_NODE *)ntListGet(node->data, i));
+        {
+            NT_NODE *current;
+            if (ntListGet(node->data, i, (void **)&current))
+                ntDestroyNode(current);
+        }
         ntFreeList(node->data);
     }
     ntFree(node);
@@ -704,9 +706,9 @@ static NT_NODE *typeOrModuleDeclarationNamed(NT_PARSER *parser, const NT_NODE_KI
         assert(0);
         break;
     case NK_MODULE: {
-        NT_MODULE *module = ntCreateModule();
-        node->userdata = module;
-        module->type.typeName = ntCopyString(name.lexeme, name.lexemeLength);
+        // NT_MODULE *module = ntCreateModule();
+        // node->userdata = module;
+        // module->type.typeName = ntCopyString(name.lexeme, name.lexemeLength);
     }
     break;
     default:
@@ -1057,14 +1059,14 @@ static void printNode(uint32_t depth, NT_NODE *node)
         printf("{");
         for (uint32_t i = 0; i < ntListLen(node->data); ++i)
         {
-            NT_NODE *stmt = (NT_NODE *)ntListGet(node->data, i);
-            if (stmt != NULL)
+            NT_NODE *stmt;
+            if (ntListGet(node->data, i, (void **)&stmt))
                 printNode(depth + 1, stmt);
             else
             {
                 for (uint32_t i = 0; i < depth + 1; ++i)
                     printf("  ");
-                printf("\nNULL");
+                printf("\n<NULL>");
             }
         }
 
@@ -1124,8 +1126,8 @@ static void printNode(uint32_t depth, NT_NODE *node)
         {
             for (uint32_t i = 0; i < ntListLen(node->data); ++i)
             {
-                NT_NODE *stmt = (NT_NODE *)ntListGet(node->data, i);
-                if (stmt != NULL)
+                NT_NODE *stmt;
+                if (ntListGet(node->data, i, (void **)&stmt))
                     printNode(depth + 1, stmt);
                 else
                 {

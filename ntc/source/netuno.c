@@ -23,47 +23,49 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 #include "codegen.h"
+#include "modules/console.h"
+#include "nir_codegen.h"
 #include "parser.h"
+#include "report.h"
 #include "resolver.h"
 #include "scanner.h"
+#include "scope.h"
 #include <assert.h>
 #include <ctype.h>
-#include <netuno/console.h>
+#include <netuno/nir/context.h>
+// #include <netuno/console.h>
 #include <netuno/memory.h>
 #include <netuno/ntc.h>
 #include <netuno/str.h>
 #include <stdio.h>
 #include <string.h>
 
-static bool insertModuleSymbol(NT_SYMBOL_TABLE *table, const NT_MODULE *module)
+static bool insertModuleSymbol(NT_SCOPE *table, const NT_TYPE *module)
 {
     assert(table);
     assert(module);
-    assert(IS_VALID_OBJECT(module));
 
-    const NT_SYMBOL_ENTRY entry = (NT_SYMBOL_ENTRY){
-        .symbol_name = module->type.typeName,
+    const NT_SYMBOL entry = (NT_SYMBOL){
+        .symbol_name = module->typeName,
         .target_label = NULL,
         .type = SYMBOL_TYPE_MODULE | SYMBOL_TYPE_PUBLIC,
-        .data = (void *)module,
-        .data2 = 0,
-        .exprType = &module->type,
+        .exprType = module,
         .weak = false,
     };
 
     return ntInsertSymbol(table, &entry);
 }
 
-NT_ASSEMBLY *ntCompile(NT_ASSEMBLY *assembly, size_t fileCount, const NT_FILE *files)
+bool ntCompile(size_t fileCount, const NT_FILE *files, NIR_MODULE **modules)
 {
-    assert(assembly != NULL);
     assert(files != NULL);
     assert(fileCount > 0);
 
     NT_NODE **nodes = ntMalloc(sizeof(NT_NODE *) * fileCount);
-    NT_SYMBOL_TABLE *globalTable = ntCreateSymbolTable(NULL, STT_NONE, NULL);
+    NT_SCOPE *globalScope = ntCreateSymbolTable(NULL, STT_NONE, NULL);
 
-    insertModuleSymbol(globalTable, ntConsoleModule());
+    NIR_CONTEXT *context = nirCreateContext();
+    insertModuleSymbol(globalScope, ntConsoleModule(context));
 
     for (size_t i = 0; i < fileCount; ++i)
     {
@@ -75,40 +77,36 @@ NT_ASSEMBLY *ntCompile(NT_ASSEMBLY *assembly, size_t fileCount, const NT_FILE *f
 
         ntParserDestroy(parser);
         ntScannerDestroy(scanner);
-
-        NT_MODULE *const module = (NT_MODULE *)nodes[i]->userdata;
-        assert(module);
-        assert(IS_VALID_OBJECT(module));
-        assert(IS_TYPE(module, ntModuleType()));
-
-        insertModuleSymbol(globalTable, module);
     }
 
-    const bool resolveResult = ntResolve(assembly, globalTable, fileCount, nodes);
-    assert(resolveResult);
+    const bool resolveResult = ntResolve(context, globalScope, fileCount, nodes);
     if (!resolveResult)
+        goto error;
+
+    bool had_error = false;
+    for (size_t i = 0; i < fileCount; ++i)
     {
-        assembly = NULL;
+        modules[i] = ntNirGen(context, nodes[i]);
+        if (modules[i] == NULL)
+            had_error = true;
+    }
+
+    if (had_error)
+    {
+        for (size_t i = 0; i < fileCount; ++i)
+        {
+            if (modules[i])
+                nirDestroyModule(modules[i]);
+        }
         goto error;
     }
 
-    NT_CODEGEN *codegen = ntCreateCodegen(assembly);
-    const bool genResult = ntGen(codegen, fileCount, (const NT_NODE **)nodes);
-    assert(genResult);
-    if (!genResult)
-    {
-        assembly = NULL;
-        goto error;
-    }
-
-    ntFreeCodegen(codegen);
-
+    return true;
 error:
     for (size_t i = 0; i < fileCount; ++i)
     {
         ntDestroyNode(nodes[i]);
     }
     ntFree(nodes);
-
-    return assembly;
+    return false;
 }

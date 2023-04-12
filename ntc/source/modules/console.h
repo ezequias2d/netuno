@@ -22,22 +22,14 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-#ifndef VSTACK_H
-#define VSTACK_H
+#ifndef NT_M_CONSOLE_H
+#define NT_M_CONSOLE_H
 
-#include "list.h"
-#include <netuno/type.h>
+#include <netuno/common.h>
 
-typedef struct _NT_VSTACK
-{
-    NT_LIST list;
-    size_t sp;
-} NT_VSTACK;
+NT_HANDLE(NT_TYPE)
+NT_HANDLE(NIR_CONTEXT)
 
-NT_VSTACK *ntCreateVStack(void);
-void ntFreeVStack(NT_VSTACK *stack);
-size_t ntVPush(NT_VSTACK *stack, const NT_TYPE *type);
-size_t ntVPop(NT_VSTACK *stack, const NT_TYPE **type);
-void ntVPeek(NT_VSTACK *stack, const NT_TYPE **ppType, size_t index);
+const NT_TYPE *ntConsoleModule(NIR_CONTEXT *context);
 
 #endif

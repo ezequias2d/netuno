@@ -28,7 +28,7 @@ SOFTWARE.
 #include "list.h"
 #include "report.h"
 #include "scanner.h"
-#include <netuno/type.h>
+#include "type.h"
 #include <stdbool.h>
 
 #define strinfy(a, b) a##b

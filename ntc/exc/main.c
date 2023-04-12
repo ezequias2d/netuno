@@ -22,15 +22,12 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+#include "netuno/nir/module.h"
 #include <assert.h>
-#include <netuno/common.h>
-#include <netuno/debug.h>
-#include <netuno/delegate.h>
 #include <netuno/memory.h>
 #include <netuno/ntc.h>
 #include <netuno/path.h>
 #include <netuno/str.h>
-#include <netuno/vm.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -52,34 +49,6 @@ static char *readFile(const char *filepath, size_t *length)
     code[fsize] = '\0';
     *length = fsize;
     return code;
-}
-
-static const NT_DELEGATE *findEntryPoint(const NT_ASSEMBLY *assembly, char_t *entryPoint)
-{
-    for (size_t i = 0; i < assembly->objects->count / sizeof(NT_REF); ++i)
-    {
-        NT_OBJECT *object = NULL;
-        const bool result = ntArrayGet(assembly->objects, i * sizeof(NT_REF), &object,
-                                       sizeof(NT_REF)) == sizeof(NT_REF);
-        assert(result);
-
-        assert(object);
-        assert(IS_VALID_OBJECT(object));
-
-        if (object->type->objectType != NT_OBJECT_TYPE_TYPE ||
-            ((NT_TYPE *)object)->objectType != NT_OBJECT_MODULE)
-            continue;
-
-        NT_MODULE *const module = (NT_MODULE *)object;
-        NT_SYMBOL_ENTRY entry;
-        if (!ntLookupSymbolCurrent(&module->type.fields, entryPoint, ntStrLen(entryPoint), &entry))
-            continue;
-
-        if ((entry.type & SYMBOL_TYPE_FUNCTION) == SYMBOL_TYPE_FUNCTION ||
-            (entry.type & SYMBOL_TYPE_SUBROUTINE) == SYMBOL_TYPE_SUBROUTINE)
-            return (const NT_DELEGATE *)entry.data;
-    }
-    return NULL;
 }
 
 int main(int argc, char **argv)
@@ -140,47 +109,58 @@ int main(int argc, char **argv)
         };
     }
 
-    NT_ASSEMBLY *assembly = ntCreateAssembly();
-    if (ntCompile(assembly, count, files) != assembly)
+    NIR_MODULE **modules = (NIR_MODULE **)ntMalloc(sizeof(NIR_MODULE *) * count);
+    if (!ntCompile(count, files, modules))
     {
-        ntFreeObject((NT_OBJECT *)assembly);
+        ntFree(modules);
         return -4321;
     }
 
-    NT_VM *vm = ntCreateVM();
+    for (size_t i = 0; i < count; ++i)
+        nirPrintModule(modules[i]);
 
-    const NT_DELEGATE *entryPoint = findEntryPoint(assembly, U"main");
-    if (entryPoint == NULL)
-    {
-        printf("undefined reference to \"main\"\n");
-        return -1234;
-    }
-    NT_RESULT vmResult = ntRun(vm, assembly, entryPoint);
-    if (vmResult != NT_OK)
-    {
-        switch (vmResult)
-        {
-        case NT_STACK_OVERFLOW:
-            printf("Stack Overflow!\n");
-            break;
-        case NT_RUNTIME_ERROR:
-            printf("Runtime Error!\n");
-            break;
-        default:
-            printf("Unknow Error Code %d\n", vmResult);
-            break;
-        }
-        return INT32_MAX;
-    }
+    // NT_ASSEMBLY *assembly = ntCreateAssembly();
+    // if (ntCompile(assembly, count, files) != assembly)
+    // {
+    //     ntFreeObject((NT_OBJECT *)assembly);
+    //     return -4321;
+    // }
 
-    uint32_t result = INT32_MAX;
-    if (!ntPop32(vm, &result))
-    {
-        printf("Error: No return value in main!\n");
-    }
+    // NT_VM *vm = ntCreateVM();
 
-    ntFreeVM(vm);
-    ntFreeObject((NT_OBJECT *)assembly);
+    // const NT_DELEGATE *entryPoint = findEntryPoint(assembly, U"main");
+    // if (entryPoint == NULL)
+    // {
+    //     printf("undefined reference to \"main\"\n");
+    //     return -1234;
+    // }
+    // NT_RESULT vmResult = ntRun(vm, assembly, entryPoint);
+    // if (vmResult != NT_OK)
+    // {
+    //     switch (vmResult)
+    //     {
+    //     case NT_STACK_OVERFLOW:
+    //         printf("Stack Overflow!\n");
+    //         break;
+    //     case NT_RUNTIME_ERROR:
+    //         printf("Runtime Error!\n");
+    //         break;
+    //     default:
+    //         printf("Unknow Error Code %d\n", vmResult);
+    //         break;
+    //     }
+    //     return INT32_MAX;
+    // }
 
-    return result;
+    // uint32_t result = INT32_MAX;
+    // if (!ntPop32(vm, &result))
+    // {
+    //     printf("Error: No return value in main!\n");
+    // }
+
+    // ntFreeVM(vm);
+    // ntFreeObject((NT_OBJECT *)assembly);
+
+    // return result;
+    return 0;
 }
