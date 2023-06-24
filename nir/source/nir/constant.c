@@ -6,10 +6,11 @@
 #include <netuno/memory.h>
 #include <netuno/nir/type.h>
 #include <netuno/string.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 static NIR_VALUE *nirGetConstant(NIR_TYPE *valueType, size_t size,
-                                 const void *data)
+                                 const void *data, bool string)
 {
     assert(valueType);
     NT_STRING *id = nirGetPrefixedId(nirGetTypeContext(valueType), U"const");
@@ -21,6 +22,7 @@ static NIR_VALUE *nirGetConstant(NIR_TYPE *valueType, size_t size,
     constant->value.valueType = NIR_VALUE_TYPE_CONSTANT;
     constant->value.dbgLoc = NULL;
     constant->value.type = valueType;
+    constant->string = string;
 
     constant->numBytes = size;
     ntMemcpy(constant->data, data, size);
@@ -62,7 +64,7 @@ NIR_VALUE *nirGetInt(NIR_TYPE *valueType, uint64_t value, bool isSigned)
         value = extend(value, bits);
     }
 
-    return nirGetConstant(valueType, sizeof(uint64_t), &value);
+    return nirGetConstant(valueType, sizeof(uint64_t), &value, false);
 }
 
 NIR_VALUE *nirGetIntAllOnes(NIR_TYPE *valueType)
@@ -86,7 +88,7 @@ bool nirIsIntValueValid(NIR_TYPE *type, uint64_t value)
 
 NIR_VALUE *nirGetFloat(NIR_TYPE *type, double value)
 {
-    return nirGetConstant(type, sizeof(double), &value);
+    return nirGetConstant(type, sizeof(double), &value, false);
 }
 
 NIR_VALUE *nirGetFloatNaN(NIR_TYPE *type, bool negative)
@@ -124,12 +126,22 @@ NIR_VALUE *nirGetConstantAggregate(NIR_TYPE *arrayType, size_t valueCount,
                                    NIR_VALUE **values)
 {
     assert(nirIsArrayType(arrayType));
-    return nirGetConstant(arrayType, sizeof(NIR_VALUE *) * valueCount, values);
+    return nirGetConstant(arrayType, sizeof(NIR_VALUE *) * valueCount, values,
+                          false);
 }
 
 NIR_VALUE *nirGetConstantData(NIR_TYPE *elementType, size_t elementCount,
                               void *data)
 {
     assert(nirIsSized(elementType));
-    return nirGetConstant(elementType, elementCount, data);
+    return nirGetConstant(elementType, elementCount, data, false);
+}
+
+NIR_VALUE *nirGetConstantStringData(NIR_TYPE *elementType, size_t elementCount,
+                                    void *data)
+{
+    assert(nirIsSized(elementType));
+    return nirGetConstant(elementType,
+                          elementCount * nirGetIntegerBitWidth(elementType),
+                          data, true);
 }

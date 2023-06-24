@@ -234,8 +234,7 @@ static const NT_TYPE *findType(NT_CODEGEN *codegen, const NT_NODE *typeNode)
 
 static NIR_TYPE *getNirStringType(NIR_CONTEXT *context)
 {
-    NIR_TYPE *elements[] = {nirGetInt64Type(context), nirGetInt32PtrType(context)};
-    return nirGetStructType(context, 2, elements);
+    return nirGetInt32PtrType(context);
 }
 
 NIR_TYPE *toNirType(NIR_CONTEXT *c, const NT_TYPE *type);
@@ -415,10 +414,7 @@ static NIR_VALUE *string(NT_CODEGEN *codegen, const NT_NODE *node)
     char_t *str = ntEscapeString(start, &length);
 
     NIR_TYPE *charType = nirGetInt32Type(codegen->context);
-    NIR_TYPE *const type = nirGetArrayType(codegen->context, charType, length);
-    NIR_VALUE *raw = nirGetConstantData(charType, length, str);
-
-    return nirGetConstantAggregate(type, 1, &raw);
+    return nirGetConstantStringData(charType, length, str);
 }
 
 static NIR_VALUE *literal(NT_CODEGEN *codegen, const NT_NODE *node)

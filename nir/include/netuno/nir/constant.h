@@ -37,4 +37,6 @@ NIR_VALUE *nirGetConstantAggregate(NIR_TYPE *arrayType, size_t valueCount,
 /*****************/
 NIR_VALUE *nirGetConstantData(NIR_TYPE *elementType, size_t elementCount,
                               void *data);
+NIR_VALUE *nirGetConstantStringData(NIR_TYPE *elementType, size_t elementCount,
+                                    void *data);
 #endif

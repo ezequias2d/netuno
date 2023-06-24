@@ -297,6 +297,51 @@ size_t ntEscapeChar(const char_t *str, char_t *result)
     return 1;
 }
 
+size_t ntUnescapeChar(const char_t *str, char_t *result)
+{
+    const char_t c = *str;
+    char_t escape = ' ';
+    switch (c)
+    {
+    case '\'':
+    case '"':
+    case '?':
+    case '\\':
+        escape = c;
+        break;
+    case '\a':
+        escape = 'a';
+        break;
+    case '\b':
+        escape = 'b';
+        break;
+    case '\f':
+        escape = 'f';
+        break;
+    case '\n':
+        escape = 'n';
+        break;
+    case '\r':
+        escape = 'r';
+        break;
+    case '\t':
+        escape = 't';
+        break;
+    case '\v':
+        escape = 'v';
+        break;
+    case '\x1B':
+        escape = 'e';
+        break;
+    default:
+        *result = c;
+        return 1;
+    }
+    *result = '\\';
+    *(result + 1) = escape;
+    return 2;
+}
+
 char_t *ntEscapeString(const char_t *str, size_t *length)
 {
     const char_t *max = str + *length;
@@ -320,6 +365,26 @@ char_t *ntEscapeString(const char_t *str, size_t *length)
         else
             str = escape;
     } while (str < max);
+
+    ntArrayAdd(&tmp, U"\0", sizeof(char_t));
+
+    *length = (tmp.count / sizeof(char_t)) - 1;
+    return ntRealloc(tmp.data, tmp.count);
+}
+
+char_t *ntUnescapeString(const char_t *str, size_t *length)
+{
+    const char_t *max = str + *length;
+    NT_ARRAY tmp;
+    ntInitArray(&tmp);
+
+    while (str < max)
+    {
+        char_t c[2];
+        const size_t s = ntUnescapeChar(str, c);
+        str++;
+        ntArrayAdd(&tmp, &c, s * sizeof(char_t));
+    }
 
     ntArrayAdd(&tmp, U"\0", sizeof(char_t));
 

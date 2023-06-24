@@ -19,6 +19,8 @@ struct _NIR_CONSTANT
     NIR_VALUE value;
     /// @brief Size of data field.
     size_t numBytes;
+    /// @brief Contanst contains string.
+    bool string;
     /// @brief Constant data.
     uint8_t data[];
 };

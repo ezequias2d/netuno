@@ -323,6 +323,7 @@ bool nirIsSized(NIR_TYPE *type)
     assert(false);
     return false;
 }
+
 size_t nirGetPrimitiveSizeInBits(NIR_TYPE *type)
 {
     switch (type->id)

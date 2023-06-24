@@ -46,6 +46,8 @@ const char_t *ntStrRChr(const char_t *str, char_t character);
 const char_t *ntStrChrFixed(const char_t *str, size_t length, char_t character);
 const char_t *ntStrChr(const char_t *str, char_t character);
 size_t ntEscapeChar(const char_t *str, char_t *result);
+size_t ntUnescapeChar(const char_t *str, char_t *result);
 char_t *ntEscapeString(const char_t *str, size_t *length);
+char_t *ntUnescapeString(const char_t *str, size_t *length);
 
 #endif

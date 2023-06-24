@@ -1,7 +1,9 @@
 #include "colors.h"
+#include "netuno/memory.h"
 #include "netuno/nir/basic_block.h"
 #include "netuno/nir/instruction.h"
 #include "netuno/nir/type.h"
+#include "netuno/str.h"
 #include "netuno/string.h"
 #include "nir/pargument.h"
 #include "nir/pconstant.h"
@@ -199,7 +201,22 @@ void nirPrintValue(NIR_VALUE *value)
     case NIR_VALUE_TYPE_CONSTANT: {
         NIR_CONSTANT *c = (NIR_CONSTANT *)value;
 
-        if (nirIsIntegerType(c->value.type))
+        if (c->string)
+        {
+            assert(c->data);
+            NIR_TYPE *charType = c->value.type;
+            assert(nirIsIntegerNType(charType, sizeof(char_t) * 8));
+
+            size_t length = c->numBytes / sizeof(char_t);
+            char_t *unescape = ntUnescapeString((char_t *)c->data, &length);
+
+            char *str = ntToCharFixed(unescape, length);
+            ntFree(unescape);
+
+            printf("\"%s\"", str);
+            ntFree(str);
+        }
+        else if (nirIsIntegerType(c->value.type))
         {
             uint64_t tmp;
             switch (((NIR_INTEGER_TYPE *)c->value.type)->numBits / 8)
