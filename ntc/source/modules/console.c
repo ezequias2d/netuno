@@ -31,7 +31,7 @@ static NT_TYPE CONSOLE = {
     .baseType = NULL,
 };
 
-static void addWrite(NIR_CONTEXT *context, NT_TYPE *type, NIR_MODULE *module)
+static void addWrite(NIL_CONTEXT *context, NT_TYPE *type, NIL_MODULE *module)
 {
     NT_PARAM param = {
         .type = ntObjectType(),
@@ -42,13 +42,13 @@ static void addWrite(NIR_CONTEXT *context, NT_TYPE *type, NIR_MODULE *module)
     addFunction(context, type, U"write", SYMBOL_TYPE_SUBROUTINE, delegateType, module);
 }
 
-static void addReadline(NIR_CONTEXT *context, NT_TYPE *type, NIR_MODULE *module)
+static void addReadline(NIL_CONTEXT *context, NT_TYPE *type, NIL_MODULE *module)
 {
     const NT_TYPE *delegateType = ntTakeDelegateType(ntStringType(context), 0, NULL);
     addFunction(context, type, U"readline", SYMBOL_TYPE_FUNCTION, delegateType, module);
 }
 
-const NT_TYPE *ntConsoleModule(NIR_CONTEXT *context)
+const NT_TYPE *ntConsoleModule(NIL_CONTEXT *context)
 {
     if (CONSOLE.typeName == NULL)
     {
@@ -56,7 +56,7 @@ const NT_TYPE *ntConsoleModule(NIR_CONTEXT *context)
         CONSOLE.typeName = ntCopyString(moduleName, ntStrLen(moduleName));
         CONSOLE.baseType = ntObjectType();
 
-        NIR_MODULE *module = nirCreateModule(moduleName);
+        NIL_MODULE *module = nilCreateModule(moduleName);
 
         ntInitSymbolTable(&CONSOLE.fields, &CONSOLE.baseType->fields, STT_TYPE, NULL);
 

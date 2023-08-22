@@ -4,7 +4,7 @@ set(ROOT_SOURCES
     "scanner.c"
     "trie.c"
     "list.c"
-    "nir_codegen.c"
+    "nil_codegen.c"
     "resolver.c"
     "report.c"
     "type.c"
@@ -34,7 +34,7 @@ target_include_directories(ntc PRIVATE
 target_include_directories(ntc PUBLIC
     ${NTC_ROOT_DIR}/include)
 
-target_link_libraries(ntc PRIVATE nir)
+target_link_libraries(ntc PRIVATE nil)
 
 if(NOT WIN32)
     target_link_libraries(ntc

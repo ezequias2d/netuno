@@ -28,8 +28,8 @@ SOFTWARE.
 #include <netuno/common.h>
 
 NT_HANDLE(NT_TYPE)
-NT_HANDLE(NIR_CONTEXT)
+NT_HANDLE(NIL_CONTEXT)
 
-const NT_TYPE *ntConsoleModule(NIR_CONTEXT *context);
+const NT_TYPE *ntConsoleModule(NIL_CONTEXT *context);
 
 #endif

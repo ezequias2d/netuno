@@ -25,7 +25,7 @@ SOFTWARE.
 #ifndef NT_SCOPE_H
 #define NT_SCOPE_H
 
-#include "netuno/nir/instruction.h"
+#include "netuno/nil/instruction.h"
 #include <netuno/common.h>
 #include <netuno/string.h>
 typedef struct _NT_TYPE NT_TYPE;
@@ -49,7 +49,7 @@ typedef struct _NT_SYMBOL
     NT_STRING *symbol_name;
     NT_STRING *target_label; // for branch
     NT_SYMBOL_TYPE type;
-    NIR_VALUE *value;
+    NIL_VALUE *value;
     const NT_TYPE *exprType;
     bool weak;
 } NT_SYMBOL;
@@ -75,8 +75,8 @@ struct _NT_SCOPE
     size_t max;
     NT_SYMBOL *symbols;
 
-    NIR_BASIC_BLOCK *endLoop;
-    NIR_BASIC_BLOCK *loop;
+    NIL_BASIC_BLOCK *endLoop;
+    NIL_BASIC_BLOCK *loop;
 };
 
 NT_SCOPE *ntCreateSymbolTable(const NT_SCOPE *parent, NT_SCOPE_TYPE type, void *data);

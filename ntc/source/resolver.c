@@ -24,7 +24,7 @@ SOFTWARE.
 */
 #include "resolver.h"
 #include "modules/numbers.h"
-#include "netuno/nir/context.h"
+#include "netuno/nil/context.h"
 #include "report.h"
 #include "scope.h"
 #include "type.h"
@@ -39,7 +39,7 @@ SOFTWARE.
 typedef struct
 {
     NT_REPORT report;
-    NIR_CONTEXT *context;
+    NIL_CONTEXT *context;
 
     NT_TYPE *globalModule;
     NT_TYPE *module;
@@ -160,7 +160,7 @@ static const NT_TYPE *findType(RESOLVER *r, NT_NODE *typeNode)
     }
 }
 
-const NT_TYPE *ntEvalExprType(NIR_CONTEXT *context, NT_REPORT *report, NT_SCOPE *table,
+const NT_TYPE *ntEvalExprType(NIL_CONTEXT *context, NT_REPORT *report, NT_SCOPE *table,
                               NT_NODE *node)
 {
     assert(report);
@@ -430,7 +430,7 @@ static void endScope(RESOLVER *r)
     r->scope = (NT_SCOPE *)oldScope->parent;
 }
 
-static const NT_TYPE *evalIfReturnType(NIR_CONTEXT *context, NT_REPORT *report, NT_SCOPE *table,
+static const NT_TYPE *evalIfReturnType(NIL_CONTEXT *context, NT_REPORT *report, NT_SCOPE *table,
                                        NT_NODE *node)
 {
     NT_NODE *const thenBranch = node->left;
@@ -495,7 +495,7 @@ static const NT_TYPE *evalIfReturnType(NIR_CONTEXT *context, NT_REPORT *report, 
     return type;
 }
 
-const NT_TYPE *ntEvalBlockReturnType(NIR_CONTEXT *context, NT_REPORT *report, NT_SCOPE *table,
+const NT_TYPE *ntEvalBlockReturnType(NIL_CONTEXT *context, NT_REPORT *report, NT_SCOPE *table,
                                      NT_NODE *node)
 {
     assert(node->type.class == NC_STMT);
@@ -1070,7 +1070,7 @@ static void module(RESOLVER *r, NT_NODE *node)
     r->public = savePublic;
 }
 
-bool ntResolve(NIR_CONTEXT *context, NT_SCOPE *globalTable, size_t moduleNodeCount,
+bool ntResolve(NIL_CONTEXT *context, NT_SCOPE *globalTable, size_t moduleNodeCount,
                NT_NODE **moduleNodes)
 {
     assert(moduleNodeCount > 0);

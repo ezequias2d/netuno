@@ -26,7 +26,7 @@ SOFTWARE.
 #define NT_TYPE_H
 
 #include "scope.h"
-#include <netuno/nir/module.h>
+#include <netuno/nil/module.h>
 
 #define IS_TYPE(obj, ptype) (((NT_OBJECT *)(obj))->type == (ptype))
 #define IS_VALID_TYPE(ptype)                                                                       \
@@ -80,7 +80,7 @@ struct _NT_TYPE
         } delegate;
         struct
         {
-            NIR_MODULE *nirModule;
+            NIL_MODULE *nilModule;
         } module;
     };
 };
@@ -94,7 +94,7 @@ bool ntTypeIsAssignableFrom(const NT_TYPE *to, const NT_TYPE *from);
 // const NT_TYPE *ntU64Type(void);
 // const NT_TYPE *ntF32Type(void);
 // const NT_TYPE *ntF64Type(void);
-const NT_TYPE *ntStringType(NIR_CONTEXT *context);
+const NT_TYPE *ntStringType(NIL_CONTEXT *context);
 const NT_TYPE *ntObjectType(void);
 
 const NT_TYPE *ntUndefinedType(void);

@@ -22,7 +22,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-#include "netuno/nir/module.h"
+#include "netuno/nil/module.h"
 #include <assert.h>
 #include <netuno/memory.h>
 #include <netuno/ntc.h>
@@ -109,7 +109,7 @@ int main(int argc, char **argv)
         };
     }
 
-    NIR_MODULE **modules = (NIR_MODULE **)ntMalloc(sizeof(NIR_MODULE *) * count);
+    NIL_MODULE **modules = (NIL_MODULE **)ntMalloc(sizeof(NIL_MODULE *) * count);
     if (!ntCompile(count, files, modules))
     {
         ntFree(modules);
@@ -117,7 +117,7 @@ int main(int argc, char **argv)
     }
 
     for (size_t i = 0; i < count; ++i)
-        nirPrintModule(modules[i]);
+        nilPrintModule(modules[i]);
 
     // NT_ASSEMBLY *assembly = ntCreateAssembly();
     // if (ntCompile(assembly, count, files) != assembly)

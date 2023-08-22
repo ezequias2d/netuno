@@ -22,20 +22,32 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-#ifndef NT_RESOLVER_H
-#define NT_RESOLVER_H
+#ifndef STR_H
+#define STR_H
 
-#include "parser.h"
-#include "report.h"
-#include "scope.h"
-#include "type.h"
-#include <netuno/array.h>
+#include <netuno/common.h>
 
-const NT_TYPE *ntEvalBlockReturnType(NIL_CONTEXT *context, NT_REPORT *report, NT_SCOPE *blockTable,
-                                     NT_NODE *node);
-const NT_TYPE *ntEvalExprType(NIL_CONTEXT *context, NT_REPORT *report, NT_SCOPE *table,
-                              NT_NODE *node);
-bool ntResolve(NIL_CONTEXT *context, NT_SCOPE *globalTable, size_t moduleNodeCount,
-               NT_NODE **moduleNodes);
+NT_HANDLE(NT_STRING)
+
+// NIL_STRING nilCopyString(const NIL_STRING *str);
+// void nilUpdateString(NIL_STRING *string, const NIL_STRING *newValue);
+
+bool ntStrEquals(const char_t *str1, const char_t *str2);
+bool ntStrEqualsFixed(const char_t *str1, const size_t size1,
+                      const char_t *str2, const size_t size2);
+
+char *ntStringToChar(const NT_STRING *string);
+char *ntToChar(const char_t *str);
+char *ntToCharFixed(const char_t *str, size_t len);
+char_t *ntToCharT(const char *str);
+char_t *ntToCharTFixed(const char *str, size_t len);
+size_t ntStrLen(const char_t *str);
+const char_t *ntStrRChr(const char_t *str, char_t character);
+const char_t *ntStrChrFixed(const char_t *str, size_t length, char_t character);
+const char_t *ntStrChr(const char_t *str, char_t character);
+size_t ntEscapeChar(const char_t *str, char_t *result);
+size_t ntUnescapeChar(const char_t *str, char_t *result);
+char_t *ntEscapeString(const char_t *str, size_t *length);
+char_t *ntUnescapeString(const char_t *str, size_t *length);
 
 #endif

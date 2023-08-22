@@ -1,0 +1,11 @@
+#ifndef NIL_BINARY_H
+#define NIL_BINARY_H
+
+enum NIL_BINARY
+{
+    NIL_MODULE_BINARY,
+    NIL_FUNCTION_BINARY,
+    NIL_TYPE_BINARY,
+};
+
+#endif

@@ -25,7 +25,7 @@ SOFTWARE.
 #include "numbers.h"
 #include "helper.h"
 #include "netuno/memory.h"
-#include "netuno/nir/basic_block.h"
+#include "netuno/nil/basic_block.h"
 #include "netuno/str.h"
 #include "netuno/string.h"
 #include "scope.h"
@@ -37,8 +37,8 @@ static NT_TYPE STRING = {
     .typeName = NULL,
 };
 
-static void addCast(NIR_CONTEXT *context, NT_TYPE *type, const NT_TYPE *sourceCast,
-                    const NT_TYPE *targetCast, NIR_MODULE *module)
+static void addCast(NIL_CONTEXT *context, NT_TYPE *type, const NT_TYPE *sourceCast,
+                    const NT_TYPE *targetCast, NIL_MODULE *module)
 {
     NT_PARAM param = {
         .type = sourceCast,
@@ -62,7 +62,7 @@ static void addCast(NIR_CONTEXT *context, NT_TYPE *type, const NT_TYPE *sourceCa
     ntFree(name);
 }
 
-// static void addEquals(NIR_CONTEXT *context, NT_TYPE *type, NIR_MODULE *module)
+// static void addEquals(NIL_CONTEXT *context, NT_TYPE *type, NIL_MODULE *module)
 // {
 //     NT_PARAM params[2] = {
 //         {
@@ -79,9 +79,9 @@ static void addCast(NIR_CONTEXT *context, NT_TYPE *type, const NT_TYPE *sourceCa
 //     addFunction(context, type, U"equals", SYMBOL_TYPE_FUNCTION, delegateType, module);
 // }
 
-static void startPrimitive(NT_TYPE *type, NIR_CONTEXT *context)
+static void startPrimitive(NT_TYPE *type, NIL_CONTEXT *context)
 {
-    NIR_MODULE *module = nirCreateModule(ntStringChars(type->typeName, NULL));
+    NIL_MODULE *module = nilCreateModule(ntStringChars(type->typeName, NULL));
 
     STRING.fields.scopeReturnType = &STRING;
     STRING.fields.data = module;
@@ -96,7 +96,7 @@ static NT_TYPE I32_TYPE = {
     .baseType = NULL,
 };
 
-const NT_TYPE *ntI32Type(NIR_CONTEXT *context)
+const NT_TYPE *ntI32Type(NIL_CONTEXT *context)
 {
     if (I32_TYPE.typeName == NULL)
     {
@@ -114,7 +114,7 @@ static NT_TYPE BOOL_TYPE = {
     .baseType = NULL,
 };
 
-const NT_TYPE *ntBoolType(NIR_CONTEXT *context)
+const NT_TYPE *ntBoolType(NIL_CONTEXT *context)
 {
     if (BOOL_TYPE.typeName == NULL)
     {
@@ -132,7 +132,7 @@ static NT_TYPE I64_TYPE = {
     .baseType = NULL,
 };
 
-const NT_TYPE *ntI64Type(NIR_CONTEXT *context)
+const NT_TYPE *ntI64Type(NIL_CONTEXT *context)
 {
     if (I64_TYPE.typeName == NULL)
     {
@@ -150,7 +150,7 @@ static NT_TYPE U32_TYPE = {
     .baseType = NULL,
 };
 
-const NT_TYPE *ntU32Type(NIR_CONTEXT *context)
+const NT_TYPE *ntU32Type(NIL_CONTEXT *context)
 {
     if (U32_TYPE.typeName == NULL)
     {
@@ -168,7 +168,7 @@ static NT_TYPE U64_TYPE = {
     .baseType = NULL,
 };
 
-const NT_TYPE *ntU64Type(NIR_CONTEXT *context)
+const NT_TYPE *ntU64Type(NIL_CONTEXT *context)
 {
     if (U64_TYPE.typeName == NULL)
     {
@@ -186,7 +186,7 @@ static NT_TYPE F32_TYPE = {
     .baseType = NULL,
 };
 
-const NT_TYPE *ntF32Type(NIR_CONTEXT *context)
+const NT_TYPE *ntF32Type(NIL_CONTEXT *context)
 {
     if (F32_TYPE.typeName == NULL)
     {
@@ -204,7 +204,7 @@ static NT_TYPE F64_TYPE = {
     .baseType = NULL,
 };
 
-const NT_TYPE *ntF64Type(NIR_CONTEXT *context)
+const NT_TYPE *ntF64Type(NIL_CONTEXT *context)
 {
     if (F64_TYPE.typeName == NULL)
     {

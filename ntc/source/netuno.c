@@ -24,7 +24,7 @@ SOFTWARE.
 */
 #include "codegen.h"
 #include "modules/console.h"
-#include "nir_codegen.h"
+#include "nil_codegen.h"
 #include "parser.h"
 #include "report.h"
 #include "resolver.h"
@@ -32,7 +32,7 @@ SOFTWARE.
 #include "scope.h"
 #include <assert.h>
 #include <ctype.h>
-#include <netuno/nir/context.h>
+#include <netuno/nil/context.h>
 // #include <netuno/console.h>
 #include <netuno/memory.h>
 #include <netuno/ntc.h>
@@ -56,7 +56,7 @@ static bool insertModuleSymbol(NT_SCOPE *table, const NT_TYPE *module)
     return ntInsertSymbol(table, &entry);
 }
 
-bool ntCompile(size_t fileCount, const NT_FILE *files, NIR_MODULE **modules)
+bool ntCompile(size_t fileCount, const NT_FILE *files, NIL_MODULE **modules)
 {
     assert(files != NULL);
     assert(fileCount > 0);
@@ -64,7 +64,7 @@ bool ntCompile(size_t fileCount, const NT_FILE *files, NIR_MODULE **modules)
     NT_NODE **nodes = ntMalloc(sizeof(NT_NODE *) * fileCount);
     NT_SCOPE *globalScope = ntCreateSymbolTable(NULL, STT_NONE, NULL);
 
-    NIR_CONTEXT *context = nirCreateContext();
+    NIL_CONTEXT *context = nilCreateContext();
     insertModuleSymbol(globalScope, ntConsoleModule(context));
 
     for (size_t i = 0; i < fileCount; ++i)
@@ -96,7 +96,7 @@ bool ntCompile(size_t fileCount, const NT_FILE *files, NIR_MODULE **modules)
         for (size_t i = 0; i < fileCount; ++i)
         {
             if (modules[i])
-                nirDestroyModule(modules[i]);
+                nilDestroyModule(modules[i]);
         }
         goto error;
     }

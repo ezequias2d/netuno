@@ -15,6 +15,7 @@ else()
         $<$<CONFIG:DEBUG>:-pedantic>
         $<$<CONFIG:DEBUG>:-Werror>
         $<$<CONFIG:DEBUG>:-Wno-implicit-fallthrough>
+        $<$<CONFIG:DEBUG>:-Wno-type-limits>
         $<$<CONFIG:RELEASE>:-O3>)
 endif()
 
@@ -35,4 +36,4 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 add_subdirectory(ntc)
 
 # add_subdirectory(ntr)
-add_subdirectory(nir)
+add_subdirectory(nil)

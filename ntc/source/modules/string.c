@@ -36,8 +36,8 @@ static NT_TYPE STRING = {
     .typeName = NULL,
 };
 
-static void addCast(NIR_CONTEXT *context, NT_TYPE *type, const NT_TYPE *sourceCast,
-                    NIR_MODULE *module)
+static void addCast(NIL_CONTEXT *context, NT_TYPE *type, const NT_TYPE *sourceCast,
+                    NIL_MODULE *module)
 {
     NT_PARAM param = {
         .type = sourceCast,
@@ -61,7 +61,7 @@ static void addCast(NIR_CONTEXT *context, NT_TYPE *type, const NT_TYPE *sourceCa
     ntFree(name);
 }
 
-static void addEquals(NIR_CONTEXT *context, NT_TYPE *type, NIR_MODULE *module)
+static void addEquals(NIL_CONTEXT *context, NT_TYPE *type, NIL_MODULE *module)
 {
     NT_PARAM params[2] = {
         {
@@ -78,7 +78,7 @@ static void addEquals(NIR_CONTEXT *context, NT_TYPE *type, NIR_MODULE *module)
     addFunction(context, type, U"equals", SYMBOL_TYPE_FUNCTION, delegateType, module);
 }
 
-static void addConcat(NIR_CONTEXT *context, NT_TYPE *type, NIR_MODULE *module)
+static void addConcat(NIL_CONTEXT *context, NT_TYPE *type, NIL_MODULE *module)
 {
     NT_PARAM params[2] = {
         {
@@ -95,7 +95,7 @@ static void addConcat(NIR_CONTEXT *context, NT_TYPE *type, NIR_MODULE *module)
     addFunction(context, type, U"concat", SYMBOL_TYPE_FUNCTION, delegateType, module);
 }
 
-const NT_TYPE *ntStringType(NIR_CONTEXT *context)
+const NT_TYPE *ntStringType(NIL_CONTEXT *context)
 {
     if (context && STRING.typeName == NULL)
     {
@@ -104,7 +104,7 @@ const NT_TYPE *ntStringType(NIR_CONTEXT *context)
         STRING.baseType = ntObjectType();
         ntInitSymbolTable(&STRING.fields, &(ntObjectType()->fields), STT_TYPE, 0);
 
-        NIR_MODULE *module = nirCreateModule(moduleName);
+        NIL_MODULE *module = nilCreateModule(moduleName);
 
         STRING.fields.scopeReturnType = &STRING;
         STRING.fields.data = module;

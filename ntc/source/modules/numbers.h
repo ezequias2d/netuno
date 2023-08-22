@@ -28,14 +28,14 @@ SOFTWARE.
 #include <netuno/common.h>
 
 NT_HANDLE(NT_TYPE)
-NT_HANDLE(NIR_CONTEXT)
+NT_HANDLE(NIL_CONTEXT)
 
-const NT_TYPE *ntBoolType(NIR_CONTEXT *context);
-const NT_TYPE *ntI32Type(NIR_CONTEXT *context);
-const NT_TYPE *ntI64Type(NIR_CONTEXT *context);
-const NT_TYPE *ntU32Type(NIR_CONTEXT *context);
-const NT_TYPE *ntU64Type(NIR_CONTEXT *context);
-const NT_TYPE *ntF32Type(NIR_CONTEXT *context);
-const NT_TYPE *ntF64Type(NIR_CONTEXT *context);
+const NT_TYPE *ntBoolType(NIL_CONTEXT *context);
+const NT_TYPE *ntI32Type(NIL_CONTEXT *context);
+const NT_TYPE *ntI64Type(NIL_CONTEXT *context);
+const NT_TYPE *ntU32Type(NIL_CONTEXT *context);
+const NT_TYPE *ntU64Type(NIL_CONTEXT *context);
+const NT_TYPE *ntF32Type(NIL_CONTEXT *context);
+const NT_TYPE *ntF64Type(NIL_CONTEXT *context);
 
 #endif

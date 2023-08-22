@@ -2,7 +2,7 @@
 #ifndef NT_COMPILER_H
 #define NT_COMPILER_H
 
-#include <netuno/nir/module.h>
+#include <netuno/nil/module.h>
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -18,5 +18,5 @@ typedef struct _NT_FILE
     const char_t *filename;
 } NT_FILE;
 
-bool ntCompile(size_t fileCount, const NT_FILE *files, NIR_MODULE **modules);
+bool ntCompile(size_t fileCount, const NT_FILE *files, NIL_MODULE **modules);
 #endif
