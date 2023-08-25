@@ -35,6 +35,7 @@ kind(CALL)
 kind(GET)
 
 // stmt
+kind(NOOP)
 kind(EXPR)
 kind(RETURN)
 kind(LABEL)

@@ -1,5 +1,5 @@
-def main(): int
-  var x = 1
-  x = x ^ 3
-  return x - 2
+def main(): int do
+    var x = 1
+    x = x ^ 3
+    return x - 2
 end

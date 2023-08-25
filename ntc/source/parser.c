@@ -25,6 +25,7 @@ SOFTWARE.
 #include "parser.h"
 #include "list.h"
 #include "report.h"
+#include "scanner.h"
 #include <assert.h>
 #include <netuno/memory.h>
 #include <netuno/str.h>
@@ -199,9 +200,13 @@ static NT_NODE *makeBlock(const NT_TOKEN token, const NT_TOKEN end, NT_LIST stat
 
 static NT_NODE *makeSingleStatementBlock(NT_NODE *node)
 {
-    NT_LIST block = ntCreateList();
-    ntListAdd(block, node);
-    return makeBlock(node->token, node->token, block);
+    if (node->type.kind != NK_BLOCK)
+    {
+        NT_LIST block = ntCreateList();
+        ntListAdd(block, node);
+        node = makeBlock(node->token, node->token, block);
+    }
+    return node;
 }
 
 static NT_NODE *makeIf(const NT_TOKEN token, NT_NODE *condition, NT_NODE *thenBranch,
@@ -598,14 +603,14 @@ static NT_NODE *functionDeclaration(NT_PARSER *parser, const bool returnValue)
     }
 
     NT_NODE *body;
-    if (matchId(parser, TK_KEYWORD, KW_ARROW))
+    if (matchId(parser, TK_KEYWORD, KW_DO))
+        body = block(parser, KW_END, returnValue);
+    else
     {
         body = expression(parser);
         body = makeNode(NC_STMT, NK_RETURN, body->token, body, NULL);
         body = makeSingleStatementBlock(body);
     }
-    else
-        body = block(parser, KW_END, returnValue);
 
     if (returnValue)
         return makeFunction(NK_DEF, name, parameters, returnType, body);
@@ -849,12 +854,7 @@ static NT_NODE *forStatement(NT_PARSER *parser, const bool returnValue)
         step = makeLiteral(stepToken, LT_I32);
     }
 
-    NT_NODE *mainBody;
-    if (matchId(parser, TK_KEYWORD, KW_ARROW))
-        mainBody = makeSingleStatementBlock(statement(parser, returnValue));
-    else
-        mainBody = block(parser, KW_NEXT, returnValue);
-
+    NT_NODE *mainBody = makeSingleStatementBlock(statement(parser, returnValue));
     NT_NODE *body = mainBody;
 
     // create increment block
@@ -883,20 +883,22 @@ static NT_NODE *ifStatement(NT_PARSER *parser, const bool returnValue)
     NT_NODE *thenBranch = NULL;
     NT_NODE *elseBranch = NULL;
 
-    if (matchId(parser, TK_KEYWORD, KW_ARROW))
-        thenBranch = makeSingleStatementBlock(statement(parser, returnValue));
-    else
+    if (matchId(parser, TK_KEYWORD, KW_DO))
     {
-        thenBranch = block2(parser, KW_NEXT, KW_ELSE, returnValue);
+        thenBranch = block2(parser, KW_END, KW_ELSE, returnValue);
         if (thenBranch->token2.id == KW_ELSE)
         {
             if (matchId(parser, TK_KEYWORD, KW_IF))
                 elseBranch = ifStatement(parser, returnValue);
-            else if (matchId(parser, TK_KEYWORD, KW_ARROW))
-                elseBranch = makeSingleStatementBlock(statement(parser, returnValue));
             else
-                elseBranch = block(parser, KW_NEXT, returnValue);
+                elseBranch = makeSingleStatementBlock(statement(parser, returnValue));
         }
+    }
+    else
+    {
+        thenBranch = makeSingleStatementBlock(statement(parser, returnValue));
+        if (matchId(parser, TK_KEYWORD, KW_ELSE))
+            elseBranch = makeSingleStatementBlock(statement(parser, returnValue));
     }
 
     return makeIf(token, condition, thenBranch, elseBranch);
@@ -907,11 +909,7 @@ static NT_NODE *whileStatement(NT_PARSER *parser, const bool returnValue)
     const NT_TOKEN token = parser->previous;
     NT_NODE *condition = expression(parser);
 
-    NT_NODE *body;
-    if (matchId(parser, TK_KEYWORD, KW_ARROW))
-        body = makeSingleStatementBlock(statement(parser, returnValue));
-    else
-        body = block(parser, KW_NEXT, returnValue);
+    NT_NODE *body = makeSingleStatementBlock(statement(parser, returnValue));
 
     return makeWhile(token, condition, body);
 }
@@ -921,13 +919,14 @@ static NT_NODE *untilStatement(NT_PARSER *parser, const bool returnValue)
     const NT_TOKEN token = parser->previous;
     NT_NODE *condition = expression(parser);
 
-    NT_NODE *body = NULL;
-    if (matchId(parser, TK_KEYWORD, KW_ARROW))
-        body = makeSingleStatementBlock(statement(parser, returnValue));
-    else
-        body = block(parser, KW_NEXT, returnValue);
+    NT_NODE *body = makeSingleStatementBlock(statement(parser, returnValue));
 
     return makeUntil(token, condition, body);
+}
+
+static NT_NODE *noopStatement(NT_PARSER *parser)
+{
+    return makeNode(NC_STMT, NK_NOOP, parser->previous, NULL, NULL);
 }
 
 static NT_NODE *breakStatement(NT_PARSER *parser)
@@ -948,6 +947,8 @@ static NT_NODE *expressionStatement(NT_PARSER *parser)
 
 static NT_NODE *statement(NT_PARSER *parser, const bool returnValue)
 {
+    if (matchId(parser, TK_KEYWORD, KW_NOOP))
+        return noopStatement(parser);
     if (matchId(parser, TK_KEYWORD, KW_FOR))
         return forStatement(parser, returnValue);
     if (matchId(parser, TK_KEYWORD, KW_BREAK))
@@ -963,7 +964,7 @@ static NT_NODE *statement(NT_PARSER *parser, const bool returnValue)
     if (matchId(parser, TK_KEYWORD, KW_UNTIL))
         return untilStatement(parser, returnValue);
     if (matchId(parser, TK_KEYWORD, KW_DO))
-        return block(parser, KW_NEXT, returnValue);
+        return block(parser, KW_END, returnValue);
 
     return expressionStatement(parser);
 }

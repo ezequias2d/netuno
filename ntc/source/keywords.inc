@@ -56,7 +56,7 @@ keyword(KW_CONST, U"const")
 keyword(KW_PUBLIC, U"public")
 keyword(KW_PRIVATE, U"private")
 
-keyword(KW_ARROW, U"=>")
+keyword(KW_NOOP, U"NOOP")
 keyword(KW_DO, U"do")
 keyword(KW_END, U"end")
 keyword(KW_GOTO, U"goto")

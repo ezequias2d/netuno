@@ -1,4 +1,4 @@
-def main()
+def main() do
     var maxI32: int   =  2147483647i
     var minI32: int   = -2147483648i
     var onei = minI32 + maxI32         ; -1
@@ -16,4 +16,4 @@ def main()
     var zeroul = minU64 + maxU64 + 1ul ;  0
 
     return int(onei) - int(onel) + int(zerou) + int(zeroul) ; 0
-  end
+end

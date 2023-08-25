@@ -1,8 +1,8 @@
-def main(): int
-  for x = 10 to 0 step -1 next
-  var x = 0
-  if x => return 1
-  x = 10
-  while x => x = x - 1
-  return x
+def main(): int do
+    for x = 10 to 0 step -1 noop
+    var x = 0
+    if x return 1
+    x = 10
+    while x x = x - 1
+    return x
 end

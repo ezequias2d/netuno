@@ -2078,6 +2078,12 @@ static void continueStatement(NT_CODEGEN *codegen, const NT_NODE *node)
     nilCreateBranch1(continueScope->loop, codegen->block);
 }
 
+static void noopStatement(NT_CODEGEN *codegen, const NT_NODE *node)
+{
+    assert(codegen);
+    ensureStmt(node, NK_NOOP);
+}
+
 static void statement(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE **returnType)
 {
     if (node->type.class != NC_STMT)
@@ -2119,6 +2125,9 @@ static void statement(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE **
         break;
     case NK_CONTINUE:
         continueStatement(codegen, node);
+        break;
+    case NK_NOOP:
+        noopStatement(codegen, node);
         break;
     default: {
         const char *const label = ntGetKindLabel(node->type.kind);

@@ -1,4 +1,7 @@
-def main()
-  var x = 1
-  if !x return 1 else => return 0
+def main() do
+    var x = 1
+    if !x
+        return 1
+    else
+        return 0
 end

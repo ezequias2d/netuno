@@ -780,6 +780,7 @@ static void statement(RESOLVER *r, NT_NODE *node, const NT_TYPE **returnType)
         break;
     case NK_BREAK:
     case NK_CONTINUE:
+    case NK_NOOP:
         break;
     default: {
         const char *const label = ntGetKindLabel(node->type.kind);

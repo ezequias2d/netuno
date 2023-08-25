@@ -1,4 +1,4 @@
-def main()
+def main() do
     var x = 1
     if !x
         return 1
@@ -6,5 +6,4 @@ def main()
         return 0
     else
         return 2
-    next
 end
