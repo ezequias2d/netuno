@@ -132,13 +132,18 @@ bool ntLookupSymbol2(const NT_SCOPE *symbolTable, const char_t *symbolName,
     return false;
 }
 
+static bool isWeak(const NT_SYMBOL *symbol)
+{
+    return (symbol->type & SYMBOL_TYPE_WEAK) == SYMBOL_TYPE_WEAK;
+}
+
 bool ntInsertSymbol(NT_SCOPE *symbolTable, const NT_SYMBOL *symbolEntry)
 {
     NT_SYMBOL finded;
     if (ntLookupSymbolCurrent(symbolTable, symbolEntry->symbol_name, &finded))
     {
         // update symbol if current is weak and symbolEntry is not weak
-        if (finded.weak && !symbolEntry->weak)
+        if (isWeak(&finded) && !isWeak(symbolEntry))
         {
             // update and turns in a no weak symbol
             ntUpdateSymbol(symbolTable, symbolEntry);

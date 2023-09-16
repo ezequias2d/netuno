@@ -37,11 +37,13 @@ typedef enum
     SYMBOL_TYPE_SUBROUTINE = 2,
     SYMBOL_TYPE_VARIABLE = 4,
     SYMBOL_TYPE_CONSTANT = 8,
-    SYMBOL_TYPE_PARAM = 16,
-    SYMBOL_TYPE_TYPE = 32,
-    SYMBOL_TYPE_PUBLIC = 64,
-    SYMBOL_TYPE_PRIVATE = 128,
-    SYMBOL_TYPE_MODULE = 256,
+    SYMBOL_TYPE_GLOBAL = 16,
+    SYMBOL_TYPE_PARAM = 32,
+    SYMBOL_TYPE_TYPE = 64,
+    SYMBOL_TYPE_PUBLIC = 128,
+    SYMBOL_TYPE_PRIVATE = 256,
+    SYMBOL_TYPE_MODULE = 512,
+    SYMBOL_TYPE_WEAK = 1024,
 } NT_SYMBOL_TYPE;
 
 typedef struct _NT_SYMBOL
@@ -51,7 +53,6 @@ typedef struct _NT_SYMBOL
     NT_SYMBOL_TYPE type;
     NIL_VALUE *value;
     const NT_TYPE *exprType;
-    bool weak;
 } NT_SYMBOL;
 
 typedef enum

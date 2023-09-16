@@ -26,7 +26,6 @@ static void addFunction(NIL_CONTEXT *context, NT_TYPE *type, const char_t *name,
         .symbol_name = nameStr,
         .type = symbolType | SYMBOL_TYPE_PUBLIC,
         .exprType = delegateType,
-        .weak = false,
         .value = (NIL_VALUE *)function,
     };
     const bool result = ntInsertSymbol(&type->fields, &entry);

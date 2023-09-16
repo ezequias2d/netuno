@@ -19,6 +19,7 @@ typedef struct
 
     NT_TYPE *tmodule;
     NIL_MODULE *module;
+    NT_SCOPE *global;
     NT_SCOPE *scope;
     NT_SCOPE *functionScope;
     bool public;

@@ -50,7 +50,6 @@ static bool insertModuleSymbol(NT_SCOPE *table, const NT_TYPE *module)
         .target_label = NULL,
         .type = SYMBOL_TYPE_MODULE | SYMBOL_TYPE_PUBLIC,
         .exprType = module,
-        .weak = false,
     };
 
     return ntInsertSymbol(table, &entry);

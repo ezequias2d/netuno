@@ -67,7 +67,8 @@ typedef struct
 //     assert(result);
 // }
 
-static void addWeakLocal(RESOLVER *r, NT_STRING *name, const NT_TYPE *type)
+static void addScopeSymbolWeak(RESOLVER *r, NT_STRING *name, const NT_TYPE *type,
+                               NT_SYMBOL_TYPE symbolType)
 {
     assert(r);
     assert(name);
@@ -78,27 +79,8 @@ static void addWeakLocal(RESOLVER *r, NT_STRING *name, const NT_TYPE *type)
     // TODO: check type in vstack
     const NT_SYMBOL entry = {
         .symbol_name = name,
-        .type = SYMBOL_TYPE_VARIABLE,
+        .type = symbolType | SYMBOL_TYPE_WEAK,
         .exprType = type,
-        .weak = true,
-    };
-    const bool result = ntInsertSymbol(r->scope, &entry);
-    assert(result);
-}
-
-static void addWeakParam(RESOLVER *r, NT_STRING *name, const NT_TYPE *type)
-{
-    assert(r);
-    assert(name);
-    assert(type);
-    assert(type->objectType != NT_TYPE_UNDEFINED);
-    assert(type->objectType != NT_TYPE_VOID);
-
-    const NT_SYMBOL entry = {
-        .symbol_name = name,
-        .type = SYMBOL_TYPE_PARAM,
-        .exprType = type,
-        .weak = true,
     };
     const bool result = ntInsertSymbol(r->scope, &entry);
     assert(result);
@@ -654,9 +636,10 @@ static void loopStatment(RESOLVER *r, const NT_NODE *node)
     ntEvalExprType(r->context, &r->report, r->scope, node->condition);
 }
 
-static void varStatement(RESOLVER *r, const NT_NODE *node)
+static void varStatement(RESOLVER *r, bool constant, const NT_NODE *node)
 {
-    assert(node->type.class == NC_STMT && node->type.kind == NK_VAR);
+    assert(node->type.class == NC_STMT &&
+           (node->type.kind == NK_GLOBAL || node->type.kind == NK_LOCAL));
 
     const NT_TYPE *type = NULL;
     if (node->left != NULL)
@@ -683,7 +666,17 @@ static void varStatement(RESOLVER *r, const NT_NODE *node)
         type = ntEvalExprType(r->context, &r->report, r->scope, node->right);
     }
 
-    addWeakLocal(r, ntCopyString(node->token.lexeme, node->token.lexemeLength), type);
+    NT_SYMBOL_TYPE symbolType = 0;
+    if (constant)
+        symbolType |= SYMBOL_TYPE_CONSTANT;
+    else
+        symbolType |= SYMBOL_TYPE_VARIABLE;
+
+    if (node->type.kind == NK_GLOBAL)
+        symbolType |= SYMBOL_TYPE_GLOBAL;
+
+    NT_STRING *varName = ntCopyString(node->token.lexeme, node->token.lexemeLength);
+    addScopeSymbolWeak(r, varName, type, symbolType);
 }
 
 static void endFunctionScope(RESOLVER *r, const NT_NODE *node, const NT_TYPE **returnType,
@@ -772,8 +765,9 @@ static void statement(RESOLVER *r, NT_NODE *node, const NT_TYPE **returnType)
     case NK_WHILE:
         loopStatment(r, node);
         break;
-    case NK_VAR:
-        varStatement(r, node);
+    case NK_GLOBAL:
+    case NK_LOCAL:
+        varStatement(r, true, node);
         break;
     case NK_RETURN:
         returnStatement(r, node, returnType);
@@ -808,9 +802,8 @@ static void addWeakFunction(NT_SCOPE *scope, NT_STRING *name, const NT_TYPE *del
 
     const NT_SYMBOL entry = {
         .symbol_name = name,
-        .type = symbolType,
+        .type = symbolType | SYMBOL_TYPE_WEAK,
         .exprType = delegateType,
-        .weak = true,
     };
     bool result = ntInsertSymbol(scope, &entry);
     if (!result)
@@ -846,7 +839,7 @@ static void declareWeakFunction(RESOLVER *r, NT_NODE *node, const bool returnVal
         const NT_TYPE *type = findType(r, typeNode);
 
         NT_STRING *paramName = ntCopyString(paramNode->token.lexeme, paramNode->token.lexemeLength);
-        addWeakParam(r, paramName, type);
+        addScopeSymbolWeak(r, paramName, type, SYMBOL_TYPE_PARAM);
 
         const NT_PARAM param = {
             .name = ntRefString(paramName),
@@ -998,8 +991,9 @@ static void declaration(RESOLVER *r, NT_NODE *node)
     case NK_SUB:
         subStatement(r, node);
         break;
-    case NK_VAR:
-        varStatement(r, node);
+    case NK_GLOBAL:
+    case NK_LOCAL:
+        varStatement(r, true, node);
         break;
     case NK_IMPORT:
         importStatement(r, node);
@@ -1015,7 +1009,6 @@ static void addType(RESOLVER *r, const NT_TYPE *type)
         .symbol_name = type->typeName,
         .type = SYMBOL_TYPE_TYPE,
         .exprType = type,
-        .weak = false,
     };
     ntInsertSymbol(r->scope, &entry);
 }

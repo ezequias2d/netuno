@@ -51,7 +51,6 @@ static void addType(NT_CODEGEN *codegen, const NT_TYPE *type)
         .symbol_name = ntRefString(type->typeName),
         .type = SYMBOL_TYPE_TYPE,
         .exprType = type,
-        .weak = false,
     };
     ntInsertSymbol(codegen->scope, &entry);
 }
@@ -99,6 +98,12 @@ static void ensureStmt(const NT_NODE *node, NT_NODE_KIND kind)
            node->type.literalType == LT_NONE);
 }
 
+static void ensureStmt2(const NT_NODE *node, NT_NODE_KIND kind1, NT_NODE_KIND kind2)
+{
+    assert(node->type.class == NC_STMT && (node->type.kind == kind1 || node->type.kind == kind2) &&
+           node->type.literalType == LT_NONE);
+}
+
 static void beginScope(NT_CODEGEN *codegen, NT_SCOPE_TYPE type)
 {
     codegen->scope = ntCreateSymbolTable(codegen->scope, type, NULL);
@@ -126,28 +131,15 @@ static void endScope(NT_CODEGEN *codegen, const NT_NODE *node)
     ntFreeSymbolTable(oldScope);
 }
 
-static void addLocal(NT_CODEGEN *codegen, NT_STRING *name, const NT_TYPE *type, NIL_VALUE *variable)
+static void addScopeSymbol(NT_CODEGEN *codegen, NT_STRING *name, const NT_TYPE *type,
+                           NIL_VALUE *variable, NT_SYMBOL_TYPE symbolType)
 {
     // TODO: check type in vstack
     const NT_SYMBOL entry = {
         .symbol_name = name,
-        .type = SYMBOL_TYPE_VARIABLE,
+        .type = symbolType,
         .exprType = type,
-        .weak = false,
         .value = variable,
-    };
-    const bool result = ntInsertSymbol(codegen->scope, &entry);
-    assert(result);
-}
-
-static void addParam(NT_CODEGEN *codegen, NT_STRING *name, const NT_TYPE *type, NIL_VALUE *value)
-{
-    const NT_SYMBOL entry = {
-        .symbol_name = ntRefString(name),
-        .type = SYMBOL_TYPE_PARAM,
-        .exprType = type,
-        .weak = false,
-        .value = value,
     };
     const bool result = ntInsertSymbol(codegen->scope, &entry);
     assert(result);
@@ -1731,8 +1723,9 @@ static void whileStatment(NT_CODEGEN *codegen, const NT_NODE *node)
     conditionalLoopStatement(codegen, node, true, &returnType);
 }
 
-static void declareVariable(NT_CODEGEN *codegen, const NT_NODE *node)
+static void declareVariable(NT_CODEGEN *codegen, const bool constant, const NT_NODE *node)
 {
+    const bool global = node->type.kind == NK_GLOBAL;
     const NT_TYPE *type = NULL;
     if (node->left != NULL)
     {
@@ -1768,23 +1761,34 @@ static void declareVariable(NT_CODEGEN *codegen, const NT_NODE *node)
     ntMemcpy(name, node->token.lexeme, sizeof(char_t) * node->token.lexemeLength);
     name[node->token.lexemeLength] = U'\0';
 
-    NIL_VALUE *variable =
-        nilCreateUnaryInst(NIL_UNARY_MEMORY_ALLOCA, ptrType, count, name, codegen->block);
-
-    if (node->right)
+    NIL_VALUE *value;
+    NT_SYMBOL_TYPE symbolType = 0;
+    if (constant)
     {
-        NIL_VALUE *initialValue = expression(codegen, node->right, true);
-        nilCreateStore(initialValue, variable, codegen->block);
+        symbolType |= SYMBOL_TYPE_CONSTANT;
+        value = expression(codegen, node->right, true);
     }
+    else
+    {
+        symbolType |= SYMBOL_TYPE_VARIABLE;
+        value = nilCreateUnaryInst(NIL_UNARY_MEMORY_ALLOCA, ptrType, count, name, codegen->block);
+        if (node->right)
+        {
+            NIL_VALUE *initialValue = expression(codegen, node->right, true);
+            nilCreateStore(initialValue, value, codegen->block);
+        }
+    }
+    if (global)
+        symbolType |= SYMBOL_TYPE_GLOBAL;
 
     NT_STRING *varName = ntTakeString(name, node->token.lexemeLength);
-    addLocal(codegen, varName, type, variable);
+    addScopeSymbol(codegen, varName, type, value, symbolType);
 }
 
-static void varStatement(NT_CODEGEN *codegen, const NT_NODE *node)
+static void varStatement(NT_CODEGEN *codegen, const bool constant, const NT_NODE *node)
 {
-    ensureStmt(node, NK_VAR);
-    declareVariable(codegen, node);
+    ensureStmt2(node, NK_LOCAL, NK_GLOBAL);
+    declareVariable(codegen, constant, node);
 }
 
 static void endFunctionScope(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE **returnType,
@@ -1866,7 +1870,6 @@ static NIL_FUNCTION *addFunction(NT_CODEGEN *codegen, NT_STRING *name, NT_SYMBOL
         .symbol_name = name,
         .type = symbolType | (public ? SYMBOL_TYPE_PUBLIC : SYMBOL_TYPE_PRIVATE),
         .exprType = delegateType,
-        .weak = false,
         .value = (NIL_VALUE *)function,
     };
     const bool result = ntInsertSymbol((NT_SCOPE *)codegen->scope->parent, &entry);
@@ -1934,7 +1937,7 @@ static void declareFunction(NT_CODEGEN *codegen, const NT_NODE *node, const bool
         assert(result);
 
         NIL_VALUE *paramValue = nilGetParamValue(function, i);
-        addParam(codegen, param.name, param.type, paramValue);
+        addScopeSymbol(codegen, param.name, param.type, paramValue, SYMBOL_TYPE_PARAM);
     }
 
     const NT_TYPE *statmentReturn = NULL;
@@ -2003,9 +2006,9 @@ static void defStatement(NT_CODEGEN *codegen, const NT_NODE *node)
     declareFunction(codegen, node, true);
 }
 
-static void subStatement(NT_CODEGEN *codegen, const NT_NODE *node)
+static void subroutineStatement(NT_CODEGEN *codegen, const NT_NODE *node)
 {
-    ensureStmt(node, NK_SUB);
+    ensureStmt(node, NK_SUBROUTINE);
     declareFunction(codegen, node, false);
 }
 
@@ -2019,8 +2022,9 @@ static void declaration(NT_CODEGEN *codegen, const NT_NODE *node)
     case NK_SUB:
         subStatement(codegen, node);
         break;
-    case NK_VAR:
-        varStatement(codegen, node);
+    case NK_LOCAL:
+    case NK_GLOBAL:
+        varStatement(codegen, true, node);
         break;
     case NK_IMPORT:
         break;
@@ -2114,8 +2118,9 @@ static void statement(NT_CODEGEN *codegen, const NT_NODE *node, const NT_TYPE **
     case NK_WHILE:
         whileStatment(codegen, node);
         break;
-    case NK_VAR:
-        varStatement(codegen, node);
+    case NK_LOCAL:
+    case NK_GLOBAL:
+        varStatement(codegen, true, node);
         break;
     case NK_RETURN:
         returnStatement(codegen, node, returnType);

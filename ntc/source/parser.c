@@ -239,9 +239,10 @@ static NT_NODE *makeFunction(NT_NODE_KIND kind, NT_TOKEN name, NT_LIST parameter
     return node;
 }
 
-static NT_NODE *makeVar(NT_TOKEN name, NT_NODE *type, NT_NODE *initializer)
+static NT_NODE *makeVar(NT_TOKEN name, NT_NODE_KIND kind, NT_NODE *type, NT_NODE *initializer)
 {
-    return makeNode(NC_STMT, NK_VAR, name, type, initializer);
+    assert(kind == NK_LOCAL || kind == NK_GLOBAL);
+    return makeNode(NC_STMT, kind, name, type, initializer);
 }
 
 static NT_NODE *makeVariable(NT_TOKEN name)
@@ -636,7 +637,7 @@ static NT_NODE *variableDeclaration(NT_PARSER *parser)
         return NULL;
     }
 
-    return makeVar(name, type, initializer);
+    return makeVar(name, kind, type, initializer);
 }
 
 static NT_NODE *packagePath(NT_PARSER *parser)
@@ -683,7 +684,7 @@ static NT_NODE *typeOrModuleDeclarationNamed(NT_PARSER *parser, const NT_NODE_KI
             if (ntStrEqualsFixed(ident.lexeme, ident.lexemeLength, name.lexeme, name.lexemeLength))
                 current = functionDeclaration(parser, false);
             else
-                current = variableDeclaration(parser);
+                current = variableDeclaration(parser, NK_LOCAL);
         }
         else if (matchId(parser, TK_KEYWORD, KW_PUBLIC))
             current = public(parser);
@@ -737,12 +738,12 @@ static NT_NODE *declaration(NT_PARSER *parser, const bool returnValue)
         return typeOrModuleDeclaration(parser, NK_TYPE);
     if (matchId(parser, TK_KEYWORD, KW_MODULE))
         return typeOrModuleDeclaration(parser, NK_MODULE);
-    if (matchId(parser, TK_KEYWORD, KW_DEF))
+    if (matchId(parser, TK_KEYWORD, KW_FUNCTION))
         return functionDeclaration(parser, true);
-    if (matchId(parser, TK_KEYWORD, KW_SUB))
+    if (matchId(parser, TK_KEYWORD, KW_SUBROUTINE))
         return functionDeclaration(parser, false);
-    if (matchId(parser, TK_KEYWORD, KW_VAR))
-        return variableDeclaration(parser);
+    if (matchId(parser, TK_KEYWORD, KW_LOCAL))
+        return variableDeclaration(parser, NK_LOCAL);
     if (matchId(parser, TK_KEYWORD, KW_IMPORT))
         return importDeclaration(parser);
     return statement(parser, returnValue);
@@ -869,7 +870,7 @@ static NT_NODE *forStatement(NT_PARSER *parser, const bool returnValue)
 
     // create var delcaration and initializer
     NT_LIST declBlock = ntCreateList();
-    ntListAdd(declBlock, makeVar(name, NULL, initializer));
+    ntListAdd(declBlock, makeVar(name, NK_LOCAL, NULL, initializer));
     ntListAdd(declBlock, body);
 
     body = makeBlock(token, mainBody->token2, declBlock);
