@@ -1,24 +1,14 @@
 set(ROOT_SOURCES
-    "array.c"
-    "memory.c"
-    "varint.c"
-    "str.c"
-    "path.c"
-    "table.c"
-    "string.c"
-)
-
-set(NIL_SOURCES
-    "nil/constant.c"
-    "nil/context.c"
-    "nil/value.c"
-    "nil/basic_block.c"
-    "nil/instruction.c"
-    "nil/list.c"
-    "nil/module.c"
-    "nil/type.c"
-    "nil/argument.c"
-    "nil/function.c"
+    "constant.c"
+    "context.c"
+    "value.c"
+    "basic_block.c"
+    "instruction.c"
+    "list.c"
+    "module.c"
+    "type.c"
+    "argument.c"
+    "function.c"
 )
 
 set(CMAKE_C_STANDARD 11)
@@ -32,7 +22,7 @@ if(WIN32)
     set(DEBUG_LIB_SUFFIX "d")
 endif(WIN32)
 
-add_library(nil SHARED ${ROOT_SOURCES} ${NIL_SOURCES})
+add_library(nil STATIC ${ROOT_SOURCES} ${NIL_SOURCES})
 
 target_include_directories(nil PRIVATE
     ${NIL_ROOT_DIR}/source
@@ -41,7 +31,7 @@ target_include_directories(nil PRIVATE
 target_include_directories(nil PUBLIC
     ${NIL_ROOT_DIR}/include)
 
-target_link_libraries(nil PRIVATE m)
+target_link_libraries(nil PUBLIC nlib)
 
 if(NOT WIN32)
     target_link_libraries(nil

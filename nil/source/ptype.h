@@ -1,7 +1,7 @@
 #ifndef NIL_PTYPE_H
 #define NIL_PTYPE_H
 
-#include "nil/plist.h"
+#include "plist.h"
 #include <netuno/nil/type.h>
 
 struct _NIL_TYPE

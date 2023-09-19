@@ -35,7 +35,7 @@ target_include_directories(ntr PRIVATE
 target_include_directories(ntr PUBLIC
     ${NTR_ROOT_DIR}/include)
 
-target_link_libraries(ntr PRIVATE m)
+target_link_libraries(ntr PRIVATE m nlib)
 
 if(NOT WIN32)
     target_link_libraries(ntr

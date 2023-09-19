@@ -22,9 +22,9 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-#include "trie.h"
 #include <ctype.h>
 #include <netuno/memory.h>
+#include <netuno/trie.h>
 
 static bool findNode(const NT_TRIE_NODE *node, char_t character, uint32_t *result)
 {

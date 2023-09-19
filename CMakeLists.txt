@@ -35,5 +35,6 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 add_subdirectory(ntc)
 
-# add_subdirectory(ntr)
+add_subdirectory(ntr)
+add_subdirectory(nlib)
 add_subdirectory(nil)

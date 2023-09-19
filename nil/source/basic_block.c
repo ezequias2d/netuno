@@ -2,11 +2,11 @@
 #include "netuno/nil/basic_block.h"
 #include "colors.h"
 #include "netuno/str.h"
-#include "nil/pinstruction.h"
-#include "nil/plist.h"
 #include "pbasic_block.h"
 #include "pcontext.h"
 #include "pfunction.h"
+#include "pinstruction.h"
+#include "plist.h"
 #include <assert.h>
 #include <netuno/memory.h>
 #include <netuno/nil/instruction.h>

@@ -1,9 +1,9 @@
 #ifndef NIL_TYPE_H
 #define NIL_TYPE_H
 
+#include <netuno/array.h>
 #include <netuno/common.h>
 #include <netuno/nil/context.h>
-#include <netuno/array.h>
 
 NT_HANDLE(NIL_TYPE)
 NT_HANDLE(NT_STRING)

@@ -7,10 +7,10 @@
 #include "netuno/nil/type.h"
 #include "netuno/nil/value.h"
 #include "netuno/string.h"
-#include "nil/pbasic_block.h"
-#include "nil/pcontext.h"
-#include "nil/plist.h"
+#include "pbasic_block.h"
+#include "pcontext.h"
 #include "pinstruction.h"
+#include "plist.h"
 #include "ptype.h"
 #include <assert.h>
 

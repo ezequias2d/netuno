@@ -2,7 +2,6 @@ set(ROOT_SOURCES
     "netuno.c"
     "parser.c"
     "scanner.c"
-    "trie.c"
     "list.c"
     "nil_codegen.c"
     "resolver.c"
@@ -34,7 +33,7 @@ target_include_directories(ntc PRIVATE
 target_include_directories(ntc PUBLIC
     ${NTC_ROOT_DIR}/include)
 
-target_link_libraries(ntc PRIVATE nil)
+target_link_libraries(ntc PRIVATE nil nlib)
 
 if(NOT WIN32)
     target_link_libraries(ntc

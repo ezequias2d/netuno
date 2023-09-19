@@ -5,13 +5,12 @@
 #include "netuno/nil/type.h"
 #include "netuno/str.h"
 #include "netuno/string.h"
-#include "nil/pargument.h"
-#include "nil/pconstant.h"
-#include "nil/pinstruction.h"
-#include "nil/ptype.h"
+#include "pargument.h"
 #include "pbasic_block.h"
+#include "pconstant.h"
 #include "pfunction.h"
 #include "pinstruction.h"
+#include "ptype.h"
 #include "pvalue.h"
 #include <assert.h>
 #include <inttypes.h>

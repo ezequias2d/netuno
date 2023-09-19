@@ -25,7 +25,7 @@ SOFTWARE.
 #ifndef TOKEN_H
 #define TOKEN_H
 
-#include <trie.h>
+#include <netuno/trie.h>
 
 typedef struct _NT_TRIE NT_TRIE;
 

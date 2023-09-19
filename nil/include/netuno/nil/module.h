@@ -2,8 +2,8 @@
 #define NIL_MODULE_H
 
 #include <netuno/array.h>
-#include <netuno/nil/type.h>
 #include <netuno/common.h>
+#include <netuno/nil/type.h>
 
 NT_HANDLE(NT_STRING)
 NT_HANDLE(NIL_FUNCTION)
