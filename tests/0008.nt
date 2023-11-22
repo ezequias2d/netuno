@@ -1,5 +1,5 @@
 def main(): int do
-    var x = 1
+    x = 1
     x = x * 10
     x = x / 2
     x = x % 3

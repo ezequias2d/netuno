@@ -1,6 +1,6 @@
 def main(): int do
-    var x: int = 1
-    var y: int = 1
+    x: int = 1
+    local y: int = 1
     x = y = 0
     return x + y
 end

@@ -2000,9 +2000,9 @@ static void declareFunction(NT_CODEGEN *codegen, const NT_NODE *node, const bool
     }
 }
 
-static void defStatement(NT_CODEGEN *codegen, const NT_NODE *node)
+static void functionStatement(NT_CODEGEN *codegen, const NT_NODE *node)
 {
-    ensureStmt(node, NK_DEF);
+    ensureStmt(node, NK_FUNCTION);
     declareFunction(codegen, node, true);
 }
 
@@ -2016,11 +2016,11 @@ static void declaration(NT_CODEGEN *codegen, const NT_NODE *node)
 {
     switch (node->type.kind)
     {
-    case NK_DEF:
-        defStatement(codegen, node);
+    case NK_FUNCTION:
+        functionStatement(codegen, node);
         break;
-    case NK_SUB:
-        subStatement(codegen, node);
+    case NK_SUBROUTINE:
+        subroutineStatement(codegen, node);
         break;
     case NK_LOCAL:
     case NK_GLOBAL:

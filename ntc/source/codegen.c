@@ -2679,13 +2679,13 @@ static void declareFunction(NT_MODGEN *modgen, const NT_NODE *node, const bool r
     }
 }
 
-static void defStatement(NT_MODGEN *modgen, const NT_NODE *node)
+static void functionStatement(NT_MODGEN *modgen, const NT_NODE *node)
 {
     ensureStmt(node, NK_DEF);
     declareFunction(modgen, node, true);
 }
 
-static void subStatement(NT_MODGEN *modgen, const NT_NODE *node)
+static void subroutineStatement(NT_MODGEN *modgen, const NT_NODE *node)
 {
     ensureStmt(node, NK_SUB);
     declareFunction(modgen, node, false);

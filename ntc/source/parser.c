@@ -603,22 +603,14 @@ static NT_NODE *functionDeclaration(NT_PARSER *parser, const bool returnValue)
             returnType = typeAnnotation(parser);
     }
 
-    NT_NODE *body;
-    if (matchId(parser, TK_KEYWORD, KW_DO))
-        body = block(parser, KW_END, returnValue);
-    else
-    {
-        body = expression(parser);
-        body = makeNode(NC_STMT, NK_RETURN, body->token, body, NULL);
-        body = makeSingleStatementBlock(body);
-    }
+    NT_NODE *body = block(parser, KW_END, returnValue);
 
     if (returnValue)
-        return makeFunction(NK_DEF, name, parameters, returnType, body);
-    return makeFunction(NK_SUB, name, parameters, NULL, body);
+        return makeFunction(NK_FUNCTION, name, parameters, returnType, body);
+    return makeFunction(NK_SUBROUTINE, name, parameters, NULL, body);
 }
 
-static NT_NODE *variableDeclaration(NT_PARSER *parser)
+static NT_NODE *variableDeclaration(NT_PARSER *parser, NT_NODE_KIND kind)
 {
     consume(parser, TK_IDENT, "Expect a identifier for variable.");
     const NT_TOKEN name = parser->previous;
@@ -738,9 +730,9 @@ static NT_NODE *declaration(NT_PARSER *parser, const bool returnValue)
         return typeOrModuleDeclaration(parser, NK_TYPE);
     if (matchId(parser, TK_KEYWORD, KW_MODULE))
         return typeOrModuleDeclaration(parser, NK_MODULE);
-    if (matchId(parser, TK_KEYWORD, KW_FUNCTION))
+    if (matchId(parser, TK_KEYWORD, KW_DEF))
         return functionDeclaration(parser, true);
-    if (matchId(parser, TK_KEYWORD, KW_SUBROUTINE))
+    if (matchId(parser, TK_KEYWORD, KW_SUB))
         return functionDeclaration(parser, false);
     if (matchId(parser, TK_KEYWORD, KW_LOCAL))
         return variableDeclaration(parser, NK_LOCAL);

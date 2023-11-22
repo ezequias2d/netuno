@@ -916,17 +916,17 @@ static void declareWeakFunction(RESOLVER *r, NT_NODE *node, const bool returnVal
     }
 }
 
-static void defStatement(RESOLVER *r, NT_NODE *node)
+static void functionStatement(RESOLVER *r, NT_NODE *node)
 {
     assert(r);
-    assert(node->type.class == NC_STMT && node->type.kind == NK_DEF);
+    assert(node->type.class == NC_STMT && node->type.kind == NK_FUNCTION);
     declareWeakFunction(r, node, true);
 }
 
-static void subStatement(RESOLVER *r, NT_NODE *node)
+static void subroutineStatement(RESOLVER *r, NT_NODE *node)
 {
     assert(r);
-    assert(node->type.class == NC_STMT && node->type.kind == NK_SUB);
+    assert(node->type.class == NC_STMT && node->type.kind == NK_SUBROUTINE);
     declareWeakFunction(r, node, false);
 }
 
@@ -985,11 +985,11 @@ static void declaration(RESOLVER *r, NT_NODE *node)
 
     switch (node->type.kind)
     {
-    case NK_DEF:
-        defStatement(r, node);
+    case NK_FUNCTION:
+        functionStatement(r, node);
         break;
-    case NK_SUB:
-        subStatement(r, node);
+    case NK_SUBROUTINE:
+        subroutineStatement(r, node);
         break;
     case NK_GLOBAL:
     case NK_LOCAL:

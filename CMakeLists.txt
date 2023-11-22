@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.5.0)
 project(netuno VERSION 0.1.0)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -38,3 +38,4 @@ add_subdirectory(ntc)
 add_subdirectory(ntr)
 add_subdirectory(nlib)
 add_subdirectory(nil)
+add_subdirectory(ncg)

@@ -1,19 +1,19 @@
 import console
 
 def fibonacci(n: uint): uint
-  if n == 0u => return 0u
-  if n == 1u => return 1u
+  if n == 0u return 0u
+  if n == 1u return 1u
 
   return fibonacci(n - 1u) + fibonacci(n - 2u)
 end
 
 def main()
   var input: string
-  while (input = console.readline()) != "exit"
+  while (input = console.readline()) != "exit" do
     ; this is a line comment
     var n = uint(input)
     n = fibonacci(n)
     console.write("Result: " + n + "\n")
-  next
+  end
   return 0 ; ok
 end

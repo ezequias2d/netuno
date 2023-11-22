@@ -1,5 +1,7 @@
 def main(): int do
-    var x = 50
-    while x x = x - 1
+    local x = 50
+    while x
+        x = x - 1
+    end
     return x
 end
